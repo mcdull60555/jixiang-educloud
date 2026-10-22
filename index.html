@@ -71,6 +71,8 @@
   #pinInput::placeholder, #staffPwdInput::placeholder { letter-spacing: 1px; color: #94A3B8; }
   .hint { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0; }
   .hint svg { flex: 0 0 auto; margin-top: 3px; color: var(--blue); }
+  .notice { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: #1E40AF; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px; padding: 10px 12px; margin: 0; line-height: 1.6; }
+  .notice svg { flex: 0 0 auto; margin-top: 3px; }
   .error { font-size: 14px; color: var(--rose); background: var(--rose-l); border-radius: 10px; padding: 10px 12px; margin: 0; }
   .primary { min-height: 54px; border: 0; border-radius: 12px; background: linear-gradient(90deg, #0F56CF, #1D8CF0); color: #fff; font-size: 17px; font-weight: 700; letter-spacing: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 8px 18px rgba(22,96,214,.28); }
   .primary:hover { filter: brightness(1.06); }
@@ -184,6 +186,7 @@
         <p class="hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.5"/></svg>老師帳號由管理員新增，忘記密碼請洽管理員重設</p>
       </div>
 
+      <p id="loginNotice" class="notice hidden" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.5"/></svg><span id="loginNoticeText"></span></p>
       <p id="loginError" class="error hidden" role="alert"></p>
       <button type="submit" class="primary" id="loginBtn">
         <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 012 2v12a2 2 0 01-2 2h-4"/><path d="M10 16l4-4-4-4"/><path d="M14 12H4"/></svg>
@@ -255,6 +258,14 @@ function setMode(m) {
 }
 function showError(msg) { $("loginError").textContent = msg; $("loginError").classList.remove("hidden"); }
 function hideError() { $("loginError").classList.add("hidden"); }
+// 從雲點名、學習通登出回來時，顯示原因（例如閒置自動登出）
+function showNotice() {
+  let msg = "";
+  try { msg = sessionStorage.getItem("jx-notice") || ""; sessionStorage.removeItem("jx-notice"); } catch (_) { /* 忽略 */ }
+  $("loginNoticeText").textContent = msg ? msg.replace(/\s+/g, " ") : "已登出";
+  $("loginNotice").classList.toggle("hidden", false);
+}
+function hideNotice() { $("loginNotice").classList.add("hidden"); }
 function busy(on) { $("busy").classList.toggle("hidden", !on); $("loginBtn").disabled = !!on; }
 
 async function loadStaffList() {
@@ -268,7 +279,7 @@ async function loadStaffList() {
 /* ==================== 登入 ==================== */
 async function doLogin(e) {
   e.preventDefault();
-  hideError();
+  hideError(); hideNotice();
   let email, pin, want;
   if (mode === "family") {
     const acct = $("acctInput").value.trim().toUpperCase();
@@ -412,7 +423,8 @@ function showPortal(me) {
   document.title = "基翔學務雲｜基翔文理補習班";
 }
 
-function showLogin() {
+function showLogin(fromApp) {
+  if (fromApp) showNotice(); else hideNotice();
   $("portalView").classList.add("hidden");
   $("loginView").classList.remove("hidden");
   loadStaffList();
@@ -449,7 +461,11 @@ $("acctInput").addEventListener("input", e => { e.target.value = e.target.value.
     if (s && s.session) shareWithLearning(s.session, me);
     showPortal(me);
   }
-  else showLogin();
+  else {
+    let fromApp = false;
+    try { fromApp = sessionStorage.getItem("jx-notice") !== null; } catch (_) { /* 忽略 */ }
+    showLogin(fromApp);
+  }
 })();
 </script>
 </body>
