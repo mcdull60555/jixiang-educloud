@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>基翔學務雲｜基翔文理補習班</title>
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="favicon-64.png" sizes="64x64" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -29,7 +29,8 @@
   .hero-inner { max-width: 1120px; margin: 0 auto; }
   .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; flex-wrap: wrap; }
   .brand { display: flex; align-items: center; gap: 12px; }
-  .logo { width: 40px; height: 40px; border-radius: 11px; background: var(--gold); color: var(--navy); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; flex: 0 0 40px; }
+  .logo { width: 44px; height: 44px; border-radius: 12px; background: #fff; flex: 0 0 44px; overflow: hidden; box-shadow: 0 2px 8px rgba(15,23,42,.18); }
+  .logo img { width: 100%; height: 100%; display: block; }
   .brand-name { font-size: 19px; font-weight: 700; letter-spacing: .5px; }
   .brand-sub { font-size: 11px; color: #DBEAFE; letter-spacing: .5px; }
   .chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--gold); color: var(--text); }
@@ -37,26 +38,57 @@
   .ghost-btn:hover { background: rgba(255,255,255,.28); }
 
   /* 登入 */
-  #loginView .hero { padding-bottom: 96px; text-align: center; }
-  .login-head { padding: 40px 0 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-  .login-head .logo { width: 60px; height: 60px; font-size: 28px; border-radius: 16px; }
-  .login-head h1 { margin: 0; font-size: 28px; letter-spacing: 1px; }
-  .login-head p { margin: 0; color: #EAF2FF; font-size: 15px; }
-  .login-card { max-width: 420px; margin: -64px auto 32px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 16px; position: relative; }
-  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 12px; background: var(--line); }
-  .seg button { min-height: 44px; border: 0; border-radius: 9px; background: transparent; color: var(--muted-2); cursor: pointer; font-size: 15px; }
-  .seg button[aria-pressed="true"] { background: #fff; color: var(--blue-d); font-weight: 700; }
-  .field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500; color: #334155; }
-  .field input, .field select { min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line-2); background: #fff; font-size: 16px; color: var(--text); }
-  .field input:focus, .field select:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
-  #acctInput { text-transform: uppercase; letter-spacing: 2px; font-weight: 700; text-align: center; }
+  #loginView { min-height: 100vh; position: relative; overflow: hidden; background: #EEF2F7; }
+  .sky { position: absolute; inset: 0 0 auto 0; height: 470px; background: linear-gradient(115deg, #0B4FC4 0%, #1366DD 45%, #2D8EF0 100%); overflow: hidden; }
+  .sky .swoosh { position: absolute; left: -40px; top: 90px; width: 560px; height: 120px; opacity: .35; }
+  .sky .clouds { position: absolute; left: 0; right: 0; bottom: -2px; width: 100%; height: 190px; display: block; }
+  .login-wrap { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding: 56px 20px 40px; }
+  .brandbar { display: flex; align-items: center; justify-content: center; gap: 22px; color: #fff; }
+  .brand-tile { width: 104px; height: 104px; flex: 0 0 104px; border-radius: 24px; background: #fff; box-shadow: 0 10px 28px rgba(8,40,110,.35); overflow: hidden; }
+  .brand-tile img { width: 100%; height: 100%; display: block; }
+  .brand-title { margin: 0; font-size: 44px; font-weight: 700; letter-spacing: 6px; line-height: 1.15; }
+  .brand-en { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 18px; letter-spacing: 3px; color: #EAF2FF; }
+  .brand-en::before, .brand-en::after { content: ""; flex: 1 1 28px; min-width: 22px; height: 2px; background: #F5B301; border-radius: 2px; }
+  .tagline { margin: 22px 0 0; text-align: center; color: #EAF2FF; font-size: 16px; letter-spacing: 1px; }
+  .login-card { margin: 28px auto 0; background: var(--card); border-radius: 18px; padding: 26px 24px 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 18px 40px rgba(15,23,42,.14), 0 2px 6px rgba(15,23,42,.06); }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; border-radius: 14px; background: #EEF2F7; }
+  .seg button { min-height: 48px; border: 1px solid transparent; border-radius: 11px; background: transparent; color: #475569; cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .seg button svg { flex: 0 0 auto; }
+  .seg button[aria-pressed="true"] { background: #fff; color: var(--blue-d); font-weight: 700; border-color: #DCE6F5; box-shadow: 0 1px 3px rgba(15,23,42,.08); }
+  .fields { display: flex; flex-direction: column; gap: 16px; }
+  .field { display: flex; flex-direction: column; gap: 8px; font-size: 14px; font-weight: 500; color: #334155; }
+  .ctl { display: flex; align-items: center; min-height: 52px; border: 1px solid #D5DEEA; border-radius: 12px; background: #fff; padding: 0 6px 0 14px; transition: border-color .15s, box-shadow .15s; }
+  .ctl:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(22,96,214,.15); }
+  .ctl .ico { flex: 0 0 auto; color: #64748B; display: flex; }
+  .ctl .sep { width: 1px; height: 22px; background: #D5DEEA; margin: 0 12px; flex: 0 0 1px; }
+  .ctl input, .ctl select { flex: 1 1 auto; min-width: 0; height: 48px; border: 0; outline: none; background: transparent; font-size: 16px; color: var(--text); }
+  .ctl select { cursor: pointer; padding-right: 8px; }
+  .eye { flex: 0 0 auto; width: 40px; height: 40px; border: 0; background: transparent; color: #64748B; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .eye:hover { background: #F1F5F9; }
+  #acctInput { text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500; }
+  #acctInput::placeholder { text-transform: none; letter-spacing: .5px; color: #94A3B8; }
   #pinInput, #staffPwdInput { letter-spacing: 4px; }
-  .hint { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 0; }
+  #pinInput::placeholder, #staffPwdInput::placeholder { letter-spacing: 1px; color: #94A3B8; }
+  .hint { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0; }
+  .hint svg { flex: 0 0 auto; margin-top: 3px; color: var(--blue); }
   .error { font-size: 14px; color: var(--rose); background: var(--rose-l); border-radius: 10px; padding: 10px 12px; margin: 0; }
-  .primary { min-height: 52px; border: 0; border-radius: 12px; background: var(--blue); color: #fff; font-size: 17px; font-weight: 700; cursor: pointer; }
-  .primary:hover { background: var(--blue-d); }
+  .primary { min-height: 54px; border: 0; border-radius: 12px; background: linear-gradient(90deg, #0F56CF, #1D8CF0); color: #fff; font-size: 17px; font-weight: 700; letter-spacing: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 8px 18px rgba(22,96,214,.28); }
+  .primary:hover { filter: brightness(1.06); }
   .primary:disabled { opacity: .6; cursor: wait; }
-  .foot { text-align: center; font-size: 13px; color: var(--muted); padding: 0 20px 80px; }
+  .foot { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--muted); margin: 22px 0 0; }
+  .foot svg { color: var(--blue); }
+  @media (max-width: 520px) {
+    .sky { height: 400px; }
+    .login-wrap { padding-top: 40px; }
+    .brandbar { gap: 14px; }
+    .brand-tile { width: 76px; height: 76px; flex-basis: 76px; border-radius: 18px; }
+    .brand-title { font-size: 32px; letter-spacing: 4px; }
+    .brand-en { font-size: 14px; letter-spacing: 2px; gap: 8px; }
+    .brand-en::before, .brand-en::after { min-width: 14px; }
+    .tagline { font-size: 15px; margin-top: 18px; }
+    .login-card { padding: 22px 18px 20px; }
+    .seg button { font-size: 14px; gap: 6px; }
+  }
 
   /* 入口 */
   #portalView .hero { padding-bottom: 110px; }
@@ -85,51 +117,80 @@
 
 <!-- ==================== 登入 ==================== -->
 <section id="loginView" class="hidden" aria-labelledby="loginTitle">
-  <div class="hero">
-    <div class="hero-inner login-head">
-      <div class="logo" aria-hidden="true">基</div>
-      <div>
-        <h1 id="loginTitle">基翔學務雲</h1>
-        <div class="brand-sub">JX Academic Cloud</div>
-      </div>
-      <p>一個帳號，進入雲點名與學習通</p>
-    </div>
+  <div class="sky" aria-hidden="true">
+    <svg class="swoosh" viewBox="0 0 560 120" fill="none"><path d="M0 100 C 140 30, 300 20, 560 40" stroke="#fff" stroke-width="1.5"/><circle cx="470" cy="34" r="3" fill="#fff"/><circle cx="492" cy="36" r="2.5" fill="#fff"/></svg>
+    <svg class="clouds" viewBox="0 0 1440 190" preserveAspectRatio="none">
+      <path fill="#DCE9FA" fill-opacity=".85" d="M0 120 C 40 60, 120 50, 170 90 C 200 40, 290 40, 320 100 C 360 80, 420 100, 430 140 L 430 190 L 0 190 Z"/>
+      <path fill="#FFFFFF" fill-opacity=".55" d="M1040 150 C 1080 110, 1150 110, 1180 140 C 1210 100, 1290 95, 1320 130 C 1360 100, 1430 110, 1440 130 L 1440 190 L 1030 190 Z"/>
+      <rect x="0" y="150" width="1440" height="40" fill="#EEF2F7"/>
+    </svg>
   </div>
 
-  <form class="login-card" id="loginForm" novalidate>
-    <div class="seg" role="group" aria-label="登入身分">
-      <button type="button" id="tabFamily" aria-pressed="true">學生・家長</button>
-      <button type="button" id="tabStaff" aria-pressed="false">老師・管理者</button>
-    </div>
-
-    <div id="familyFields">
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <label class="field">學生帳號
-          <input id="acctInput" type="text" maxlength="8" autocomplete="username" autocapitalize="characters" spellcheck="false" placeholder="例如 JX115001">
-        </label>
-        <label class="field">4 位數密碼
-          <input id="pinInput" type="password" maxlength="4" inputmode="numeric" autocomplete="current-password" placeholder="••••">
-        </label>
-        <p class="hint">學生帳號由補習班提供；忘記帳號或密碼請洽櫃台</p>
+  <div class="login-wrap">
+    <div class="brandbar">
+      <div class="brand-tile"><img src="logo.png" alt="基翔 logo"></div>
+      <div>
+        <h1 id="loginTitle" class="brand-title">基翔學務雲</h1>
+        <div class="brand-en">JX EduCloud</div>
       </div>
     </div>
+    <p class="tagline">一個帳號，進入雲點名與學習通</p>
 
-    <div id="staffFields" class="hidden">
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <label class="field">登入帳號
-          <select id="staffSelect" autocomplete="username"><option value="">讀取中…</option></select>
-        </label>
-        <label class="field">密碼
-          <input id="staffPwdInput" type="password" autocomplete="current-password" placeholder="請輸入密碼">
-        </label>
-        <p class="hint">老師帳號由管理員新增；忘記密碼請洽管理員重設</p>
+    <form class="login-card" id="loginForm" novalidate>
+      <div class="seg" role="group" aria-label="登入身分">
+        <button type="button" id="tabFamily" aria-pressed="true">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="3.6"/><path d="M2.5 19.5c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6v.5h-13z"/><circle cx="17" cy="9" r="2.8"/><path d="M16 13.6c3.1-.2 5.5 1.9 5.5 5.1v.8h-4.4c0-2.3-.4-4.3-1.1-5.9z"/></svg>
+          學生・家長</button>
+        <button type="button" id="tabStaff" aria-pressed="false">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.6"/><path d="M2.5 20c0-3.6 2.9-6.3 6.5-6.3s6.5 2.7 6.5 6.3"/><path d="M16.2 4.6a3.6 3.6 0 010 7M18.5 14.2c1.8.9 3 2.9 3 5.8"/></svg>
+          老師・管理者</button>
       </div>
-    </div>
 
-    <p id="loginError" class="error hidden" role="alert"></p>
-    <button type="submit" class="primary" id="loginBtn">登入</button>
-  </form>
-  <p class="foot">閒置超過 60 分鐘會自動登出</p>
+      <div id="familyFields" class="fields">
+        <label class="field" for="acctInput">學生帳號
+          <span class="ctl">
+            <span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 20c0-4 3.4-6.7 7.5-6.7s7.5 2.7 7.5 6.7"/></svg></span>
+            <span class="sep" aria-hidden="true"></span>
+            <input id="acctInput" type="text" maxlength="8" autocomplete="username" autocapitalize="characters" spellcheck="false" placeholder="例如 JX115001">
+          </span>
+        </label>
+        <label class="field" for="pinInput">4 位數密碼
+          <span class="ctl">
+            <span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/><path d="M12 14.5v2.5"/></svg></span>
+            <span class="sep" aria-hidden="true"></span>
+            <input id="pinInput" type="password" maxlength="4" inputmode="numeric" autocomplete="current-password" placeholder="••••">
+            <button type="button" class="eye" data-eye="pinInput" aria-label="顯示密碼" aria-pressed="false"></button>
+          </span>
+        </label>
+        <p class="hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.5"/></svg>學生帳號由補習班提供，忘記帳號或密碼請洽櫃台</p>
+      </div>
+
+      <div id="staffFields" class="fields hidden">
+        <label class="field" for="staffSelect">登入帳號
+          <span class="ctl">
+            <span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 20c0-4 3.4-6.7 7.5-6.7s7.5 2.7 7.5 6.7"/></svg></span>
+            <span class="sep" aria-hidden="true"></span>
+            <select id="staffSelect" autocomplete="username"><option value="">讀取中…</option></select>
+          </span>
+        </label>
+        <label class="field" for="staffPwdInput">密碼
+          <span class="ctl">
+            <span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/><path d="M12 14.5v2.5"/></svg></span>
+            <span class="sep" aria-hidden="true"></span>
+            <input id="staffPwdInput" type="password" autocomplete="current-password" placeholder="請輸入密碼">
+            <button type="button" class="eye" data-eye="staffPwdInput" aria-label="顯示密碼" aria-pressed="false"></button>
+          </span>
+        </label>
+        <p class="hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.5"/></svg>老師帳號由管理員新增，忘記密碼請洽管理員重設</p>
+      </div>
+
+      <p id="loginError" class="error hidden" role="alert"></p>
+      <button type="submit" class="primary" id="loginBtn">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 012 2v12a2 2 0 01-2 2h-4"/><path d="M10 16l4-4-4-4"/><path d="M14 12H4"/></svg>
+        登入</button>
+    </form>
+    <p class="foot"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>閒置超過 60 分鐘會自動登出</p>
+  </div>
 </section>
 
 <!-- ==================== 入口 ==================== -->
@@ -138,10 +199,10 @@
     <div class="hero-inner">
       <div class="topbar">
         <div class="brand">
-          <div class="logo" aria-hidden="true">基</div>
+          <div class="logo"><img src="logo.png" alt="基翔 logo"></div>
           <div>
             <div class="brand-name">基翔學務雲</div>
-            <div class="brand-sub">JX Academic Cloud</div>
+            <div class="brand-sub">JX EduCloud</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
@@ -254,7 +315,7 @@ async function doLogin(e) {
       return showError("帳號或密碼錯誤");
     }
     shareWithLearning(set.data.session, me);
-    $("pinInput").value = ""; $("staffPwdInput").value = "";
+    $("pinInput").value = ""; $("staffPwdInput").value = ""; hidePasswords();
     showPortal(me);
   } catch (err) {
     showError("登入時發生錯誤：" + (err.message || err));
@@ -358,6 +419,21 @@ function showLogin() {
 }
 
 /* ==================== 啟動 ==================== */
+const EYE = { off: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>', on: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.6A10 10 0 0112 5.5c6.4 0 10 6.5 10 6.5a17 17 0 01-3.2 4M6.6 6.6C3.7 8.4 2 12 2 12s3.6 6.5 10 6.5c1.6 0 3-.4 4.3-1"/><path d="M9.9 9.9a3 3 0 004.2 4.2"/></svg>' };
+document.querySelectorAll(".eye").forEach(btn => {
+  btn.innerHTML = EYE.off;
+  btn.addEventListener("click", () => {
+    const input = $(btn.dataset.eye);
+    const show = input.type === "password";
+    input.type = show ? "text" : "password";
+    btn.innerHTML = show ? EYE.on : EYE.off;
+    btn.setAttribute("aria-pressed", String(show));
+    btn.setAttribute("aria-label", show ? "隱藏密碼" : "顯示密碼");
+  });
+});
+function hidePasswords() {
+  document.querySelectorAll(".eye").forEach(btn => { $(btn.dataset.eye).type = "password"; btn.innerHTML = EYE.off; btn.setAttribute("aria-pressed", "false"); btn.setAttribute("aria-label", "顯示密碼"); });
+}
 $("tabFamily").addEventListener("click", () => setMode("family"));
 $("tabStaff").addEventListener("click", () => setMode("staff"));
 $("loginForm").addEventListener("submit", doLogin);
