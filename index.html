@@ -67,6 +67,10 @@
   .eye:hover { background: #F1F5F9; }
   #acctInput { text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500; }
   #acctInput::placeholder { text-transform: none; letter-spacing: .5px; color: #94A3B8; }
+  #staffAcctInput { letter-spacing: .5px; font-weight: 500; }
+  #staffAcctInput::placeholder { color: #94A3B8; font-weight: 400; }
+  .remember { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: #334155; cursor: pointer; user-select: none; min-height: 32px; align-self: flex-start; }
+  .remember input { width: 18px; height: 18px; margin: 0; accent-color: var(--blue); cursor: pointer; }
   #pinInput, #staffPwdInput { letter-spacing: 4px; }
   #pinInput::placeholder, #staffPwdInput::placeholder { letter-spacing: 1px; color: #94A3B8; }
   .hint { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0; }
@@ -160,30 +164,32 @@
           <span class="ctl">
             <span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/><path d="M12 14.5v2.5"/></svg></span>
             <span class="sep" aria-hidden="true"></span>
-            <input id="pinInput" type="password" maxlength="4" inputmode="numeric" autocomplete="current-password" placeholder="••••">
+            <input id="pinInput" type="password" maxlength="4" inputmode="numeric" autocomplete="off" placeholder="••••">
             <button type="button" class="eye" data-eye="pinInput" aria-label="顯示密碼" aria-pressed="false"></button>
           </span>
         </label>
+        <label class="remember"><input type="checkbox" id="rememberFamily">記住帳號（密碼每次都要輸入）</label>
         <p class="hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.5"/></svg>學生帳號由補習班提供，忘記帳號或密碼請洽櫃台</p>
       </div>
 
       <div id="staffFields" class="fields hidden">
-        <label class="field" for="staffSelect">登入帳號
+        <label class="field" for="staffAcctInput">登入帳號
           <span class="ctl">
             <span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 20c0-4 3.4-6.7 7.5-6.7s7.5 2.7 7.5 6.7"/></svg></span>
             <span class="sep" aria-hidden="true"></span>
-            <select id="staffSelect" autocomplete="username"><option value="">讀取中…</option></select>
+            <input id="staffAcctInput" type="text" maxlength="62" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="例如 t_chuang">
           </span>
         </label>
         <label class="field" for="staffPwdInput">密碼
           <span class="ctl">
             <span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/><path d="M12 14.5v2.5"/></svg></span>
             <span class="sep" aria-hidden="true"></span>
-            <input id="staffPwdInput" type="password" autocomplete="current-password" placeholder="請輸入密碼">
+            <input id="staffPwdInput" type="password" autocomplete="off" placeholder="請輸入密碼">
             <button type="button" class="eye" data-eye="staffPwdInput" aria-label="顯示密碼" aria-pressed="false"></button>
           </span>
         </label>
-        <p class="hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.5"/></svg>老師帳號由管理員新增，忘記密碼請洽管理員重設</p>
+        <label class="remember"><input type="checkbox" id="rememberStaff">記住帳號（密碼每次都要輸入）</label>
+        <p class="hint"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.5"/></svg>老師帳號以 t_ 開頭，由管理員建立；忘記帳號或密碼請洽管理員</p>
       </div>
 
       <p id="loginNotice" class="notice hidden" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.5"/></svg><span id="loginNoticeText"></span></p>
@@ -268,12 +274,41 @@ function showNotice() {
 function hideNotice() { $("loginNotice").classList.add("hidden"); }
 function busy(on) { $("busy").classList.toggle("hidden", !on); $("loginBtn").disabled = !!on; }
 
-async function loadStaffList() {
-  const sel = $("staffSelect");
-  const res = await sbAnon.rpc("list_teachers");
-  const teachers = res.error ? [] : (res.data || []);
-  sel.innerHTML = `<option value="admin">管理員（admin）</option>` +
-    teachers.map(t => `<option value="${esc(t.login_id)}">${esc(t.display_name || t.login_id)}</option>`).join("");
+/* 記住帳號：只存在這台裝置的瀏覽器（localStorage），密碼一律不存 */
+const REMEMBER_KEY = "jx-remember";
+function readRemember() {
+  try { return JSON.parse(localStorage.getItem(REMEMBER_KEY) || "{}") || {}; } catch (_) { return {}; }
+}
+function writeRemember(r) {
+  try {
+    if (r.family || r.staff) localStorage.setItem(REMEMBER_KEY, JSON.stringify(r));
+    else localStorage.removeItem(REMEMBER_KEY);
+  } catch (_) { /* 無痕模式等情況存不了，忽略 */ }
+}
+function fillRemembered() {
+  const r = readRemember();
+  $("acctInput").value = r.family || "";
+  $("rememberFamily").checked = !!r.family;
+  $("staffAcctInput").value = r.staff || "";
+  $("rememberStaff").checked = !!r.staff;
+  setMode(r.mode === "staff" ? "staff" : "family");
+  const acct = mode === "staff" ? $("staffAcctInput") : $("acctInput");
+  const pwd = mode === "staff" ? $("staffPwdInput") : $("pinInput");
+  (acct.value ? pwd : acct).focus({ preventScroll: true });
+}
+function saveRemember(acct) {
+  const r = readRemember();
+  const on = mode === "staff" ? $("rememberStaff").checked : $("rememberFamily").checked;
+  r[mode] = on ? acct : "";
+  r.mode = mode;
+  writeRemember(r);
+}
+// 老師帳號：轉小寫、沒打 t_ 自動補上（admin 例外）
+function normStaffAcct(v) {
+  let u = String(v || "").trim().toLowerCase();
+  if (!u) return "";
+  if (u !== "admin" && u.indexOf("t_") !== 0) u = "t_" + u;
+  return u;
 }
 
 /* ==================== 登入 ==================== */
@@ -289,9 +324,10 @@ async function doLogin(e) {
     email = acct.toLowerCase() + EMAIL_DOMAIN;
     want = ["student"];
   } else {
-    const id = $("staffSelect").value;
+    const id = normStaffAcct($("staffAcctInput").value);
     pin = $("staffPwdInput").value;
-    if (!/^[a-z0-9_-]{1,100}$/.test(id)) return showError("請先選擇帳號");
+    if (!id) return showError("請輸入登入帳號，例如 t_chuang");
+    if (!/^(admin|t_[a-z0-9_-]{1,60})$/.test(id)) return showError("登入帳號格式不正確，老師帳號以 t_ 開頭，例如 t_chuang");
     if (!pin) return showError("請輸入密碼");
     email = id + EMAIL_DOMAIN;
     want = id === "admin" ? ["admin"] : ["teacher"];
@@ -326,6 +362,7 @@ async function doLogin(e) {
       return showError("帳號或密碼錯誤");
     }
     shareWithLearning(set.data.session, me);
+    saveRemember(mode === "staff" ? normStaffAcct($("staffAcctInput").value) : $("acctInput").value.trim().toUpperCase());
     $("pinInput").value = ""; $("staffPwdInput").value = ""; hidePasswords();
     showPortal(me);
   } catch (err) {
@@ -427,7 +464,7 @@ function showLogin(fromApp) {
   if (fromApp) showNotice(); else hideNotice();
   $("portalView").classList.add("hidden");
   $("loginView").classList.remove("hidden");
-  loadStaffList();
+  fillRemembered();
 }
 
 /* ==================== 啟動 ==================== */
@@ -446,6 +483,12 @@ document.querySelectorAll(".eye").forEach(btn => {
 function hidePasswords() {
   document.querySelectorAll(".eye").forEach(btn => { $(btn.dataset.eye).type = "password"; btn.innerHTML = EYE.off; btn.setAttribute("aria-pressed", "false"); btn.setAttribute("aria-label", "顯示密碼"); });
 }
+["rememberFamily", "rememberStaff"].forEach(id => $(id).addEventListener("change", e => {
+  if (e.target.checked) return;
+  const r = readRemember();               // 取消勾選：馬上忘記這台裝置記住的帳號
+  r[id === "rememberStaff" ? "staff" : "family"] = "";
+  writeRemember(r);
+}));
 $("tabFamily").addEventListener("click", () => setMode("family"));
 $("tabStaff").addEventListener("click", () => setMode("staff"));
 $("loginForm").addEventListener("submit", doLogin);
