@@ -83,6 +83,22 @@
   .pin code { font-size: 16px; font-weight: 700; letter-spacing: 3px; min-width: 52px; display: inline-block; }
   .pin .na { font-size: 12px; color: var(--muted); }
   .empty { text-align: center; color: var(--muted); padding: 36px 0; }
+  tbody tr[data-id] { cursor: pointer; }
+  tbody tr[data-id]:hover td { background: #F8FAFF; }
+  tbody tr[data-id]:focus-visible { outline: 3px solid rgba(22,96,214,.35); outline-offset: -3px; }
+  .dsec { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  .dsec h4 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: .5px; }
+  .dl { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; margin: 0; font-size: 15px; }
+  .dl dt { color: var(--muted); }
+  .dl dd { margin: 0; font-weight: 500; }
+  .clist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .clist li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 15px; }
+  .clist .rel { color: var(--muted); min-width: 48px; }
+  .clist a { color: var(--blue-d); font-weight: 700; text-decoration: none; letter-spacing: .5px; }
+  .clist a:hover { text-decoration: underline; }
+  .prim { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #FEF3C7; color: #92400E; }
+  .dpin { display: flex; align-items: center; gap: 10px; }
+  .dpin code { font-size: 22px; font-weight: 700; letter-spacing: 6px; min-width: 80px; }
 
   dialog { border: 0; border-radius: 18px; padding: 0; width: min(640px, calc(100vw - 24px)); box-shadow: 0 24px 60px rgba(15,23,42,.3); color: var(--text); }
   dialog.narrow { width: min(440px, calc(100vw - 24px)); }
@@ -197,6 +213,17 @@
     </div>
   </section>
 </main>
+
+<!-- 學生詳細資料 -->
+<dialog id="dDlg" aria-labelledby="dName">
+  <div class="dlg-head"><h3 id="dName"></h3><span class="acct-box" id="dAcct"></span><span id="dPills"></span></div>
+  <div class="dlg-body" id="dBody"></div>
+  <div class="dlg-foot">
+    <button type="button" class="btn" data-close>關閉</button>
+    <button type="button" class="btn" id="dReset">重設密碼</button>
+    <button type="button" class="btn primary" id="dEdit">編輯</button>
+  </div>
+</dialog>
 
 <!-- 新增／編輯學生 -->
 <dialog id="sDlg" aria-labelledby="sDlgTitle">
@@ -386,8 +413,8 @@ function render() {
     const pc = primaryContact(s);
     const pinCell = !s.has_login ? '<span class="na">尚未開通</span>'
       : !s.pin_viewable ? '<span class="na" title="舊密碼無法還原，重設後就能查看">重設後可查看</span>'
-      : `<code id="pin-${esc(s.id)}">••••</code><button type="button" class="btn sm" data-act="pin" data-id="${esc(s.id)}" aria-pressed="false">顯示</button>`;
-    return `<tr class="${s.active ? "" : "off"}">
+      : `<code data-pin="${esc(s.id)}">••••</code><button type="button" class="btn sm" data-act="pin" data-id="${esc(s.id)}" aria-pressed="false">顯示</button>`;
+    return `<tr class="${s.active ? "" : "off"}" data-id="${esc(s.id)}" tabindex="0" aria-label="查看 ${esc(s.name)} 的詳細資料">
       <td class="c-acct"><span class="acct">${esc(s.account_code || "—")}</span></td>
       <td class="c-name"><div class="nm">${esc(s.name)}</div>${s.note ? `<div class="sub">${esc(s.note)}</div>` : ""}</td>
       <td class="c-school">${esc(s.school)}・${esc(gradeText(s))}</td>
@@ -406,10 +433,8 @@ function render() {
 let shownPinId = null, pinTimer = null;
 function hidePin() {
   if (!shownPinId) return;
-  const c = document.getElementById("pin-" + shownPinId);
-  if (c) c.textContent = "••••";
-  const b = document.querySelector(`[data-act="pin"][data-id="${CSS.escape(shownPinId)}"]`);
-  if (b) { b.textContent = "顯示"; b.setAttribute("aria-pressed", "false"); }
+  document.querySelectorAll(`[data-pin="${CSS.escape(shownPinId)}"]`).forEach(c => { c.textContent = "••••"; });
+  document.querySelectorAll(`[data-act="pin"][data-id="${CSS.escape(shownPinId)}"]`).forEach(b => { b.textContent = "顯示"; b.setAttribute("aria-pressed", "false"); });
   shownPinId = null; clearTimeout(pinTimer);
 }
 async function togglePin(id) {
@@ -419,13 +444,52 @@ async function togglePin(id) {
     const pin = await rpc("reveal_student_pin", { p_student_id: id });
     if (!pin) return toast("這位學生的密碼無法查看，請重設密碼", true);
     shownPinId = id;
-    $("pin-" + id).textContent = pin;
-    const b = document.querySelector(`[data-act="pin"][data-id="${CSS.escape(id)}"]`);
-    if (b) { b.textContent = "隱藏"; b.setAttribute("aria-pressed", "true"); }
+    document.querySelectorAll(`[data-pin="${CSS.escape(id)}"]`).forEach(c => { c.textContent = pin; });
+    document.querySelectorAll(`[data-act="pin"][data-id="${CSS.escape(id)}"]`).forEach(b => { b.textContent = "隱藏"; b.setAttribute("aria-pressed", "true"); });
     pinTimer = setTimeout(hidePin, 30000);   // 30 秒後自動隱藏
   } catch (ex) { toast(friendly(ex), true); }
 }
 document.addEventListener("visibilitychange", () => { if (document.hidden) hidePin(); });
+
+/* ---------- 詳細資料 ---------- */
+let detailId = null;
+function openDetail(s) {
+  hidePin();
+  detailId = s.id;
+  const cname = id => (CLASSES.find(c => c.id === id) || {}).name || "（已刪除的班級）";
+  const contacts = Array.isArray(s.contacts) ? s.contacts : [];
+  const days = s.fixed_off_days || [];
+  $("dName").textContent = s.name;
+  $("dAcct").textContent = s.account_code || "尚無帳號";
+  $("dPills").innerHTML = (s.active ? "" : '<span class="pill left">已離班</span> ')
+    + `<span class="pill ${s.in_rollcall ? "on" : "offp"}">點名</span> <span class="pill ${s.learning_enabled ? "on" : "offp"}">學習通</span>`;
+  const pinHtml = !s.has_login ? '<span class="help">尚未開通學習通帳號</span>'
+    : !s.pin_viewable ? '<span class="help">舊密碼無法還原，按下方「重設密碼」後就能查看</span>'
+    : `<span class="dpin"><code data-pin="${esc(s.id)}">••••</code><button type="button" class="btn sm" data-act="pin" data-id="${esc(s.id)}" aria-pressed="false">顯示</button></span>`;
+  $("dBody").innerHTML = `
+    <section class="dsec"><h4>基本資料</h4><dl class="dl">
+      <dt>學校</dt><dd>${esc(s.school)}</dd>
+      <dt>年級班級</dt><dd>${esc(gradeText(s))}</dd>
+      <dt>出生年月日</dt><dd>${s.birthday ? esc(fmtBday(s.birthday)) : '<span class="help">未填</span>'}</dd>
+      <dt>入學學年</dt><dd>${s.entry_year ? esc(s.entry_year) + " 學年入學一年級" : '<span class="help">—</span>'}</dd>
+    </dl></section>
+    <section class="dsec"><h4>聯絡電話</h4>${contacts.length
+      ? `<ul class="clist">${contacts.map(c => `<li><span class="rel">${esc(c.rel || "")}</span><a href="tel:${esc(String(c.phone || "").replace(/[^\d+]/g, ""))}">${esc(c.phone || "")}</a>${c.primary ? '<span class="prim">主要聯絡人</span>' : ""}</li>`).join("")}</ul>`
+      : '<span class="pill left">缺聯絡電話</span>'}</section>
+    <section class="dsec"><h4>使用的系統</h4><dl class="dl">
+      <dt>在學</dt><dd>${s.active ? "是" : "已離班"}</dd>
+      <dt>雲點名</dt><dd>${s.in_rollcall ? "進點名" + (days.length ? `，固定不進班：${days.map(d => DOW[d - 1]).join("、")}` : "") : "不進點名"}</dd>
+      <dt>學習通</dt><dd>${s.learning_enabled ? "開啟" : "關閉"}${(s.class_ids || []).length ? `，班級：${s.class_ids.map(cname).map(esc).join("、")}` : ""}</dd>
+    </dl></section>
+    <section class="dsec"><h4>學生密碼</h4>${pinHtml}</section>
+    ${s.note ? `<section class="dsec"><h4>備註</h4><div style="white-space:pre-wrap">${esc(s.note)}</div></section>` : ""}`;
+  $("dReset").classList.toggle("hidden", !s.has_login);
+  $("dDlg").showModal();
+}
+$("dBody").addEventListener("click", e => { const b = e.target.closest('button[data-act="pin"]'); if (b) togglePin(b.dataset.id); });
+$("dDlg").addEventListener("close", () => { hidePin(); detailId = null; });
+$("dEdit").addEventListener("click", () => { const s = STUDENTS.find(x => x.id === detailId); $("dDlg").close(); if (s) openEdit(s); });
+$("dReset").addEventListener("click", () => { const s = STUDENTS.find(x => x.id === detailId); $("dDlg").close(); if (s) openReset(s); });
 
 /* ---------- 新增／編輯 ---------- */
 function contactRow(c, i) {
@@ -542,10 +606,22 @@ async function saveReset(e) {
 /* ---------- 事件 ---------- */
 $("tbody").addEventListener("click", e => {
   const b = e.target.closest("button[data-act]");
-  if (!b) return;
+  if (!b) {
+    const tr = e.target.closest("tr[data-id]");
+    const st = tr && STUDENTS.find(x => x.id === tr.dataset.id);
+    if (st) openDetail(st);
+    return;
+  }
   const s = STUDENTS.find(x => x.id === b.dataset.id);
   if (!s) return;
   ({ edit: () => openEdit(s), reset: () => openReset(s), pin: () => togglePin(s.id) })[b.dataset.act]();
+});
+$("tbody").addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches("tr[data-id]")) {
+    e.preventDefault();
+    const st = STUDENTS.find(x => x.id === e.target.dataset.id);
+    if (st) openDetail(st);
+  }
 });
 let qTimer;
 $("q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(render, 150); });
