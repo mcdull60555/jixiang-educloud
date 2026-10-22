@@ -177,7 +177,7 @@
           <span class="ctl">
             <span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 20c0-4 3.4-6.7 7.5-6.7s7.5 2.7 7.5 6.7"/></svg></span>
             <span class="sep" aria-hidden="true"></span>
-            <input id="staffAcctInput" type="text" maxlength="62" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="例如 t_chuang">
+            <input id="staffAcctInput" type="text" maxlength="62" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="例如 t_account">
           </span>
         </label>
         <label class="field" for="staffPwdInput">密碼
@@ -326,8 +326,8 @@ async function doLogin(e) {
   } else {
     const id = normStaffAcct($("staffAcctInput").value);
     pin = $("staffPwdInput").value;
-    if (!id) return showError("請輸入登入帳號，例如 t_chuang");
-    if (!/^(admin|t_[a-z0-9_-]{1,60})$/.test(id)) return showError("登入帳號格式不正確，老師帳號以 t_ 開頭，例如 t_chuang");
+    if (!id) return showError("請輸入登入帳號，例如 t_account");
+    if (!/^(admin|t_[a-z0-9_-]{1,60})$/.test(id)) return showError("登入帳號格式不正確，老師帳號以 t_ 開頭，例如 t_account");
     if (!pin) return showError("請輸入密碼");
     email = id + EMAIL_DOMAIN;
     want = id === "admin" ? ["admin"] : ["teacher"];
