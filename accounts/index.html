@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>帳號管理｜基翔學務雲</title>
+<link rel="icon" href="../favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="../favicon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root {
+    --bg: #F1F5F9; --card: #FFFFFF; --line: #E2E8F0; --line-2: #CBD5E1;
+    --text: #1E293B; --muted: #64748B; --muted-2: #475569;
+    --blue: #1660D6; --blue-d: #0F4FB8; --blue-l: #DBEAFE;
+    --gold: #F5B301; --green: #047857; --green-l: #D1FAE5; --rose: #BE123C; --rose-l: #FFE4E6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', system-ui, sans-serif; min-height: 100vh; }
+  button, input, select { font: inherit; }
+  .hidden { display: none !important; }
+
+  .hero { background: linear-gradient(90deg, #0F4FB8, #1D8CF0); color: #fff; padding: 0 20px 96px; }
+  .hero-inner { max-width: 1040px; margin: 0 auto; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; }
+  .logo { width: 44px; height: 44px; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 2px 8px rgba(15,23,42,.18); }
+  .logo img { width: 100%; height: 100%; display: block; }
+  .brand-name { font-size: 19px; font-weight: 700; letter-spacing: .5px; }
+  .brand-sub { font-size: 11px; color: #DBEAFE; letter-spacing: .5px; }
+  .chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--gold); color: var(--text); }
+  .ghost-btn { min-height: 40px; padding: 0 16px; border-radius: 10px; border: 0; background: rgba(255,255,255,.18); color: #fff; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .ghost-btn:hover { background: rgba(255,255,255,.28); }
+  .page-title { padding: 10px 0 0; }
+  .page-title h1 { margin: 0; font-size: 28px; }
+  .page-title p { margin: 8px 0 0; color: #EAF2FF; font-size: 15px; }
+
+  main { max-width: 1040px; margin: -72px auto 0; padding: 0 20px 96px; display: flex; flex-direction: column; gap: 18px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .panel-head h2 { margin: 0; font-size: 19px; }
+  .panel-head p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+
+  .btn { min-height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line-2); background: #fff; color: var(--text); cursor: pointer; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+  .btn:hover { background: #F8FAFC; }
+  .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 700; }
+  .btn.primary:hover { background: var(--blue-d); }
+  .btn.danger { color: var(--rose); border-color: #FECDD3; }
+  .btn.danger:hover { background: var(--rose-l); }
+  .btn.danger-solid { background: var(--rose); border-color: var(--rose); color: #fff; font-weight: 700; }
+  .btn.sm { min-height: 34px; padding: 0 12px; font-size: 13px; }
+  .btn.icon { width: 34px; min-height: 34px; padding: 0; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(22,96,214,.35); outline-offset: 1px; }
+
+  .tlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .trow { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; }
+  .order { display: flex; flex-direction: column; gap: 4px; }
+  .order .btn.icon { width: 30px; min-height: 26px; border-radius: 8px; }
+  .tname { font-size: 17px; font-weight: 700; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .tid { font-size: 13px; font-weight: 500; color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .tmeta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; font-size: 13px; color: var(--muted-2); }
+  .tmeta .lbl { color: var(--muted); margin-right: 2px; }
+  .pill { font-size: 12.5px; padding: 2px 9px; border-radius: 999px; background: var(--blue-l); color: var(--blue-d); font-weight: 500; }
+  .pill.g { background: #FEF3C7; color: #92400E; }
+  .pill.none { background: #F1F5F9; color: var(--muted); }
+  .tact { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .empty { text-align: center; color: var(--muted); padding: 28px 0; }
+  .note { font-size: 13px; color: var(--muted); line-height: 1.7; margin: 14px 0 0; }
+
+  .admin-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .admin-row .who { font-size: 17px; font-weight: 700; }
+
+  dialog { border: 0; border-radius: 18px; padding: 0; width: min(520px, calc(100vw - 24px)); box-shadow: 0 24px 60px rgba(15,23,42,.3); color: var(--text); }
+  dialog::backdrop { background: rgba(15,23,42,.45); }
+  .dlg-head { padding: 18px 20px 0; display: flex; align-items: center; justify-content: space-between; }
+  .dlg-head h3 { margin: 0; font-size: 19px; }
+  .dlg-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 180px); overflow: auto; }
+  .dlg-foot { padding: 0 20px 20px; display: flex; justify-content: flex-end; gap: 8px; }
+  .field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500; color: #334155; }
+  .field input[type=text], .field input[type=password] { min-height: 46px; border: 1px solid #D5DEEA; border-radius: 11px; padding: 0 12px; font-size: 16px; background: #fff; }
+  .field input:focus { border-color: var(--blue); outline: none; box-shadow: 0 0 0 3px rgba(22,96,214,.15); }
+  .field .help { font-size: 12.5px; color: var(--muted); font-weight: 400; }
+  .prefix { display: flex; align-items: center; border: 1px solid #D5DEEA; border-radius: 11px; overflow: hidden; }
+  .prefix span { padding: 0 10px 0 12px; color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .prefix input { border: 0 !important; flex: 1; min-width: 0; padding-left: 0 !important; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .prefix:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(22,96,214,.15); }
+  fieldset { border: 0; margin: 0; padding: 0; }
+  legend { font-size: 14px; font-weight: 500; color: #334155; padding: 0; margin-bottom: 8px; }
+  .checks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .checks label { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 10px; cursor: pointer; font-size: 14px; user-select: none; }
+  .checks label:has(input:checked) { border-color: var(--blue); background: var(--blue-l); color: var(--blue-d); font-weight: 700; }
+  .checks input { accent-color: var(--blue); width: 16px; height: 16px; margin: 0; }
+  .err { font-size: 14px; color: var(--rose); background: var(--rose-l); border-radius: 10px; padding: 10px 12px; margin: 0; }
+
+  #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: #1E293B; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 14px; z-index: 9000; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); }
+  #toast.bad { background: var(--rose); }
+  .busy { position: fixed; inset: 0; background: rgba(15,23,42,.3); display: flex; align-items: center; justify-content: center; z-index: 9400; color: #fff; font-size: 16px; font-weight: 700; }
+  .test-tag { position: fixed; left: 8px; bottom: 8px; z-index: 99; background: #7c3aed; color: #fff; font: 700 11px/1 sans-serif; padding: 6px 10px; border-radius: 999px; opacity: .9; pointer-events: none; }
+
+  @media (max-width: 640px) {
+    .hero { padding: 0 14px 88px; }
+    .page-title h1 { font-size: 24px; }
+    main { padding: 0 12px 96px; }
+    .panel { padding: 16px; }
+    .trow { grid-template-columns: auto 1fr; }
+    .tact { grid-column: 1 / -1; justify-content: stretch; }
+    .tact .btn { flex: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="hero-inner">
+    <div class="topbar">
+      <a class="brand" href="../">
+        <div class="logo"><img src="../logo.png" alt="基翔 logo"></div>
+        <div><div class="brand-name">基翔學務雲</div><div class="brand-sub">JX EduCloud</div></div>
+      </a>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="chip">管理員</span>
+        <a class="ghost-btn" href="../">回首頁</a>
+        <button type="button" class="ghost-btn" id="logoutBtn">登出</button>
+      </div>
+    </div>
+    <div class="page-title">
+      <h1>帳號管理</h1>
+      <p>老師帳號以這裡為準，雲點名、學習通的登入選單都會跟著更新</p>
+    </div>
+  </div>
+</div>
+
+<main>
+  <section class="panel" aria-labelledby="tTitle">
+    <div class="panel-head">
+      <div>
+        <h2 id="tTitle">老師帳號 <span id="tCount" class="tid"></span></h2>
+        <p>排列順序就是登入下拉選單的順序</p>
+      </div>
+      <button type="button" class="btn primary" id="addBtn">＋ 新增老師</button>
+    </div>
+    <ul class="tlist" id="tlist"><li class="empty">讀取中…</li></ul>
+    <p class="note">「負責班級」決定老師在學習通能管理哪些班、在學生名冊能看哪些學生的密碼；「可管理年級」不勾代表全部年級都可以。<br>刪除老師後，雲點名過去的點名紀錄仍保留老師姓名。</p>
+  </section>
+
+  <section class="panel" aria-labelledby="aTitle">
+    <div class="panel-head" style="margin-bottom:0">
+      <div class="admin-row">
+        <div>
+          <h2 id="aTitle">管理員帳號</h2>
+          <p>帳號 admin，只有一組</p>
+        </div>
+      </div>
+      <button type="button" class="btn" id="myPwdBtn">修改我的密碼</button>
+    </div>
+  </section>
+</main>
+
+<!-- 新增／編輯老師 -->
+<dialog id="tDlg" aria-labelledby="tDlgTitle">
+  <form method="dialog" id="tForm" novalidate>
+    <div class="dlg-head"><h3 id="tDlgTitle">新增老師</h3></div>
+    <div class="dlg-body">
+      <label class="field">姓名
+        <input type="text" id="fName" maxlength="40" autocomplete="off">
+      </label>
+      <label class="field" id="fIdWrap">登入帳號
+        <span class="prefix"><span>t_</span><input type="text" id="fId" maxlength="60" autocomplete="off" spellcheck="false" autocapitalize="off"></span>
+        <span class="help" id="fIdHelp">英文小寫、數字、- 或 _，建立後不能修改</span>
+      </label>
+      <label class="field" id="fPwdWrap">初始密碼
+        <input type="text" id="fPwd" maxlength="64" autocomplete="off" spellcheck="false">
+        <span class="help">至少 4 個字，請告訴老師登入後自行修改</span>
+      </label>
+      <fieldset>
+        <legend>負責班級</legend>
+        <div class="checks" id="fClasses"></div>
+      </fieldset>
+      <fieldset>
+        <legend>可管理年級 <span class="help" style="font-weight:400;color:var(--muted)">（不勾＝全部）</span></legend>
+        <div class="checks" id="fGrades"></div>
+      </fieldset>
+      <p class="err hidden" id="tErr" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="submit" class="btn primary" id="tSave">儲存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 重設密碼 -->
+<dialog id="pDlg" aria-labelledby="pDlgTitle">
+  <form method="dialog" id="pForm" novalidate>
+    <div class="dlg-head"><h3 id="pDlgTitle">重設密碼</h3></div>
+    <div class="dlg-body">
+      <p style="margin:0;color:var(--muted-2)" id="pWho"></p>
+      <label class="field">新密碼
+        <input type="password" id="pNew" maxlength="64" autocomplete="new-password">
+      </label>
+      <label class="field">再輸入一次
+        <input type="password" id="pNew2" maxlength="64" autocomplete="new-password">
+        <span class="help">至少 4 個字</span>
+      </label>
+      <p class="err hidden" id="pErr" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="submit" class="btn primary">儲存新密碼</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 刪除確認 -->
+<dialog id="dDlg" aria-labelledby="dDlgTitle">
+  <form method="dialog" id="dForm">
+    <div class="dlg-head"><h3 id="dDlgTitle">刪除老師</h3></div>
+    <div class="dlg-body">
+      <p style="margin:0;line-height:1.7" id="dMsg"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="submit" class="btn danger-solid">確定刪除</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="hidden" role="status"></div>
+<div id="busy" class="busy hidden">處理中…</div>
+<div class="test-tag">學務雲 測試版・整合版</div>
+
+<script>
+const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
+const SUPABASE_KEY = "sb_publishable_ZVT08ujYz6NmsowKmqBNng_JxBJaVmb";
+const PORTAL_URL = "../";
+const GRADE_ORDER = ["一年級", "二年級", "三年級", "四年級", "五年級", "六年級"];
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: window.sessionStorage, storageKey: "jx-auth" }
+});
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+let TEACHERS = [], CLASSES = [], GRADES = [], editing = null;
+
+/* ---------- 共用 ---------- */
+function busy(on) { $("busy").classList.toggle("hidden", !on); }
+let toastTimer;
+function toast(msg, bad) {
+  const t = $("toast");
+  t.textContent = msg; t.className = bad ? "bad" : "";
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add("hidden"), 3200);
+}
+function friendly(err) {
+  const m = (err && err.message) || String(err || "");
+  if (/admin only|42501|JWT|not authenticated/i.test(m)) return "沒有權限或登入已過期，請重新登入";
+  if (/duplicate|already|exists|unique/i.test(m)) return "這個登入帳號已經有人使用";
+  if (/teacher id must/.test(m)) return "登入帳號只能用英文小寫、數字、- 或 _";
+  if (/password must/.test(m)) return "密碼至少要 4 個字";
+  if (/name required/.test(m)) return "請輸入姓名";
+  if (/class not found/.test(m)) return "找不到這個班級，請重新整理後再試";
+  if (/unknown grade/.test(m)) return "找不到這個年級，請重新整理後再試";
+  if (/teacher not found/.test(m)) return "找不到這位老師，可能已被刪除";
+  if (/Failed to fetch|NetworkError/i.test(m)) return "無法連線，請檢查網路後再試一次";
+  return "發生錯誤：" + m;
+}
+async function rpc(name, args) {
+  const { data, error } = await sb.rpc(name, args);
+  if (error) throw error;
+  return data;
+}
+async function goPortal(msg) {
+  try { await sb.auth.signOut({ scope: "local" }); } catch (_) { /* 忽略 */ }
+  ["authToken", "isTeacherLoggedIn", "loggedInStudentId", "lastActivityTime", "jx-me"].forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });
+  try { sessionStorage.setItem("jx-notice", msg || ""); } catch (_) { /* 忽略 */ }
+  location.replace(PORTAL_URL);
+}
+
+/* ---------- 閒置 60 分鐘自動登出（與其他系統共用 lastActivityTime） ---------- */
+const IDLE_MS = 60 * 60 * 1000;
+function touch() { try { sessionStorage.setItem("lastActivityTime", String(Date.now())); } catch (_) {} }
+let lastTouch = 0;
+["mousedown", "keydown", "touchstart", "scroll"].forEach(ev => window.addEventListener(ev, () => {
+  if (Date.now() - lastTouch > 15000) { lastTouch = Date.now(); touch(); }
+}, { passive: true, capture: true }));
+setInterval(() => {
+  const last = parseInt(sessionStorage.getItem("lastActivityTime") || "0", 10);
+  if (last && Date.now() - last > IDLE_MS) goPortal("閒置超過 60 分鐘，已自動登出");
+}, 15000);
+
+/* ---------- 讀資料 ---------- */
+async function load() {
+  const [p, tc, c, g] = await Promise.all([
+    sb.from("profiles").select("id,login_id,display_name,sort_order,allowed_grades,created_at").eq("role", "teacher"),
+    sb.from("teacher_classes").select("teacher_id,class_id"),
+    sb.from("classes").select("id,name,sort_order"),
+    sb.from("grades").select("name")
+  ]);
+  for (const r of [p, tc, c, g]) if (r.error) throw r.error;
+  CLASSES = (c.data || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  GRADES = (g.data || []).map(x => x.name).sort((a, b) => {
+    const ia = GRADE_ORDER.indexOf(a), ib = GRADE_ORDER.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+  });
+  const byT = {};
+  (tc.data || []).forEach(r => { (byT[r.teacher_id] = byT[r.teacher_id] || []).push(r.class_id); });
+  const classOrder = id => CLASSES.findIndex(x => x.id === id);
+  TEACHERS = (p.data || []).map(t => Object.assign(t, { classIds: (byT[t.id] || []).sort((a, b) => classOrder(a) - classOrder(b)) }))
+    .sort((a, b) => (a.sort_order ?? 1e9) - (b.sort_order ?? 1e9) || String(a.created_at).localeCompare(String(b.created_at)) || a.login_id.localeCompare(b.login_id));
+  render();
+}
+
+function render() {
+  $("tCount").textContent = `（${TEACHERS.length} 位）`;
+  if (!TEACHERS.length) { $("tlist").innerHTML = '<li class="empty">還沒有老師帳號，按右上角「新增老師」建立</li>'; return; }
+  const cname = id => (CLASSES.find(c => c.id === id) || {}).name || "（已刪除的班級）";
+  $("tlist").innerHTML = TEACHERS.map((t, i) => `
+    <li class="trow">
+      <div class="order">
+        <button type="button" class="btn icon" data-act="up" data-id="${t.id}" aria-label="把 ${esc(t.display_name)} 往上移" ${i === 0 ? "disabled" : ""}>▲</button>
+        <button type="button" class="btn icon" data-act="down" data-id="${t.id}" aria-label="把 ${esc(t.display_name)} 往下移" ${i === TEACHERS.length - 1 ? "disabled" : ""}>▼</button>
+      </div>
+      <div>
+        <div class="tname">${esc(t.display_name || t.login_id)} <span class="tid">${esc(t.login_id)}</span></div>
+        <div class="tmeta">
+          <span class="lbl">負責班級</span>${t.classIds.length ? t.classIds.map(id => `<span class="pill">${esc(cname(id))}</span>`).join("") : '<span class="pill none">未指定</span>'}
+          <span class="lbl" style="margin-left:8px">可管理年級</span>${t.allowed_grades && t.allowed_grades.length ? t.allowed_grades.map(g => `<span class="pill g">${esc(g)}</span>`).join("") : '<span class="pill none">全部</span>'}
+        </div>
+      </div>
+      <div class="tact">
+        <button type="button" class="btn sm" data-act="edit" data-id="${t.id}">編輯</button>
+        <button type="button" class="btn sm" data-act="pwd" data-id="${t.id}">重設密碼</button>
+        <button type="button" class="btn sm danger" data-act="del" data-id="${t.id}">刪除</button>
+      </div>
+    </li>`).join("");
+}
+
+/* ---------- 新增／編輯 ---------- */
+function nextLoginId() {
+  const used = new Set(TEACHERS.map(t => t.login_id));
+  for (let n = 1; ; n++) { const id = "teacher" + String(n).padStart(2, "0"); if (!used.has("t_" + id)) return id; }
+}
+function checks(boxId, items, selected) {
+  $(boxId).innerHTML = items.length ? items.map(it => `<label><input type="checkbox" value="${esc(it.value)}" ${selected.includes(it.value) ? "checked" : ""}>${esc(it.label)}</label>`).join("")
+    : '<span class="help" style="color:var(--muted);font-size:13px">還沒有任何項目</span>';
+}
+function checked(boxId) { return [...$(boxId).querySelectorAll("input:checked")].map(i => i.value); }
+
+function openEdit(t) {
+  editing = t || null;
+  $("tDlgTitle").textContent = t ? "編輯老師" : "新增老師";
+  $("fName").value = t ? (t.display_name || "") : "";
+  $("fId").value = t ? t.login_id.replace(/^t_/, "") : nextLoginId();
+  $("fId").disabled = !!t;
+  $("fIdHelp").textContent = t ? "登入帳號建立後不能修改" : "英文小寫、數字、- 或 _，建立後不能修改";
+  $("fPwdWrap").classList.toggle("hidden", !!t);
+  $("fPwd").value = "";
+  checks("fClasses", CLASSES.map(c => ({ value: c.id, label: c.name })), t ? t.classIds : []);
+  checks("fGrades", GRADES.map(g => ({ value: g, label: g })), t ? (t.allowed_grades || []) : []);
+  $("tErr").classList.add("hidden");
+  $("tDlg").showModal();
+  $("fName").focus();
+}
+async function saveTeacher(e) {
+  e.preventDefault();
+  const err = m => { $("tErr").textContent = m; $("tErr").classList.remove("hidden"); };
+  const name = $("fName").value.trim();
+  const classIds = checked("fClasses"), grades = checked("fGrades");
+  if (!name) return err("請輸入姓名");
+  busy(true);
+  try {
+    if (editing) {
+      await rpc("admin_save_teacher", { p_id: editing.id, p_name: name, p_classes: classIds });
+      await rpc("admin_set_teacher_grades", { p_id: editing.id, p_grades: grades });
+    } else {
+      const login = "t_" + $("fId").value.trim().toLowerCase().replace(/^t_/, "");
+      const pwd = $("fPwd").value;
+      if (!/^t_[a-z0-9_-]{1,60}$/.test(login)) return err("登入帳號只能用英文小寫、數字、- 或 _");
+      if (TEACHERS.some(t => t.login_id === login)) return err("這個登入帳號已經有人使用");
+      if (pwd.length < 4) return err("初始密碼至少要 4 個字");
+      const res = await rpc("admin_create_teacher", { p_login: login, p_name: name, p_pin: pwd, p_class: classIds[0] || null });
+      const id = res && res.id;
+      if (id && classIds.length > 1) await rpc("admin_save_teacher", { p_id: id, p_name: name, p_classes: classIds });
+      if (id && grades.length) await rpc("admin_set_teacher_grades", { p_id: id, p_grades: grades });
+      if (id) await rpc("admin_reorder_teachers", { p_ids: TEACHERS.map(t => t.id).concat(id) });
+    }
+    $("tDlg").close();
+    toast(editing ? `已更新 ${name}` : `已新增 ${name}`);
+    await load();
+  } catch (ex) {
+    err(friendly(ex));
+  } finally { busy(false); }
+}
+
+/* ---------- 重設密碼 ---------- */
+let pwdTarget = null;   // null＝管理員自己
+function openPwd(t) {
+  pwdTarget = t || null;
+  $("pDlgTitle").textContent = t ? "重設老師密碼" : "修改我的密碼";
+  $("pWho").textContent = t ? `${t.display_name}（${t.login_id}）` : "管理員（admin）";
+  $("pNew").value = ""; $("pNew2").value = "";
+  $("pErr").classList.add("hidden");
+  $("pDlg").showModal();
+  $("pNew").focus();
+}
+async function savePwd(e) {
+  e.preventDefault();
+  const err = m => { $("pErr").textContent = m; $("pErr").classList.remove("hidden"); };
+  const a = $("pNew").value, b = $("pNew2").value;
+  if (a.length < 4) return err("密碼至少要 4 個字");
+  if (a !== b) return err("兩次輸入的密碼不一樣");
+  busy(true);
+  try {
+    if (pwdTarget) await rpc("admin_set_teacher_pin", { p_id: pwdTarget.id, p_pin: a });
+    else await rpc("change_my_pin", { p_pin: a });
+    $("pDlg").close();
+    toast(pwdTarget ? `已重設 ${pwdTarget.display_name} 的密碼` : "已修改你的密碼");
+  } catch (ex) { err(friendly(ex)); } finally { busy(false); }
+}
+
+/* ---------- 刪除 ---------- */
+let delTarget = null;
+function openDel(t) {
+  delTarget = t;
+  $("dMsg").innerHTML = `確定要刪除 <b>${esc(t.display_name)}</b>（${esc(t.login_id)}）嗎？<br>刪除後這位老師就不能登入雲點名和學習通，這個動作無法復原。`;
+  $("dDlg").showModal();
+}
+async function doDel(e) {
+  e.preventDefault();
+  busy(true);
+  try {
+    await rpc("admin_delete_teacher", { p_id: delTarget.id });
+    $("dDlg").close();
+    toast(`已刪除 ${delTarget.display_name}`);
+    await load();
+  } catch (ex) { $("dDlg").close(); toast(friendly(ex), true); } finally { busy(false); }
+}
+
+/* ---------- 排序 ---------- */
+async function move(id, dir) {
+  const i = TEACHERS.findIndex(t => t.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= TEACHERS.length) return;
+  [TEACHERS[i], TEACHERS[j]] = [TEACHERS[j], TEACHERS[i]];
+  render();
+  const btn = document.querySelector(`[data-act="${dir < 0 ? "up" : "down"}"][data-id="${id}"]`);
+  if (btn && !btn.disabled) btn.focus();
+  try { await rpc("admin_reorder_teachers", { p_ids: TEACHERS.map(t => t.id) }); }
+  catch (ex) { toast(friendly(ex), true); await load(); }
+}
+
+/* ---------- 事件 ---------- */
+$("tlist").addEventListener("click", e => {
+  const b = e.target.closest("button[data-act]");
+  if (!b) return;
+  const t = TEACHERS.find(x => x.id === b.dataset.id);
+  if (!t) return;
+  ({ edit: () => openEdit(t), pwd: () => openPwd(t), del: () => openDel(t), up: () => move(t.id, -1), down: () => move(t.id, 1) })[b.dataset.act]();
+});
+$("addBtn").addEventListener("click", () => openEdit(null));
+$("myPwdBtn").addEventListener("click", () => openPwd(null));
+$("tForm").addEventListener("submit", saveTeacher);
+$("pForm").addEventListener("submit", savePwd);
+$("dForm").addEventListener("submit", doDel);
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
+$("fId").addEventListener("input", e => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""); });
+$("logoutBtn").addEventListener("click", () => goPortal(""));
+
+/* ---------- 啟動：只有管理員能進來 ---------- */
+(async () => {
+  busy(true);
+  try {
+    const last = parseInt(sessionStorage.getItem("lastActivityTime") || "0", 10);
+    if (last && Date.now() - last > IDLE_MS) return goPortal("閒置超過 60 分鐘，已自動登出");
+    const { data: s } = await sb.auth.getSession();
+    if (!s || !s.session) return location.replace(PORTAL_URL);
+    const me = await sb.from("profiles").select("role").eq("id", s.session.user.id).maybeSingle();
+    if (!me.data || me.data.role !== "admin") return location.replace(PORTAL_URL);
+    touch();
+    await load();
+  } catch (ex) {
+    $("tlist").innerHTML = `<li class="empty">${esc(friendly(ex))}</li>`;
+  } finally { busy(false); }
+})();
+</script>
+<script src="../switcher.js" data-app="accounts" defer></script>
+</body>
+</html>

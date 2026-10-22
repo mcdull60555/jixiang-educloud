@@ -24,7 +24,7 @@
     roster:   { title: '學生名冊', en: 'Student Roster', tag: '建置中', bg: '#FEF3C7', fg: '#92400E' },
     tuition:  { title: '學費管理', en: 'Tuition', tag: '規劃中', bg: '#D1FAE5', fg: '#047857' },
     tuitionFamily: { title: '學費單', en: 'Tuition', tag: '規劃中', bg: '#D1FAE5', fg: '#047857', icon: 'tuition' },
-    accounts: { title: '帳號管理', en: 'Accounts', tag: '建置中', bg: '#E2E8F0', fg: '#334155' }
+    accounts: { title: '帳號管理', en: 'Accounts', url: BASE + '/jixiang-educloud/accounts/', bg: '#E2E8F0', fg: '#334155' }
   };
   var BY_ROLE = {
     admin: ['rollcall', 'learning', 'roster', 'tuition', 'accounts'],
