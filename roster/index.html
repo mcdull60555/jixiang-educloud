@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>學生名冊｜基翔學務雲</title>
+<script>
+  // 沒有從學務雲登入就回登入頁
+  try { if (!sessionStorage.getItem("jx-auth")) location.replace("../"); } catch (e) { /* 忽略 */ }
+</script>
+<link rel="icon" href="../favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="../favicon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root {
+    --bg: #F1F5F9; --card: #FFFFFF; --line: #E2E8F0; --line-2: #CBD5E1;
+    --text: #1E293B; --muted: #64748B; --muted-2: #475569;
+    --blue: #1660D6; --blue-d: #0F4FB8; --blue-l: #DBEAFE;
+    --gold: #F5B301; --green: #047857; --green-l: #D1FAE5; --rose: #BE123C; --rose-l: #FFE4E6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', system-ui, sans-serif; min-height: 100vh; }
+  button, input, select, textarea { font: inherit; }
+  .hidden { display: none !important; }
+
+  .hero { background: linear-gradient(90deg, #0F4FB8, #1D8CF0); color: #fff; padding: 0 20px 96px; }
+  .hero-inner { max-width: 1200px; margin: 0 auto; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; }
+  .logo { width: 44px; height: 44px; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 2px 8px rgba(15,23,42,.18); }
+  .logo img { width: 100%; height: 100%; display: block; }
+  .brand-name { font-size: 19px; font-weight: 700; letter-spacing: .5px; }
+  .brand-sub { font-size: 11px; color: #DBEAFE; letter-spacing: .5px; }
+  .chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--gold); color: var(--text); }
+  .ghost-btn { min-height: 40px; padding: 0 16px; border-radius: 10px; border: 0; background: rgba(255,255,255,.18); color: #fff; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .ghost-btn:hover { background: rgba(255,255,255,.28); }
+  .page-title { padding: 10px 0 0; }
+  .page-title h1 { margin: 0; font-size: 28px; }
+  .page-title p { margin: 8px 0 0; color: #EAF2FF; font-size: 15px; }
+
+  main { max-width: 1200px; margin: -72px auto 0; padding: 0 20px 96px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px 20px; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .search { flex: 1 1 260px; display: flex; align-items: center; gap: 8px; min-height: 44px; border: 1px solid #D5DEEA; border-radius: 11px; padding: 0 12px; background: #fff; }
+  .search:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(22,96,214,.15); }
+  .search input { border: 0; outline: none; flex: 1; min-width: 0; font-size: 15px; height: 42px; }
+  .sel { min-height: 44px; border: 1px solid #D5DEEA; border-radius: 11px; padding: 0 10px; background: #fff; font-size: 14px; color: var(--text); }
+  .filters2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .tog { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 999px; cursor: pointer; font-size: 13px; user-select: none; background: #fff; }
+  .tog:has(input:checked) { border-color: var(--blue); background: var(--blue-l); color: var(--blue-d); font-weight: 700; }
+  .tog input { margin: 0; accent-color: var(--blue); }
+  .count { margin-left: auto; font-size: 13px; color: var(--muted); }
+
+  .btn { min-height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line-2); background: #fff; color: var(--text); cursor: pointer; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+  .btn:hover { background: #F8FAFC; }
+  .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 700; }
+  .btn.primary:hover { background: var(--blue-d); }
+  .btn.sm { min-height: 32px; padding: 0 10px; font-size: 13px; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(22,96,214,.35); outline-offset: 1px; }
+
+  .tbl-wrap { margin-top: 14px; border: 1px solid var(--line); border-radius: 14px; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-weight: 700; font-size: 12.5px; color: var(--muted-2); background: #F8FAFC; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; position: sticky; top: 0; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  tr.off td { color: var(--muted); background: #FAFAFB; }
+  .acct { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 600; letter-spacing: .5px; white-space: nowrap; }
+  .nm { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .ph { white-space: nowrap; }
+  .ph .rel { color: var(--muted); margin-right: 4px; }
+  .pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; font-weight: 700; white-space: nowrap; }
+  .pill.on { background: var(--green-l); color: var(--green); }
+  .pill.offp { background: #F1F5F9; color: var(--muted); }
+  .pill.left { background: var(--rose-l); color: var(--rose); }
+  .pin { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .pin code { font-size: 16px; font-weight: 700; letter-spacing: 3px; min-width: 52px; display: inline-block; }
+  .pin .na { font-size: 12px; color: var(--muted); }
+  .empty { text-align: center; color: var(--muted); padding: 36px 0; }
+
+  dialog { border: 0; border-radius: 18px; padding: 0; width: min(640px, calc(100vw - 24px)); box-shadow: 0 24px 60px rgba(15,23,42,.3); color: var(--text); }
+  dialog.narrow { width: min(440px, calc(100vw - 24px)); }
+  dialog::backdrop { background: rgba(15,23,42,.45); }
+  .dlg-head { padding: 18px 20px 0; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .dlg-head h3 { margin: 0; font-size: 19px; }
+  .dlg-body { padding: 14px 20px; display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 170px); overflow: auto; }
+  .dlg-foot { padding: 12px 20px 18px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1.3fr 1fr .7fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500; color: #334155; }
+  .field input, .field select, .field textarea { min-height: 44px; border: 1px solid #D5DEEA; border-radius: 10px; padding: 0 12px; font-size: 15px; background: #fff; width: 100%; }
+  .field textarea { padding: 10px 12px; min-height: 64px; resize: vertical; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--blue); outline: none; box-shadow: 0 0 0 3px rgba(22,96,214,.15); }
+  .help { font-size: 12.5px; color: var(--muted); font-weight: 400; }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  legend { font-size: 14px; font-weight: 500; color: #334155; padding: 0; margin-bottom: 8px; }
+  .crow { display: grid; grid-template-columns: 1fr 1.6fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .crow input[type=text], .crow input[type=tel] { min-height: 42px; border: 1px solid #D5DEEA; border-radius: 10px; padding: 0 10px; font-size: 15px; width: 100%; }
+  .crow label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; white-space: nowrap; cursor: pointer; }
+  .checks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .checks label { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 10px; cursor: pointer; font-size: 14px; user-select: none; }
+  .checks label:has(input:checked) { border-color: var(--blue); background: var(--blue-l); color: var(--blue-d); font-weight: 700; }
+  .checks input { accent-color: var(--blue); width: 16px; height: 16px; margin: 0; }
+  .switches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 500; }
+  .sw input { appearance: none; width: 40px; height: 24px; border-radius: 999px; background: #CBD5E1; position: relative; cursor: pointer; transition: background .15s; flex: 0 0 40px; margin: 0; }
+  .sw input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .sw input:checked { background: var(--blue); }
+  .sw input:checked::after { left: 19px; }
+  .err { font-size: 14px; color: var(--rose); background: var(--rose-l); border-radius: 10px; padding: 10px 12px; margin: 0; }
+  .acct-box { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; color: var(--blue-d); background: var(--blue-l); padding: 2px 10px; border-radius: 8px; }
+
+  #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: #1E293B; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 14px; z-index: 9000; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); }
+  #toast.bad { background: var(--rose); }
+  .busy { position: fixed; inset: 0; background: rgba(15,23,42,.3); display: flex; align-items: center; justify-content: center; z-index: 9400; color: #fff; font-size: 16px; font-weight: 700; }
+  .test-tag { position: fixed; left: 8px; bottom: 8px; z-index: 99; background: #7c3aed; color: #fff; font: 700 11px/1 sans-serif; padding: 6px 10px; border-radius: 999px; opacity: .9; pointer-events: none; }
+
+  /* 手機：表格改成卡片 */
+  @media (max-width: 760px) {
+    .hero { padding: 0 14px 88px; }
+    .page-title h1 { font-size: 24px; }
+    main { padding: 0 10px 96px; }
+    .panel { padding: 14px; }
+    .count { width: 100%; margin-left: 0; }
+    .tbl-wrap { border: 0; overflow: visible; }
+    table, tbody, tr, td { display: block; }
+    thead { display: none; }
+    tr { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; }
+    td { border: 0; padding: 2px 0; }
+    td.c-name { grid-column: 1; }
+    td.c-acct { grid-column: 2; grid-row: 1; text-align: right; }
+    td.c-school, td.c-bday, td.c-phone, td.c-flags { grid-column: 1 / -1; }
+    td.c-bday:empty { display: none; }
+    td.c-pin { grid-column: 1; }
+    td.c-act { grid-column: 2; text-align: right; }
+    .grid2, .grid3 { grid-template-columns: 1fr; }
+    .switches { grid-template-columns: 1fr; }
+    .crow { grid-template-columns: 1fr 1.4fr; }
+    .crow label { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="hero-inner">
+    <div class="topbar">
+      <a class="brand" href="../">
+        <div class="logo"><img src="../logo.png" alt="基翔 logo"></div>
+        <div><div class="brand-name">基翔學務雲</div><div class="brand-sub">JX EduCloud</div></div>
+      </a>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="chip">管理員</span>
+        <a class="ghost-btn" href="../">回首頁</a>
+        <button type="button" class="ghost-btn" id="logoutBtn">登出</button>
+      </div>
+    </div>
+    <div class="page-title">
+      <h1>學生名冊</h1>
+      <p>學生資料以這裡為準，雲點名、學習通共用同一份</p>
+    </div>
+  </div>
+</div>
+
+<main>
+  <section class="panel" aria-label="學生列表">
+    <div class="toolbar">
+      <label class="search" aria-label="搜尋">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="search" id="q" placeholder="搜尋姓名、帳號或電話">
+      </label>
+      <select class="sel" id="fSchoolF" aria-label="學校"><option value="">全部學校</option></select>
+      <select class="sel" id="fGradeF" aria-label="年級"><option value="">全部年級</option></select>
+      <select class="sel" id="fStatus" aria-label="在學狀態">
+        <option value="active">在學</option>
+        <option value="left">已離班</option>
+        <option value="all">全部</option>
+      </select>
+      <button type="button" class="btn primary" id="addBtn">＋ 新增學生</button>
+    </div>
+    <div class="filters2">
+      <label class="tog"><input type="checkbox" id="fRc">進點名</label>
+      <label class="tog"><input type="checkbox" id="fLn">學習通</label>
+      <label class="tog"><input type="checkbox" id="fNoContact">缺聯絡電話</label>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>帳號</th><th>姓名</th><th>學校・年級班級</th><th>生日</th><th>主要聯絡電話</th><th>使用</th><th>學生密碼</th><th></th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="8" class="empty">讀取中…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- 新增／編輯學生 -->
+<dialog id="sDlg" aria-labelledby="sDlgTitle">
+  <form method="dialog" id="sForm" novalidate>
+    <div class="dlg-head"><h3 id="sDlgTitle">新增學生</h3><span class="acct-box hidden" id="sAcct"></span></div>
+    <div class="dlg-body">
+      <div class="grid2">
+        <label class="field">姓名<input type="text" id="sName" maxlength="40" autocomplete="off"></label>
+        <label class="field">出生年月日<input type="date" id="sBday"></label>
+      </div>
+      <div class="grid3">
+        <label class="field">學校<select id="sSchool"></select></label>
+        <label class="field">年級<select id="sGrade"></select></label>
+        <label class="field">班<input type="number" id="sCls" min="1" max="99" inputmode="numeric" placeholder="例 6"></label>
+      </div>
+      <p class="help" id="sAcctHelp" style="margin:-6px 0 0"></p>
+
+      <fieldset>
+        <legend>聯絡電話（最多 3 組，選一位主要聯絡人）</legend>
+        <div id="sContacts"></div>
+      </fieldset>
+
+      <div class="switches">
+        <label class="sw">在學<input type="checkbox" id="sActive" role="switch"></label>
+        <label class="sw">進點名<input type="checkbox" id="sRc" role="switch"></label>
+        <label class="sw">學習通<input type="checkbox" id="sLn" role="switch"></label>
+      </div>
+      <label class="field hidden" id="sPinWrap">學習通初始密碼（4 位數字）
+        <input type="text" id="sPin" maxlength="4" inputmode="numeric" autocomplete="off">
+        <span class="help">第一次開啟學習通會建立帳號，請把帳號和密碼交給家長</span>
+      </label>
+
+      <fieldset>
+        <legend>學習通班級</legend>
+        <div class="checks" id="sClasses"></div>
+      </fieldset>
+      <fieldset>
+        <legend>固定不進班（雲點名）</legend>
+        <div class="checks" id="sDays"></div>
+      </fieldset>
+      <label class="field">備註<textarea id="sNote" maxlength="200" placeholder="例如：星期五下午家長接"></textarea></label>
+      <p class="err hidden" id="sErr" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="submit" class="btn primary">儲存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 重設學生密碼 -->
+<dialog id="pDlg" class="narrow" aria-labelledby="pDlgTitle">
+  <form method="dialog" id="pForm" novalidate>
+    <div class="dlg-head"><h3 id="pDlgTitle">重設學生密碼</h3></div>
+    <div class="dlg-body">
+      <p style="margin:0;color:var(--muted-2)" id="pWho"></p>
+      <label class="field">新密碼（4 位數字）
+        <input type="text" id="pNew" maxlength="4" inputmode="numeric" autocomplete="off">
+      </label>
+      <p class="err hidden" id="pErr" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="submit" class="btn primary">儲存新密碼</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="hidden" role="status"></div>
+<div id="busy" class="busy hidden">處理中…</div>
+<div class="test-tag">學務雲 測試版・整合版</div>
+
+<script>
+const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
+const SUPABASE_KEY = "sb_publishable_ZVT08ujYz6NmsowKmqBNng_JxBJaVmb";
+const PORTAL_URL = "../";
+const GRADES = ["一年級", "二年級", "三年級", "四年級", "五年級", "六年級"];
+const DOW = ["週一", "週二", "週三", "週四", "週五"];
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: window.sessionStorage, storageKey: "jx-auth" }
+});
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+let STUDENTS = [], SCHOOLS = [], CLASSES = [], editing = null;
+
+/* ---------- 共用 ---------- */
+function busy(on) { $("busy").classList.toggle("hidden", !on); }
+let toastTimer;
+function toast(msg, bad) {
+  const t = $("toast"); t.textContent = msg; t.className = bad ? "bad" : "";
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add("hidden"), 3200);
+}
+function friendly(err) {
+  const m = (err && err.message) || String(err || "");
+  if (/admin_list_students|admin_save_student|admin_set_student_pin|Could not find the function/i.test(m)) return "資料庫還沒安裝學生名冊的更新（測試專案_學生名冊.sql），請先在 SQL Editor 執行";
+  if (/admin only|42501|JWT|not authenticated/i.test(m)) return "沒有權限或登入已過期，請重新登入";
+  if (/name required/.test(m)) return "請輸入姓名";
+  if (/school required/.test(m)) return "請選擇學校";
+  if (/grade required/.test(m)) return "請選擇年級";
+  if (/class number/.test(m)) return "班級請填 1～99";
+  if (/contacts must/.test(m)) return "聯絡電話最多 3 組";
+  if (/pin required/.test(m)) return "第一次開啟學習通，請設定 4 位數初始密碼";
+  if (/password must be 4/.test(m)) return "密碼必須是 4 位數字";
+  if (/no login/.test(m)) return "這位學生還沒有學習通帳號，請先開啟學習通";
+  if (/class not found/.test(m)) return "找不到這個班級，請重新整理後再試";
+  if (/流水號已用完/.test(m)) return "這一屆的帳號流水號已用完";
+  if (/Failed to fetch|NetworkError/i.test(m)) return "無法連線，請檢查網路後再試一次";
+  return "發生錯誤：" + m;
+}
+async function rpc(name, args) {
+  const { data, error } = await sb.rpc(name, args);
+  if (error) throw error;
+  return data;
+}
+async function goPortal(msg) {
+  try { await sb.auth.signOut({ scope: "local" }); } catch (_) { /* 忽略 */ }
+  ["authToken", "isTeacherLoggedIn", "loggedInStudentId", "lastActivityTime", "jx-me"].forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });
+  try { sessionStorage.setItem("jx-notice", msg || ""); } catch (_) { /* 忽略 */ }
+  location.replace(PORTAL_URL);
+}
+const gradeNo = g => GRADES.indexOf(g) + 1;
+const gradeText = s => (s.grade || "") + (s.school_class ? ` ${s.school_class} 班` : "");
+const primaryContact = s => { const c = Array.isArray(s.contacts) ? s.contacts : []; return c.find(x => x.primary) || c[0] || null; };
+const fmtBday = d => d ? d.replace(/-/g, "/") : "";
+
+/* ---------- 閒置 60 分鐘自動登出 ---------- */
+const IDLE_MS = 60 * 60 * 1000;
+function touch() { try { sessionStorage.setItem("lastActivityTime", String(Date.now())); } catch (_) {} }
+let lastTouch = 0;
+["mousedown", "keydown", "touchstart", "scroll"].forEach(ev => window.addEventListener(ev, () => {
+  if (Date.now() - lastTouch > 15000) { lastTouch = Date.now(); touch(); }
+}, { passive: true, capture: true }));
+setInterval(() => {
+  const last = parseInt(sessionStorage.getItem("lastActivityTime") || "0", 10);
+  if (last && Date.now() - last > IDLE_MS) goPortal("閒置超過 60 分鐘，已自動登出");
+}, 15000);
+
+/* ---------- 讀資料 ---------- */
+async function load() {
+  const [st, sc, cl] = await Promise.all([
+    sb.rpc("admin_list_students"),
+    sb.from("schools").select("id,name,active,sort_order"),
+    sb.from("classes").select("id,name,sort_order")
+  ]);
+  for (const r of [st, sc, cl]) if (r.error) throw r.error;
+  STUDENTS = st.data || [];
+  SCHOOLS = (sc.data || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  CLASSES = (cl.data || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const curS = $("fSchoolF").value, curG = $("fGradeF").value;
+  $("fSchoolF").innerHTML = '<option value="">全部學校</option>' + SCHOOLS.filter(s => s.active).map(s => `<option>${esc(s.name)}</option>`).join("");
+  $("fGradeF").innerHTML = '<option value="">全部年級</option>' + GRADES.map(g => `<option>${g}</option>`).join("");
+  $("fSchoolF").value = curS; $("fGradeF").value = curG;
+  render();
+}
+
+function filtered() {
+  const q = $("q").value.trim().toLowerCase();
+  const qd = q.replace(/\D/g, "");
+  const school = $("fSchoolF").value, grade = $("fGradeF").value, status = $("fStatus").value;
+  return STUDENTS.filter(s => {
+    if (status === "active" && !s.active) return false;
+    if (status === "left" && s.active) return false;
+    if (school && s.school !== school) return false;
+    if (grade && s.grade !== grade) return false;
+    if ($("fRc").checked && !s.in_rollcall) return false;
+    if ($("fLn").checked && !s.learning_enabled) return false;
+    const contacts = Array.isArray(s.contacts) ? s.contacts : [];
+    if ($("fNoContact").checked && contacts.some(c => c.phone)) return false;
+    if (q) {
+      const hay = [s.name, s.account_code, s.school].join(" ").toLowerCase();
+      const phones = contacts.map(c => String(c.phone || "").replace(/\D/g, "")).join(" ");
+      if (!hay.includes(q) && !(qd.length >= 3 && phones.includes(qd))) return false;
+    }
+    return true;
+  }).sort((a, b) => gradeNo(a.grade) - gradeNo(b.grade) || (a.school_class || 0) - (b.school_class || 0)
+    || String(a.school).localeCompare(String(b.school), "zh-Hant") || String(a.name).localeCompare(String(b.name), "zh-Hant"));
+}
+
+function render() {
+  shownPinId = null;
+  const list = filtered();
+  $("count").textContent = `共 ${list.length} 位`;
+  if (!list.length) { $("tbody").innerHTML = '<tr><td colspan="8" class="empty">沒有符合條件的學生</td></tr>'; return; }
+  $("tbody").innerHTML = list.map(s => {
+    const pc = primaryContact(s);
+    const pinCell = !s.has_login ? '<span class="na">尚未開通</span>'
+      : !s.pin_viewable ? '<span class="na" title="舊密碼無法還原，重設後就能查看">重設後可查看</span>'
+      : `<code id="pin-${esc(s.id)}">••••</code><button type="button" class="btn sm" data-act="pin" data-id="${esc(s.id)}" aria-pressed="false">顯示</button>`;
+    return `<tr class="${s.active ? "" : "off"}">
+      <td class="c-acct"><span class="acct">${esc(s.account_code || "—")}</span></td>
+      <td class="c-name"><div class="nm">${esc(s.name)}</div>${s.note ? `<div class="sub">${esc(s.note)}</div>` : ""}</td>
+      <td class="c-school">${esc(s.school)}・${esc(gradeText(s))}</td>
+      <td class="c-bday">${esc(fmtBday(s.birthday))}</td>
+      <td class="c-phone">${pc ? `<span class="ph"><span class="rel">${esc(pc.rel || "")}</span>${esc(pc.phone || "")}</span>` : '<span class="pill left">缺聯絡電話</span>'}</td>
+      <td class="c-flags">${s.active ? "" : '<span class="pill left">已離班</span> '}<span class="pill ${s.in_rollcall ? "on" : "offp"}">點名</span> <span class="pill ${s.learning_enabled ? "on" : "offp"}">學習通</span></td>
+      <td class="c-pin"><span class="pin">${pinCell}</span></td>
+      <td class="c-act" style="white-space:nowrap">
+        <button type="button" class="btn sm" data-act="edit" data-id="${esc(s.id)}">編輯</button>
+        ${s.has_login ? `<button type="button" class="btn sm" data-act="reset" data-id="${esc(s.id)}">重設密碼</button>` : ""}
+      </td></tr>`;
+  }).join("");
+}
+
+/* ---------- 查看密碼：一次只顯示一位，切換或離開就隱藏，不留紀錄 ---------- */
+let shownPinId = null, pinTimer = null;
+function hidePin() {
+  if (!shownPinId) return;
+  const c = document.getElementById("pin-" + shownPinId);
+  if (c) c.textContent = "••••";
+  const b = document.querySelector(`[data-act="pin"][data-id="${CSS.escape(shownPinId)}"]`);
+  if (b) { b.textContent = "顯示"; b.setAttribute("aria-pressed", "false"); }
+  shownPinId = null; clearTimeout(pinTimer);
+}
+async function togglePin(id) {
+  if (shownPinId === id) return hidePin();
+  hidePin();
+  try {
+    const pin = await rpc("reveal_student_pin", { p_student_id: id });
+    if (!pin) return toast("這位學生的密碼無法查看，請重設密碼", true);
+    shownPinId = id;
+    $("pin-" + id).textContent = pin;
+    const b = document.querySelector(`[data-act="pin"][data-id="${CSS.escape(id)}"]`);
+    if (b) { b.textContent = "隱藏"; b.setAttribute("aria-pressed", "true"); }
+    pinTimer = setTimeout(hidePin, 30000);   // 30 秒後自動隱藏
+  } catch (ex) { toast(friendly(ex), true); }
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden) hidePin(); });
+
+/* ---------- 新增／編輯 ---------- */
+function contactRow(c, i) {
+  return `<div class="crow">
+    <input type="text" placeholder="稱謂（例 媽媽）" maxlength="10" value="${esc(c.rel || "")}" data-c="rel" aria-label="第 ${i + 1} 組稱謂">
+    <input type="tel" placeholder="電話" maxlength="20" value="${esc(c.phone || "")}" data-c="phone" aria-label="第 ${i + 1} 組電話">
+    <label><input type="radio" name="sPrimary" value="${i}" ${c.primary ? "checked" : ""}>主要</label>
+  </div>`;
+}
+function randomPin() { return String(Math.floor(Math.random() * 10000)).padStart(4, "0"); }
+function updatePinField() {
+  const need = $("sLn").checked && !(editing && editing.has_login);
+  $("sPinWrap").classList.toggle("hidden", !need);
+  if (need && !$("sPin").value) $("sPin").value = randomPin();
+}
+function openEdit(s) {
+  hidePin();
+  editing = s || null;
+  $("sDlgTitle").textContent = s ? "編輯學生" : "新增學生";
+  $("sAcct").textContent = s && s.account_code ? s.account_code : "";
+  $("sAcct").classList.toggle("hidden", !(s && s.account_code));
+  $("sAcctHelp").textContent = s ? "帳號在新增時依國小一年級入學學年產生，之後升年級不會改變" : "儲存後會自動產生學生帳號（JX＋入學學年＋流水號）";
+  $("sName").value = s ? s.name : "";
+  $("sBday").value = s && s.birthday ? s.birthday : "";
+  const schools = SCHOOLS.filter(x => x.active || (s && x.name === s.school));
+  $("sSchool").innerHTML = '<option value="">請選擇</option>' + schools.map(x => `<option>${esc(x.name)}</option>`).join("");
+  $("sSchool").value = s ? s.school : "";
+  $("sGrade").innerHTML = '<option value="">請選擇</option>' + GRADES.map(g => `<option>${g}</option>`).join("");
+  $("sGrade").value = s ? s.grade : "";
+  $("sCls").value = s && s.school_class ? s.school_class : "";
+  const cs = (s && Array.isArray(s.contacts) ? s.contacts : []).slice(0, 3);
+  while (cs.length < 3) cs.push({});
+  if (!cs.some(c => c.primary)) cs[0].primary = true;
+  $("sContacts").innerHTML = cs.map(contactRow).join("");
+  $("sActive").checked = s ? !!s.active : true;
+  $("sRc").checked = s ? !!s.in_rollcall : true;
+  $("sLn").checked = s ? !!s.learning_enabled : true;
+  $("sPin").value = "";
+  updatePinField();
+  const myClasses = s ? (s.class_ids || []) : [];
+  $("sClasses").innerHTML = CLASSES.length ? CLASSES.map(c => `<label><input type="checkbox" value="${esc(c.id)}" ${myClasses.includes(c.id) ? "checked" : ""}>${esc(c.name)}</label>`).join("")
+    : '<span class="help">還沒有任何班級</span>';
+  const days = s ? (s.fixed_off_days || []) : [];
+  $("sDays").innerHTML = DOW.map((d, i) => `<label><input type="checkbox" value="${i + 1}" ${days.includes(i + 1) ? "checked" : ""}>${d}</label>`).join("");
+  $("sNote").value = s ? (s.note || "") : "";
+  $("sErr").classList.add("hidden");
+  $("sDlg").showModal();
+  $("sName").focus();
+}
+async function saveStudent(e) {
+  e.preventDefault();
+  const err = m => { $("sErr").textContent = m; $("sErr").classList.remove("hidden"); $("sErr").scrollIntoView({ block: "nearest" }); };
+  const name = $("sName").value.trim();
+  if (!name) return err("請輸入姓名");
+  if (!$("sSchool").value) return err("請選擇學校");
+  if (!$("sGrade").value) return err("請選擇年級");
+  const cls = $("sCls").value.trim();
+  if (cls && !(+cls >= 1 && +cls <= 99)) return err("班級請填 1～99");
+  const primaryIdx = +((document.querySelector('input[name="sPrimary"]:checked') || {}).value || 0);
+  let contacts = [...$("sContacts").querySelectorAll(".crow")].map((row, i) => ({
+    rel: row.querySelector('[data-c="rel"]').value.trim(),
+    phone: row.querySelector('[data-c="phone"]').value.trim(),
+    primary: i === primaryIdx
+  })).filter(c => c.rel || c.phone);
+  if (contacts.some(c => !c.phone)) return err("有聯絡人沒有填電話");
+  if (contacts.length && !contacts.some(c => c.primary)) contacts[0].primary = true;
+  const pinNeeded = !$("sPinWrap").classList.contains("hidden");
+  const pin = $("sPin").value.trim();
+  if (pinNeeded && !/^\d{4}$/.test(pin)) return err("學習通初始密碼必須是 4 位數字");
+  const payload = {
+    id: editing ? editing.id : "",
+    name, school: $("sSchool").value, grade: $("sGrade").value, school_class: cls,
+    birthday: $("sBday").value, contacts,
+    fixed_off_days: [...$("sDays").querySelectorAll("input:checked")].map(i => +i.value),
+    class_ids: [...$("sClasses").querySelectorAll("input:checked")].map(i => i.value),
+    note: $("sNote").value.trim(),
+    active: $("sActive").checked, in_rollcall: $("sRc").checked, learning_enabled: $("sLn").checked,
+    pin: pinNeeded ? pin : ""
+  };
+  busy(true);
+  try {
+    const res = await rpc("admin_save_student", { p: payload });
+    $("sDlg").close();
+    const code = res && res.account_code;
+    toast(editing ? `已更新 ${name}` : `已新增 ${name}${code ? "，帳號 " + code : ""}${pinNeeded ? "，初始密碼 " + pin : ""}`);
+    await load();
+  } catch (ex) { err(friendly(ex)); } finally { busy(false); }
+}
+
+/* ---------- 重設密碼 ---------- */
+let pwdTarget = null;
+function openReset(s) {
+  hidePin();
+  pwdTarget = s;
+  $("pWho").textContent = `${s.name}（${s.account_code || ""}）`;
+  $("pNew").value = randomPin();
+  $("pErr").classList.add("hidden");
+  $("pDlg").showModal();
+  $("pNew").select();
+}
+async function saveReset(e) {
+  e.preventDefault();
+  const pin = $("pNew").value.trim();
+  if (!/^\d{4}$/.test(pin)) { $("pErr").textContent = "密碼必須是 4 位數字"; $("pErr").classList.remove("hidden"); return; }
+  busy(true);
+  try {
+    await rpc("admin_set_student_pin", { p_id: pwdTarget.id, p_pin: pin });
+    $("pDlg").close();
+    toast(`已重設 ${pwdTarget.name} 的密碼為 ${pin}`);
+    await load();
+  } catch (ex) { $("pErr").textContent = friendly(ex); $("pErr").classList.remove("hidden"); } finally { busy(false); }
+}
+
+/* ---------- 事件 ---------- */
+$("tbody").addEventListener("click", e => {
+  const b = e.target.closest("button[data-act]");
+  if (!b) return;
+  const s = STUDENTS.find(x => x.id === b.dataset.id);
+  if (!s) return;
+  ({ edit: () => openEdit(s), reset: () => openReset(s), pin: () => togglePin(s.id) })[b.dataset.act]();
+});
+let qTimer;
+$("q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(render, 150); });
+["fSchoolF", "fGradeF", "fStatus", "fRc", "fLn", "fNoContact"].forEach(id => $(id).addEventListener("change", render));
+$("addBtn").addEventListener("click", () => openEdit(null));
+$("sLn").addEventListener("change", updatePinField);
+$("sForm").addEventListener("submit", saveStudent);
+$("pForm").addEventListener("submit", saveReset);
+["sPin", "pNew"].forEach(id => $(id).addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4); }));
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
+$("logoutBtn").addEventListener("click", () => goPortal(""));
+
+/* ---------- 啟動：只有管理員能進來 ---------- */
+(async () => {
+  busy(true);
+  try {
+    const last = parseInt(sessionStorage.getItem("lastActivityTime") || "0", 10);
+    if (last && Date.now() - last > IDLE_MS) return goPortal("閒置超過 60 分鐘，已自動登出");
+    const { data: s } = await sb.auth.getSession();
+    if (!s || !s.session) return location.replace(PORTAL_URL);
+    const me = await sb.from("profiles").select("role").eq("id", s.session.user.id).maybeSingle();
+    if (!me.data || me.data.role !== "admin") return location.replace(PORTAL_URL);
+    touch();
+    await load();
+  } catch (ex) {
+    $("tbody").innerHTML = `<tr><td colspan="8" class="empty">${esc(friendly(ex))}</td></tr>`;
+  } finally { busy(false); }
+})();
+</script>
+<script src="../switcher.js" data-app="roster" defer></script>
+</body>
+</html>
