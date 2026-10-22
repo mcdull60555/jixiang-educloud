@@ -499,7 +499,7 @@ $("logoutBtn").addEventListener("click", () => goPortal(""));
     const last = parseInt(sessionStorage.getItem("lastActivityTime") || "0", 10);
     if (last && Date.now() - last > IDLE_MS) return goPortal("閒置超過 60 分鐘，已自動登出");
     const { data: s } = await sb.auth.getSession();
-    if (!s || !s.session) return location.replace(PORTAL_URL);
+    if (!s || !s.session) return location.replace(PORTAL_URL + "?next=accounts");
     const me = await sb.from("profiles").select("role").eq("id", s.session.user.id).maybeSingle();
     if (!me.data || me.data.role !== "admin") return location.replace(PORTAL_URL);
     touch();

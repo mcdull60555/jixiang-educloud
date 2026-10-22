@@ -364,6 +364,7 @@ async function doLogin(e) {
     shareWithLearning(set.data.session, me);
     saveRemember(mode === "staff" ? normStaffAcct($("staffAcctInput").value) : $("acctInput").value.trim().toUpperCase());
     $("pinInput").value = ""; $("staffPwdInput").value = ""; hidePasswords();
+    if (goNext(me)) return;
     showPortal(me);
   } catch (err) {
     showError("登入時發生錯誤：" + (err.message || err));
@@ -403,6 +404,22 @@ async function logout() {
   ["authToken", "isTeacherLoggedIn", "loggedInStudentId", "lastActivityTime", "jx-me"].forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });
   busy(false);
   showLogin();
+}
+
+/* ==================== 登入後回到原本要去的系統（?next=） ==================== */
+const NEXT = (() => { try { return new URLSearchParams(location.search).get("next") || ""; } catch (_) { return ""; } })();
+const NEXT_TARGET = {
+  learning: { url: LEARNING_URL, roles: ["admin", "teacher", "student"], name: "學習通" },
+  rollcall: { url: ROLLCALL_URL, roles: ["admin", "teacher"], name: "雲點名" },
+  accounts: { url: "accounts/", roles: ["admin"], name: "帳號管理" }
+};
+function clearNext() { try { if (NEXT) history.replaceState(null, "", location.pathname); } catch (_) { /* 忽略 */ } }
+// 有權限就直接進去，回傳 true；沒有權限就留在入口
+function goNext(me) {
+  const t = NEXT_TARGET[NEXT];
+  if (t && me && t.roles.includes(me.role)) { location.replace(t.url); return true; }
+  clearNext();
+  return false;
 }
 
 /* ==================== 入口卡片 ==================== */
@@ -502,12 +519,15 @@ $("acctInput").addEventListener("input", e => { e.target.value = e.target.value.
   if (me) {
     const { data: s } = await sb.auth.getSession();
     if (s && s.session) shareWithLearning(s.session, me);
+    if (goNext(me)) return;
     showPortal(me);
   }
   else {
     let fromApp = false;
     try { fromApp = sessionStorage.getItem("jx-notice") !== null; } catch (_) { /* 忽略 */ }
     showLogin(fromApp);
+    const t = NEXT_TARGET[NEXT];
+    if (t && !fromApp) { $("loginNoticeText").textContent = `請先登入，登入後會直接進入${t.name}`; $("loginNotice").classList.remove("hidden"); }
   }
 })();
 </script>
