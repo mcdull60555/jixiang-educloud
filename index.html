@@ -338,7 +338,7 @@ async function doLogin(e) {
 async function loadMe() {
   const { data: s } = await sb.auth.getSession();
   if (!s || !s.session) return null;
-  const p = await sb.from("profiles").select("role,student_id,display_name,login_id").eq("id", s.session.user.id).maybeSingle();
+  const p = await sb.from("profiles").select("role,student_id,display_name,login_id,title").eq("id", s.session.user.id).maybeSingle();
   if (p.error || !p.data) return null;
   const me = Object.assign({}, p.data);
   if (me.role === "student") {
@@ -408,7 +408,7 @@ function cardHtml(key) {
 }
 
 function showPortal(me) {
-  const roleName = { admin: "管理員", teacher: "老師", student: "學生・家長" }[me.role] || "";
+  const roleName = me.role === "teacher" ? (me.title || "老師") : ({ admin: "管理員", student: "學生・家長" }[me.role] || "");
   $("roleChip").textContent = roleName;
   if (me.role === "student") {
     $("greetTitle").textContent = `您好，${me.name || "同學"}`;

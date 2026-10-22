@@ -66,6 +66,13 @@
   .tmeta .lbl { color: var(--muted); margin-right: 2px; }
   .pill { font-size: 12.5px; padding: 2px 9px; border-radius: 999px; background: var(--blue-l); color: var(--blue-d); font-weight: 500; }
   .pill.g { background: #FEF3C7; color: #92400E; }
+  .ttl { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: #E0E7FF; color: #3730A3; }
+  .ttl.dir { background: #FEF3C7; color: #92400E; }
+  .seg2 { display: inline-grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; background: #EEF2F7; border-radius: 12px; }
+  .seg2 label { min-height: 40px; min-width: 96px; display: flex; align-items: center; justify-content: center; border-radius: 9px; cursor: pointer; font-size: 15px; color: var(--muted-2); }
+  .seg2 input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg2 label:has(input:checked) { background: #fff; color: var(--blue-d); font-weight: 700; box-shadow: 0 1px 3px rgba(15,23,42,.1); }
+  .seg2 label:has(input:focus-visible) { outline: 3px solid rgba(22,96,214,.35); }
   .pill.none { background: #F1F5F9; color: var(--muted); }
   .tact { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .empty { text-align: center; color: var(--muted); padding: 28px 0; }
@@ -143,7 +150,7 @@
       <button type="button" class="btn primary" id="addBtn">＋ 新增老師</button>
     </div>
     <ul class="tlist" id="tlist"><li class="empty">讀取中…</li></ul>
-    <p class="note">「負責班級」決定老師在學習通能管理哪些班、在學生名冊能看哪些學生的密碼；「可管理年級」不勾代表全部年級都可以。<br>刪除老師後，雲點名過去的點名紀錄仍保留老師姓名。</p>
+    <p class="note">「主任」可以瀏覽所有班級（別班只能看、不能改），也能查看全部學生的密碼。<br>「負責班級」決定老師在學習通能管理哪些班、在學生名冊能看哪些學生的密碼；「可管理年級」不勾代表全部年級都可以。<br>刪除老師後，雲點名過去的點名紀錄仍保留老師姓名。</p>
   </section>
 
   <section class="panel" aria-labelledby="aTitle">
@@ -167,6 +174,14 @@
       <label class="field">姓名
         <input type="text" id="fName" maxlength="40" autocomplete="off">
       </label>
+      <fieldset>
+        <legend>職稱</legend>
+        <div class="seg2" role="radiogroup" aria-label="職稱">
+          <label><input type="radio" name="fTitle" value="老師" checked>老師</label>
+          <label><input type="radio" name="fTitle" value="主任">主任</label>
+        </div>
+        <p class="help" id="fTitleHelp" style="margin:8px 0 0;font-size:12.5px;color:var(--muted)"></p>
+      </fieldset>
       <label class="field" id="fIdWrap">登入帳號
         <span class="prefix"><span>t_</span><input type="text" id="fId" maxlength="60" autocomplete="off" spellcheck="false" autocapitalize="off"></span>
         <span class="help" id="fIdHelp">英文小寫、數字、- 或 _，建立後不能修改</span>
@@ -262,6 +277,7 @@ function friendly(err) {
   if (/password must/.test(m)) return "密碼至少要 4 個字";
   if (/name required/.test(m)) return "請輸入姓名";
   if (/class not found/.test(m)) return "找不到這個班級，請重新整理後再試";
+  if (/unknown title/.test(m)) return "職稱只能選老師或主任";
   if (/unknown grade/.test(m)) return "找不到這個年級，請重新整理後再試";
   if (/teacher not found/.test(m)) return "找不到這位老師，可能已被刪除";
   if (/Failed to fetch|NetworkError/i.test(m)) return "無法連線，請檢查網路後再試一次";
@@ -294,7 +310,7 @@ setInterval(() => {
 /* ---------- 讀資料 ---------- */
 async function load() {
   const [p, tc, c, g] = await Promise.all([
-    sb.from("profiles").select("id,login_id,display_name,sort_order,allowed_grades,created_at").eq("role", "teacher"),
+    sb.from("profiles").select("id,login_id,display_name,sort_order,allowed_grades,created_at,title").eq("role", "teacher"),
     sb.from("teacher_classes").select("teacher_id,class_id"),
     sb.from("classes").select("id,name,sort_order"),
     sb.from("grades").select("name")
@@ -324,7 +340,7 @@ function render() {
         <button type="button" class="btn icon" data-act="down" data-id="${t.id}" aria-label="把 ${esc(t.display_name)} 往下移" ${i === TEACHERS.length - 1 ? "disabled" : ""}>▼</button>
       </div>
       <div>
-        <div class="tname">${esc(t.display_name || t.login_id)} <span class="tid">${esc(t.login_id)}</span></div>
+        <div class="tname">${esc(t.display_name || t.login_id)} <span class="ttl${t.title === "主任" ? " dir" : ""}">${esc(t.title || "老師")}</span> <span class="tid">${esc(t.login_id)}</span></div>
         <div class="tmeta">
           <span class="lbl">負責班級</span>${t.classIds.length ? t.classIds.map(id => `<span class="pill">${esc(cname(id))}</span>`).join("") : '<span class="pill none">未指定</span>'}
           <span class="lbl" style="margin-left:8px">可管理年級</span>${t.allowed_grades && t.allowed_grades.length ? t.allowed_grades.map(g => `<span class="pill g">${esc(g)}</span>`).join("") : '<span class="pill none">全部</span>'}
@@ -347,12 +363,17 @@ function checks(boxId, items, selected) {
   $(boxId).innerHTML = items.length ? items.map(it => `<label><input type="checkbox" value="${esc(it.value)}" ${selected.includes(it.value) ? "checked" : ""}>${esc(it.label)}</label>`).join("")
     : '<span class="help" style="color:var(--muted);font-size:13px">還沒有任何項目</span>';
 }
+const TITLE_HELP = { "老師": "只能管理自己負責的班級", "主任": "可以瀏覽所有班級（別班只能看、不能改），也能查看全部學生的密碼；自己負責的班級照常可以修改" };
+function getTitle() { const r = document.querySelector('input[name="fTitle"]:checked'); return r ? r.value : "老師"; }
+function setTitle(v) { document.querySelectorAll('input[name="fTitle"]').forEach(r => { r.checked = r.value === v; }); $("fTitleHelp").textContent = TITLE_HELP[v]; }
+document.querySelectorAll('input[name="fTitle"]').forEach(r => r.addEventListener("change", () => setTitle(getTitle())));
 function checked(boxId) { return [...$(boxId).querySelectorAll("input:checked")].map(i => i.value); }
 
 function openEdit(t) {
   editing = t || null;
   $("tDlgTitle").textContent = t ? "編輯老師" : "新增老師";
   $("fName").value = t ? (t.display_name || "") : "";
+  setTitle(t && t.title === "主任" ? "主任" : "老師");
   $("fId").value = t ? t.login_id.replace(/^t_/, "") : nextLoginId();
   $("fId").disabled = !!t;
   $("fIdHelp").textContent = t ? "登入帳號建立後不能修改" : "英文小寫、數字、- 或 _，建立後不能修改";
@@ -369,12 +390,14 @@ async function saveTeacher(e) {
   const err = m => { $("tErr").textContent = m; $("tErr").classList.remove("hidden"); };
   const name = $("fName").value.trim();
   const classIds = checked("fClasses"), grades = checked("fGrades");
+  const title = getTitle();
   if (!name) return err("請輸入姓名");
   busy(true);
   try {
     if (editing) {
       await rpc("admin_save_teacher", { p_id: editing.id, p_name: name, p_classes: classIds });
       await rpc("admin_set_teacher_grades", { p_id: editing.id, p_grades: grades });
+      if ((editing.title || "老師") !== title) await rpc("admin_set_teacher_title", { p_id: editing.id, p_title: title });
     } else {
       const login = "t_" + $("fId").value.trim().toLowerCase().replace(/^t_/, "");
       const pwd = $("fPwd").value;
@@ -385,6 +408,7 @@ async function saveTeacher(e) {
       const id = res && res.id;
       if (id && classIds.length > 1) await rpc("admin_save_teacher", { p_id: id, p_name: name, p_classes: classIds });
       if (id && grades.length) await rpc("admin_set_teacher_grades", { p_id: id, p_grades: grades });
+      if (id && title !== "老師") await rpc("admin_set_teacher_title", { p_id: id, p_title: title });
       if (id) await rpc("admin_reorder_teachers", { p_ids: TEACHERS.map(t => t.id).concat(id) });
     }
     $("tDlg").close();
