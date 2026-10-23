@@ -201,22 +201,21 @@
 
   /* 學費單（紙本樣式）：固定 350px，列印兩欄剛好一頁 */
   .paper { --ln: #A9BEDD; --ac: #0F4FB8; width: 350px; background: #fff; color: #1E293B; border: 1.5px solid var(--ac); font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif; font-size: 14px; line-height: 1.35; }
-  .paper .phd { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: linear-gradient(90deg, #0F4FB8, #1D8CF0); color: #fff; border-bottom: 3px solid #F5B301; }
-  .paper .phd .lg { width: 56px; height: 60px; background: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex: none; }
+  .paper .phd { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #fff; color: #1E293B; border-bottom: 3px solid var(--ac); }
+  .paper .phd .lg { width: 56px; height: 60px; background: #fff; border-radius: 10px; border: 1px solid var(--ln); display: flex; align-items: center; justify-content: center; flex: none; }
   .paper .phd .lg img { width: 52px; height: 56px; object-fit: contain; display: block; }
   .paper .phd .tt { flex: 1; text-align: center; }
   .paper .phd .tt b { display: block; font-size: 21px; letter-spacing: 6px; }
-  .paper .phd .tt span { font-size: 11px; letter-spacing: 2px; opacity: .9; }
   .paper .ph2 { display: flex; justify-content: center; gap: 22px; font-size: 19px; font-weight: 700; padding: 8px 8px 8px; border-bottom: 1px solid var(--ln); }
   .paper .ph3 { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; font-size: 14px; border-bottom: 1px solid var(--ln); }
   .paper .ph3 small { font-size: 11px; font-weight: 700; }
-  .paper .band { text-align: center; font-size: 17px; font-weight: 700; letter-spacing: 3px; padding: 4px 0; background: var(--ac); color: #fff; border-bottom: 1px solid var(--ln); }
+  .paper .band { text-align: center; font-size: 17px; font-weight: 700; letter-spacing: 3px; padding: 4px 0; color: #1E293B; border-top: 2px solid var(--ac); border-bottom: 2px solid var(--ac); }
   .paper .pr { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--ln); min-height: 44px; }
   .paper .pl { padding: 4px 10px; font-size: 16px; display: flex; flex-direction: column; justify-content: space-between; }
   .paper .pl small, .paper .pv small { font-size: 10.5px; color: #475569; }
   .paper .pv { padding: 4px 10px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; }
   .paper .pv .amt { font-size: 18px; font-variant-numeric: tabular-nums; }
-  .paper .tot { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--ln); align-items: center; min-height: 40px; background: #EAF2FF; }
+  .paper .tot { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--ln); align-items: center; min-height: 40px; }
   .paper .tot .pl { font-size: 17px; font-weight: 700; }
   .paper .tot .pv { font-size: 20px; font-weight: 700; align-items: center; justify-content: center; color: var(--ac); }
   .paper .foot { padding: 6px 10px; font-size: 11.5px; border-bottom: 1px solid var(--ln); }
@@ -238,7 +237,6 @@
     #printArea .paper .phd { background: #fff !important; color: #000 !important; border-bottom: 2px solid #000; }
     #printArea .paper .phd .lg { background: #fff; border: 1px solid #000; }
     #printArea .paper .phd .lg img { filter: grayscale(1) contrast(1.5); }
-    #printArea .paper .phd .tt span { opacity: 1; }
     #printArea .paper .band { background: #fff !important; color: #000 !important; border-top: 2px solid #000; border-bottom: 2px solid #000; }
     #printArea .paper .tot { background: #fff !important; border-top: 2px solid #000; border-bottom: 2px solid #000; }
     #printArea .paper .tot .pv { color: #000; }
@@ -749,7 +747,7 @@ function paperHtml(b) {
       <div style="margin-top:4px"><b>匯款銀行 : ${esc(acc.bank_name)}${acc.bank_code ? " " + esc(acc.bank_code) : ""}</b></div>
       <div><b>匯款帳號 : ${esc(acc.account_no)}</b></div>` : `<div>（尚未選擇收款帳戶）</div>`;
   return `<div class="paper">
-    <div class="phd"><div class="lg"><img src="../logo-full.jpg" alt=""></div><div class="tt"><b>基 翔 文 教 機 構</b><span>JIXIANG EDUCATION</span></div></div>
+    <div class="phd"><div class="lg"><img src="../logo-full.jpg" alt=""></div><div class="tt"><b>基 翔 文 教 機 構</b></div></div>
     <div class="ph2"><span>${esc(b.grade_text)}</span><span>${esc(b.student_name)}</span></div>
     <div class="ph3"><small>繳費期限</small><span>${esc(fmtDue(b.due_date))}</span><small>請勿逾期，謝謝。</small></div>
     <div class="band">${esc(b.title || "學費單")}</div>
