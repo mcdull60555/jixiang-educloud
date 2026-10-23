@@ -137,6 +137,33 @@
   .busy { position: fixed; inset: 0; background: rgba(15,23,42,.3); display: flex; align-items: center; justify-content: center; z-index: 9400; color: #fff; font-size: 16px; font-weight: 700; }
   .test-tag { position: fixed; left: 8px; bottom: 8px; z-index: 99; background: #7c3aed; color: #fff; font: 700 11px/1 sans-serif; padding: 6px 10px; border-radius: 999px; opacity: .9; pointer-events: none; }
 
+  /* 帳密小卡 */
+  dialog.wide { width: min(920px, calc(100vw - 24px)); }
+  .plist { border: 1px solid var(--line); border-radius: 12px; max-height: 300px; overflow: auto; }
+  .plist label { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 14px; }
+  .plist label:last-child { border-bottom: 0; }
+  .plist label:hover { background: #F8FAFF; }
+  .plist input { accent-color: var(--blue); width: 18px; height: 18px; margin: 0; flex: 0 0 18px; }
+  .plist .a { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--muted); margin-left: auto; }
+  .pick-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .pick-tools .search { flex: 1 1 200px; min-height: 40px; }
+  .pick-tools .search input { height: 38px; }
+  .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .ccard { margin: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; }
+  .ccard img { display: block; width: 100%; height: auto; }
+  .ccard figcaption { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--line); font-size: 14px; font-weight: 700; flex-wrap: wrap; }
+  .ccard .btns { display: flex; gap: 6px; }
+  .warn { font-size: 13.5px; color: #92400E; background: #FEF3C7; border-radius: 10px; padding: 10px 12px; margin: 0; }
+  #printArea { display: none; }
+  @media print {
+    @page { size: A4; margin: 10mm; }
+    body > *:not(#printArea) { display: none !important; }
+    dialog { display: none !important; }
+    body { background: #fff; }
+    #printArea { display: grid; grid-template-columns: 92mm 92mm; gap: 5mm; }
+    #printArea img { width: 92mm; height: auto; border: 1px dashed #94A3B8; break-inside: avoid; }
+  }
+
   /* 手機：表格改成卡片 */
   @media (max-width: 760px) {
     .hero { padding: 0 14px 88px; }
@@ -197,6 +224,7 @@
         <option value="left">已離班</option>
         <option value="all">全部</option>
       </select>
+      <button type="button" class="btn" id="cardBtn">帳密小卡</button>
       <button type="button" class="btn primary" id="addBtn">＋ 新增學生</button>
     </div>
     <div class="filters2">
@@ -220,6 +248,7 @@
   <div class="dlg-body" id="dBody"></div>
   <div class="dlg-foot">
     <button type="button" class="btn" data-close>關閉</button>
+    <button type="button" class="btn" id="dCard">帳密小卡</button>
     <button type="button" class="btn" id="dReset">重設密碼</button>
     <button type="button" class="btn primary" id="dEdit">編輯</button>
   </div>
@@ -291,6 +320,57 @@
     </div>
   </form>
 </dialog>
+
+<!-- 帳密小卡：選學生 → 產生圖片 → 傳給家長 -->
+<dialog id="cDlg" class="wide" aria-labelledby="cTitle">
+  <div class="dlg-head"><h3 id="cTitle">帳密小卡</h3><span class="help">姓名、帳號、目前密碼做成一張圖片，可直接傳給家長</span></div>
+  <div id="cStep1">
+    <div class="dlg-body">
+      <div class="checks" role="radiogroup" aria-label="選擇範圍">
+        <label><input type="radio" name="cMode" value="pick" checked>單一／多位</label>
+        <label><input type="radio" name="cMode" value="grade">依年級</label>
+        <label><input type="radio" name="cMode" value="all">全部學生</label>
+      </div>
+      <div id="cPick">
+        <div class="pick-tools">
+          <label class="search" aria-label="搜尋學生">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input type="search" id="cSearch" placeholder="搜尋姓名或帳號">
+          </label>
+          <button type="button" class="btn sm" id="cSelAll">全選目前顯示</button>
+          <button type="button" class="btn sm" id="cSelNone">全部取消</button>
+        </div>
+        <div class="plist" id="cList"></div>
+      </div>
+      <div class="checks hidden" id="cGrade"></div>
+      <p class="help hidden" id="cAll" style="margin:0"></p>
+      <p class="help" id="cSum" style="margin:0"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="button" class="btn primary" id="cGen">產生小卡</button>
+    </div>
+  </div>
+  <div id="cStep2" class="hidden">
+    <div class="dlg-body">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span id="cDone" style="font-weight:700"></span>
+        <span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn sm" id="cDlAll">全部下載</button>
+          <button type="button" class="btn sm" id="cPrint">列印</button>
+        </span>
+      </div>
+      <p class="warn hidden" id="cSkip"></p>
+      <div class="cgrid" id="cGrid"></div>
+      <p class="help" style="margin:0">小卡含有目前密碼，只在這個畫面暫存；關閉視窗或 10 分鐘後會自動清除。傳送後請提醒家長妥善保管。</p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" id="cBack">重新選擇</button>
+      <button type="button" class="btn primary" data-close>關閉</button>
+    </div>
+  </div>
+</dialog>
+<div id="printArea" aria-hidden="true"></div>
 
 <div id="toast" class="hidden" role="status"></div>
 <div id="busy" class="busy hidden">處理中…</div>
@@ -400,8 +480,11 @@ function filtered() {
       if (!hay.includes(q) && !(qd.length >= 3 && phones.includes(qd))) return false;
     }
     return true;
-  }).sort((a, b) => gradeNo(a.grade) - gradeNo(b.grade) || (a.school_class || 0) - (b.school_class || 0)
-    || String(a.school).localeCompare(String(b.school), "zh-Hant") || String(a.name).localeCompare(String(b.name), "zh-Hant"));
+  }).sort(cmpStudent);
+}
+function cmpStudent(a, b) {
+  return gradeNo(a.grade) - gradeNo(b.grade) || (a.school_class || 0) - (b.school_class || 0)
+    || String(a.school).localeCompare(String(b.school), "zh-Hant") || String(a.name).localeCompare(String(b.name), "zh-Hant");
 }
 
 function render() {
@@ -484,12 +567,14 @@ function openDetail(s) {
     <section class="dsec"><h4>學生密碼</h4>${pinHtml}</section>
     ${s.note ? `<section class="dsec"><h4>備註</h4><div style="white-space:pre-wrap">${esc(s.note)}</div></section>` : ""}`;
   $("dReset").classList.toggle("hidden", !s.has_login);
+  $("dCard").classList.toggle("hidden", !(s.active && s.has_login && s.pin_viewable));
   $("dDlg").showModal();
 }
 $("dBody").addEventListener("click", e => { const b = e.target.closest('button[data-act="pin"]'); if (b) togglePin(b.dataset.id); });
 $("dDlg").addEventListener("close", () => { hidePin(); detailId = null; });
 $("dEdit").addEventListener("click", () => { const s = STUDENTS.find(x => x.id === detailId); $("dDlg").close(); if (s) openEdit(s); });
 $("dReset").addEventListener("click", () => { const s = STUDENTS.find(x => x.id === detailId); $("dDlg").close(); if (s) openReset(s); });
+$("dCard").addEventListener("click", () => { const s = STUDENTS.find(x => x.id === detailId); $("dDlg").close(); if (s) openCards(s.id, true); });
 
 /* ---------- 新增／編輯 ---------- */
 function contactRow(c, i) {
@@ -602,6 +687,217 @@ async function saveReset(e) {
     await load();
   } catch (ex) { $("pErr").textContent = friendly(ex); $("pErr").classList.remove("hidden"); } finally { busy(false); }
 }
+
+/* ---------- 帳密小卡：做成圖片，可直接傳給家長 ---------- */
+const CARD_W = 1000, CARD_H = 604;
+const CARD_FONT = '"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif';
+const CARD_MONO = 'ui-monospace,Menlo,Consolas,"Courier New",monospace';
+let cardItems = [], cardSel = new Set(), cardGrades = new Set(), cardTimer = null, logoPromise = null;
+
+const loginUrl = () => new URL("../", location.href).href;
+// 可做小卡：在學、已有學習通帳號、密碼可還原
+const cardEligible = () => STUDENTS.filter(s => s.active && s.has_login && s.pin_viewable).sort(cmpStudent);
+const cardMode = () => (document.querySelector('input[name="cMode"]:checked') || {}).value || "pick";
+
+function cardTargets() {
+  const all = cardEligible(), m = cardMode();
+  if (m === "all") return all;
+  if (m === "grade") return all.filter(s => cardGrades.has(s.grade));
+  return all.filter(s => cardSel.has(s.id));
+}
+function renderCardPick() {
+  const q = $("cSearch").value.trim().toLowerCase();
+  const list = cardEligible().filter(s => !q || (s.name + " " + (s.account_code || "")).toLowerCase().includes(q));
+  $("cList").innerHTML = list.length
+    ? list.map(s => `<label><input type="checkbox" value="${esc(s.id)}" ${cardSel.has(s.id) ? "checked" : ""}><b>${esc(s.name)}</b><span class="help">${esc(s.school)}・${esc(gradeText(s))}</span><span class="a">${esc(s.account_code || "")}</span></label>`).join("")
+    : '<div class="empty">沒有符合的學生</div>';
+}
+function renderCardGrades() {
+  const all = cardEligible();
+  $("cGrade").innerHTML = GRADES.map(g => {
+    const n = all.filter(s => s.grade === g).length;
+    return n ? `<label><input type="checkbox" value="${g}" ${cardGrades.has(g) ? "checked" : ""}>${g}（${n} 位）</label>` : "";
+  }).join("") || '<span class="help">沒有可以產生小卡的學生</span>';
+}
+function updateCardSummary() {
+  const n = cardTargets().length;
+  const blocked = STUDENTS.filter(s => s.active && (!s.has_login || !s.pin_viewable)).length;
+  $("cAll").textContent = `在學、已開通學習通的全部學生，共 ${cardEligible().length} 位`;
+  $("cSum").textContent = `將產生 ${n} 張小卡` + (blocked ? `。另有 ${blocked} 位在學學生沒有可查看的密碼（尚未開通學習通，或舊密碼需先「重設密碼」），不會列入` : "");
+  $("cGen").disabled = n === 0;
+}
+function setCardMode() {
+  const m = cardMode();
+  $("cPick").classList.toggle("hidden", m !== "pick");
+  $("cGrade").classList.toggle("hidden", m !== "grade");
+  $("cAll").classList.toggle("hidden", m !== "all");
+  updateCardSummary();
+}
+function cardStep(n) { $("cStep1").classList.toggle("hidden", n !== 1); $("cStep2").classList.toggle("hidden", n !== 2); }
+
+function clearCards() {
+  clearTimeout(cardTimer);
+  cardItems.forEach(it => URL.revokeObjectURL(it.url));
+  cardItems = [];
+  $("cGrid").innerHTML = ""; $("printArea").innerHTML = "";
+}
+function openCards(preId, auto) {
+  hidePin(); clearCards();
+  cardSel = new Set(preId ? [preId] : []); cardGrades = new Set();
+  $("cSearch").value = "";
+  document.querySelector('input[name="cMode"][value="pick"]').checked = true;
+  renderCardPick(); renderCardGrades(); setCardMode(); cardStep(1);
+  $("cDlg").showModal();
+  if (auto) genCards();
+}
+
+/* 畫一張小卡（PNG） */
+const loadLogo = () => logoPromise || (logoPromise = new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = "../logo.png"; }));
+function rrPath(x, a, b, w, h, r) {
+  x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r);
+  x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath();
+}
+async function drawCard(s, pin) {
+  const url = loginUrl().replace(/^https?:\/\//, "");
+  try { await document.fonts.load('700 60px "Noto Sans TC"', s.name + "基翔學務雲帳號密碼同學登入資料網址請妥善保管勿將轉給他人"); } catch (_) { /* 用備用字型 */ }
+  const logo = await loadLogo();
+  const c = document.createElement("canvas"); c.width = CARD_W; c.height = CARD_H;
+  const x = c.getContext("2d");
+  x.textBaseline = "alphabetic";
+  x.fillStyle = "#fff"; x.fillRect(0, 0, CARD_W, CARD_H);
+  // 上方藍色標題列
+  const g = x.createLinearGradient(0, 0, CARD_W, 0); g.addColorStop(0, "#0F4FB8"); g.addColorStop(1, "#1D8CF0");
+  x.fillStyle = g; x.fillRect(0, 0, CARD_W, 150);
+  x.fillStyle = "#fff"; rrPath(x, 40, 35, 80, 80, 18); x.fill();
+  if (logo) { x.save(); rrPath(x, 40, 35, 80, 80, 18); x.clip(); x.drawImage(logo, 40, 35, 80, 80); x.restore(); }
+  x.fillStyle = "#fff"; x.font = `700 44px ${CARD_FONT}`; x.fillText("基翔學務雲", 140, 82);
+  x.fillStyle = "#DBEAFE"; x.font = `500 20px ${CARD_FONT}`; x.fillText("JX EduCloud", 142, 112);
+  x.fillStyle = "#F5B301"; rrPath(x, 790, 56, 170, 46, 23); x.fill();
+  x.fillStyle = "#1E293B"; x.font = `700 24px ${CARD_FONT}`; x.textAlign = "center"; x.fillText("登入資料", 875, 88); x.textAlign = "left";
+  // 姓名
+  let fs = 64; x.font = `700 ${fs}px ${CARD_FONT}`;
+  while (x.measureText(s.name).width > 640 && fs > 36) { fs -= 4; x.font = `700 ${fs}px ${CARD_FONT}`; }
+  x.fillStyle = "#1E293B"; x.fillText(s.name, 50, 240);
+  const nw = x.measureText(s.name).width;
+  x.fillStyle = "#64748B"; x.font = `500 32px ${CARD_FONT}`; x.fillText("同學", 50 + nw + 14, 240);
+  // 帳號、密碼
+  [["帳號", 270], ["密碼", 390]].forEach(([label, top]) => {
+    x.fillStyle = "#F1F5F9"; rrPath(x, 40, top, 920, 100, 20); x.fill();
+    x.fillStyle = "#64748B"; x.font = `500 30px ${CARD_FONT}`; x.fillText(label, 72, top + 63);
+  });
+  x.fillStyle = "#0F4FB8"; x.font = `600 56px ${CARD_MONO}`; x.fillText(s.account_code || "", 240, 340);
+  x.fillStyle = "#1E293B"; x.font = `700 70px ${CARD_MONO}`;
+  let px = 240; for (const ch of String(pin)) { x.fillText(ch, px, 465); px += x.measureText(ch).width + 20; }
+  // 下方說明
+  x.fillStyle = "#475569"; x.font = `500 24px ${CARD_FONT}`; x.fillText("登入網址　" + url, 40, 543);
+  x.fillStyle = "#94A3B8"; x.font = `400 22px ${CARD_FONT}`; x.fillText("請妥善保管，勿將密碼轉給他人", 40, 578);
+  x.strokeStyle = "#CBD5E1"; x.lineWidth = 2; x.strokeRect(1, 1, CARD_W - 2, CARD_H - 2);
+  return new Promise(res => c.toBlob(res, "image/png"));
+}
+
+async function genCards() {
+  const list = cardTargets();
+  if (!list.length) return;
+  clearCards();
+  busy(true);
+  const skipped = [], pins = new Map();
+  let done = 0;
+  const prog = () => { $("busy").textContent = `產生中 ${done}／${list.length}…`; };
+  prog();
+  try {
+    const queue = [...list];
+    const worker = async () => {
+      while (queue.length) {
+        const s = queue.shift();
+        try {
+          const pin = await rpc("reveal_student_pin", { p_student_id: s.id });
+          if (pin) pins.set(s.id, pin); else skipped.push(s);
+        } catch (ex) { skipped.push(s); }
+        done++; prog();
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(5, list.length) }, worker));
+    for (const s of list) {
+      const pin = pins.get(s.id);
+      if (!pin) continue;
+      const blob = await drawCard(s, pin);
+      if (!blob) { skipped.push(s); continue; }
+      cardItems.push({ id: s.id, name: s.name, blob, url: URL.createObjectURL(blob), fname: `帳密小卡_${s.account_code || "JX"}_${s.name}.png` });
+    }
+    pins.clear();
+    $("cGrid").innerHTML = cardItems.map((it, i) => `<figure class="ccard">
+        <img src="${it.url}" alt="${esc(it.name)} 的帳密小卡">
+        <figcaption><span>${esc(it.name)}</span><span class="btns">
+          <button type="button" class="btn sm primary" data-ca="share" data-i="${i}">傳送</button>
+          <button type="button" class="btn sm" data-ca="copy" data-i="${i}">複製</button>
+          <button type="button" class="btn sm" data-ca="dl" data-i="${i}">下載</button>
+        </span></figcaption></figure>`).join("");
+    $("cDone").textContent = `已產生 ${cardItems.length} 張小卡`;
+    $("cSkip").classList.toggle("hidden", !skipped.length);
+    if (skipped.length) $("cSkip").textContent = `有 ${skipped.length} 位讀不到密碼，沒有產生：${skipped.map(s => s.name).join("、")}。請先「重設密碼」後再試`;
+    $("cDlAll").disabled = $("cPrint").disabled = !cardItems.length;
+    cardStep(2);
+    clearTimeout(cardTimer);
+    cardTimer = setTimeout(() => { clearCards(); if ($("cDlg").open) $("cDlg").close(); toast("小卡已超過 10 分鐘，已自動清除"); }, 10 * 60 * 1000);
+  } catch (ex) { toast(friendly(ex), true); } finally { busy(false); $("busy").textContent = "處理中…"; }
+}
+
+function downloadCard(i) {
+  const it = cardItems[i]; if (!it) return;
+  const a = document.createElement("a"); a.href = it.url; a.download = it.fname;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+async function shareCard(i) {
+  const it = cardItems[i]; if (!it) return;
+  const file = new File([it.blob], it.fname, { type: "image/png" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: `${it.name} 的學務雲登入卡` }); return; }
+    catch (ex) { if (ex && ex.name === "AbortError") return; }
+  }
+  downloadCard(i);
+  toast("這個裝置不能直接分享，已改為下載圖片，再從 LINE 傳送");
+}
+async function copyCard(i) {
+  const it = cardItems[i]; if (!it) return;
+  try { await navigator.clipboard.write([new ClipboardItem({ "image/png": it.blob })]); toast(`已複製 ${it.name} 的小卡，可到 LINE 直接貼上`); }
+  catch (_) { toast("這個瀏覽器無法複製圖片，請改用「下載」", true); }
+}
+async function downloadAllCards() {
+  for (let i = 0; i < cardItems.length; i++) { downloadCard(i); await new Promise(r => setTimeout(r, 400)); }
+  toast(`已下載 ${cardItems.length} 張`);
+}
+async function printCards() {
+  const wrap = $("printArea");
+  wrap.innerHTML = cardItems.map(it => `<img src="${it.url}" alt="">`).join("");
+  try { await Promise.all([...wrap.querySelectorAll("img")].map(im => im.decode().catch(() => {}))); } catch (_) { /* 忽略 */ }
+  window.print();
+}
+window.addEventListener("afterprint", () => { $("printArea").innerHTML = ""; });
+
+$("cardBtn").addEventListener("click", () => openCards(null, false));
+$("cDlg").addEventListener("close", clearCards);
+document.querySelectorAll('input[name="cMode"]').forEach(r => r.addEventListener("change", setCardMode));
+let cTimer; $("cSearch").addEventListener("input", () => { clearTimeout(cTimer); cTimer = setTimeout(renderCardPick, 120); });
+$("cList").addEventListener("change", e => {
+  if (!e.target.matches('input[type="checkbox"]')) return;
+  e.target.checked ? cardSel.add(e.target.value) : cardSel.delete(e.target.value);
+  updateCardSummary();
+});
+$("cGrade").addEventListener("change", e => {
+  if (!e.target.matches('input[type="checkbox"]')) return;
+  e.target.checked ? cardGrades.add(e.target.value) : cardGrades.delete(e.target.value);
+  updateCardSummary();
+});
+$("cSelAll").addEventListener("click", () => { $("cList").querySelectorAll('input[type="checkbox"]').forEach(i => cardSel.add(i.value)); renderCardPick(); updateCardSummary(); });
+$("cSelNone").addEventListener("click", () => { cardSel.clear(); renderCardPick(); updateCardSummary(); });
+$("cGen").addEventListener("click", genCards);
+$("cBack").addEventListener("click", () => { clearCards(); cardStep(1); });
+$("cDlAll").addEventListener("click", downloadAllCards);
+$("cPrint").addEventListener("click", printCards);
+$("cGrid").addEventListener("click", e => {
+  const b = e.target.closest("button[data-ca]"); if (!b) return;
+  ({ share: shareCard, copy: copyCard, dl: downloadCard })[b.dataset.ca](+b.dataset.i);
+});
 
 /* ---------- 事件 ---------- */
 $("tbody").addEventListener("click", e => {
