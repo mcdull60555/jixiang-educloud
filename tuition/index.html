@@ -226,6 +226,9 @@
   .paper .foot { padding: 6px 10px; font-size: 11.5px; border-bottom: 1px solid var(--ln); }
   .paper .foot b { font-weight: 700; }
   .paper .nt { padding: 6px 10px 18px; font-size: 12px; min-height: 52px; white-space: pre-wrap; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; max-width: 320px; }
+  .chip { font-size: 12.5px; padding: 2px 8px; border-radius: 999px; background: #EAF2FF; color: #0F4FB8; white-space: nowrap; }
+  .chip.neg { background: #FEF3F2; color: #B42318; }
   .paper-wrap { display: flex; justify-content: center; padding: 6px 0; overflow: auto; }
   dialog.paperdlg { width: min(460px, calc(100vw - 16px)); }
 
@@ -303,8 +306,8 @@
       <div class="sumbar" id="sumbar"></div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th class="c-chk"><input type="checkbox" id="chkAll" aria-label="全選" style="width:18px;height:18px;accent-color:#1660D6"></th><th>學生</th><th>梯次／標題</th><th>繳費期限</th><th style="text-align:right">總計</th><th>狀態</th><th></th></tr></thead>
-          <tbody id="tbody"><tr><td colspan="7" class="empty">載入中…</td></tr></tbody>
+          <thead><tr><th class="c-chk"><input type="checkbox" id="chkAll" aria-label="全選" style="width:18px;height:18px;accent-color:#1660D6"></th><th>學生</th><th>梯次／標題</th><th>收費項目</th><th>繳費期限</th><th style="text-align:right">總計</th><th>狀態</th><th></th></tr></thead>
+          <tbody id="tbody"><tr><td colspan="8" class="empty">載入中…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -716,6 +719,10 @@ function filtered() {
     return true;
   }).sort((a, b) => gradeNo(a.grade_text) - gradeNo(b.grade_text) || zh(schoolOf(a), schoolOf(b)) || zh(a.student_name, b.student_name) || zh(a.title, b.title));
 }
+function itemChips(b) {
+  const its = sortedItems(b).filter(i => i.counted && i.amount !== 0);
+  return its.length ? its.map(i => `<span class="chip${i.amount < 0 ? " neg" : ""}">${esc(i.label)}</span>`).join("") : '<span class="help">—</span>';
+}
 function render() {
   const list = filtered();
   const live = list.filter(b => b.status !== "void");
@@ -727,12 +734,13 @@ function render() {
       <td class="c-chk"><input type="checkbox" data-sel="${esc(b.id)}" ${SELECTED.has(b.id) ? "checked" : ""} aria-label="選取 ${esc(b.student_name)}"></td>
       <td><div class="nm">${esc(b.student_name)}</div><div class="sub">${esc(b.grade_text)}${b.dept ? "・" + esc(b.dept) : ""}</div></td>
       <td>${esc(b.title)}<div class="sub">${esc(term ? term.name : "")}</div></td>
+      <td><div class="chips">${itemChips(b)}</div></td>
       <td>${esc(fmtDate(b.due_date))}</td>
       <td class="money">${fmt(b.total)}</td>
       <td><span class="pill ${b.status}">${STATUS[b.status]}</span></td>
       <td><button type="button" class="btn sm" data-act="view" data-id="${esc(b.id)}">預覽</button></td>
     </tr>`;
-  }).join("") : `<tr><td colspan="7" class="empty">${BILLS.length ? "沒有符合條件的學費單" : "還沒有學費單" + (CAN_EDIT ? "，按右上「新增學費單」開始" : "")}</td></tr>`;
+  }).join("") : `<tr><td colspan="8" class="empty">${BILLS.length ? "沒有符合條件的學費單" : "還沒有學費單" + (CAN_EDIT ? "，按右上「新增學費單」開始" : "")}</td></tr>`;
   $("printSel").disabled = !SELECTED.size;
   const nDraft = BILLS.filter(b => SELECTED.has(b.id) && b.status === "draft").length;
   $("issueSel").disabled = !nDraft;
@@ -1865,7 +1873,7 @@ $("logoutBtn").addEventListener("click", () => goPortal(""));
     touch();
     await load();
   } catch (ex) {
-    $("tbody").innerHTML = `<tr><td colspan="7" class="empty">${esc(friendly(ex))}</td></tr>`;
+    $("tbody").innerHTML = `<tr><td colspan="8" class="empty">${esc(friendly(ex))}</td></tr>`;
   } finally { busy(false); }
 })();
 </script>
