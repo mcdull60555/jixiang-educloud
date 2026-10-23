@@ -187,7 +187,9 @@
 
   /* 項目編輯列 */
   .irows { display: flex; flex-direction: column; gap: 8px; }
-  .irow { display: grid; grid-template-columns: 110px 1.4fr 110px 1fr auto auto; gap: 6px; align-items: center; }
+  .irow { display: grid; grid-template-columns: 22px 110px 1.4fr 110px 1fr auto auto; gap: 6px; align-items: center; }
+  .irow .rgrip { color: var(--muted); cursor: grab; user-select: none; touch-action: none; text-align: center; font-weight: 700; letter-spacing: -2px; padding: 8px 0; }
+  .irow.moving { opacity: .55; box-shadow: 0 6px 18px rgba(15,23,42,.18); background: #fff; position: relative; z-index: 2; }
   .irow select, .irow input[type=text], .irow input[inputmode] { min-height: 40px; border: 1px solid #D5DEEA; border-radius: 9px; padding: 0 8px; font-size: 14px; width: 100%; background: #fff; }
   .irow .cnt { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; white-space: nowrap; cursor: pointer; }
   .irow .x { border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; min-width: 32px; min-height: 36px; }
@@ -231,6 +233,7 @@
   @media (max-width: 760px) {
     .irow { grid-template-columns: 1fr 1fr; }
     .irow .il, .irow .ip { grid-column: 1 / -1; }
+    .irow .rgrip { grid-column: 1 / -1; text-align: left; padding: 0; }
     .tabs { overflow: auto; }
     .tbl-wrap { overflow: auto; border: 1px solid var(--line); }
     table { min-width: 640px; }
@@ -816,7 +819,7 @@ function addRow(it, box) {
   it = it || { item_type: "tuition", label: "", amount: "", counted: true, period_text: "" };
   const d = document.createElement("div");
   d.className = "irow";
-  d.innerHTML = `<select class="it" aria-label="種類">${typeOptions(it.item_type)}</select>
+  d.innerHTML = `<span class="rgrip" title="拖曳調整順序" aria-label="拖曳調整順序">⋮⋮</span><select class="it" aria-label="種類">${typeOptions(it.item_type)}</select>
     <input type="text" class="il" maxlength="30" placeholder="項目名稱" aria-label="項目名稱" value="${esc(it.label)}">
     <input type="text" class="ia" inputmode="numeric" placeholder="金額" aria-label="金額" value="${it.amount === "" ? "" : esc(Math.abs(it.amount))}">
     <input type="text" class="ip" maxlength="40" placeholder="期間（例：115/10）" aria-label="期間" value="${esc(it.period_text || "")}">
@@ -1621,6 +1624,26 @@ function moveType(code, dir) {
   [codes[i], codes[j]] = [codes[j], codes[i]];
   saveTypeOrder(codes);
 }
+
+/* ---------- 明細列拖曳排序（滑鼠、觸控都可用） ---------- */
+document.addEventListener("pointerdown", e => {
+  const g = e.target.closest && e.target.closest(".rgrip"); if (!g) return;
+  const row = g.closest(".irow"), box = row.parentElement;
+  e.preventDefault();
+  row.classList.add("moving");
+  const move = ev => {
+    const sibs = [...box.querySelectorAll(".irow")].filter(r => r !== row);
+    const before = sibs.find(r => { const b = r.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+    if (before) { if (row.nextElementSibling !== before) box.insertBefore(row, before); }
+    else if (box.lastElementChild !== row) box.appendChild(row);
+  };
+  const up = () => {
+    row.classList.remove("moving");
+    document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); document.removeEventListener("pointercancel", up);
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  document.addEventListener("pointermove", move); document.addEventListener("pointerup", up); document.addEventListener("pointercancel", up);
+});
 
 /* ---------- 事件 ---------- */
 $("tbody").addEventListener("click", e => {
