@@ -1,0 +1,1091 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>晚餐管理｜基翔學務雲</title>
+<script>
+  // 沒有從學務雲登入就回登入頁
+  try { if (!sessionStorage.getItem("jx-auth")) location.replace("../"); } catch (e) { /* 忽略 */ }
+</script>
+<link rel="icon" href="../favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="../favicon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+
+  :root {
+    --bg: #F1F5F9; --card: #FFFFFF; --line: #E2E8F0; --line-2: #CBD5E1;
+    --text: #1E293B; --muted: #64748B; --muted-2: #475569;
+    --blue: #1660D6; --blue-d: #0F4FB8; --blue-l: #DBEAFE;
+    --gold: #F5B301; --green: #047857; --green-l: #D1FAE5; --rose: #BE123C; --rose-l: #FFE4E6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', system-ui, sans-serif; min-height: 100vh; }
+  button, input, select, textarea { font: inherit; }
+  .hidden { display: none !important; }
+
+  .hero { background: linear-gradient(90deg, #0F4FB8, #1D8CF0); color: #fff; padding: 0 20px 96px; }
+  .hero-inner { max-width: 1200px; margin: 0 auto; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; }
+  .logo { width: 44px; height: 44px; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 2px 8px rgba(15,23,42,.18); }
+  .logo img { width: 100%; height: 100%; display: block; }
+  .brand-name { font-size: 19px; font-weight: 700; letter-spacing: .5px; }
+  .brand-sub { font-size: 11px; color: #DBEAFE; letter-spacing: .5px; }
+  .chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--gold); color: var(--text); }
+  .ghost-btn { min-height: 40px; padding: 0 16px; border-radius: 10px; border: 0; background: rgba(255,255,255,.18); color: #fff; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .ghost-btn:hover { background: rgba(255,255,255,.28); }
+  .page-title { padding: 10px 0 0; }
+  .page-title h1 { margin: 0; font-size: 28px; }
+  .page-title p { margin: 8px 0 0; color: #EAF2FF; font-size: 15px; }
+
+  main { max-width: 1200px; margin: -72px auto 0; padding: 0 20px 96px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px 20px; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .search { flex: 1 1 260px; display: flex; align-items: center; gap: 8px; min-height: 44px; border: 1px solid #D5DEEA; border-radius: 11px; padding: 0 12px; background: #fff; }
+  .search:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(22,96,214,.15); }
+  .search input { border: 0; outline: none; flex: 1; min-width: 0; font-size: 15px; height: 42px; }
+  .sel { min-height: 44px; border: 1px solid #D5DEEA; border-radius: 11px; padding: 0 10px; background: #fff; font-size: 14px; color: var(--text); }
+  .filters2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .tog { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 999px; cursor: pointer; font-size: 13px; user-select: none; background: #fff; }
+  .tog:has(input:checked) { border-color: var(--blue); background: var(--blue-l); color: var(--blue-d); font-weight: 700; }
+  .tog input { margin: 0; accent-color: var(--blue); }
+  .count { margin-left: auto; font-size: 13px; color: var(--muted); }
+
+  .btn { min-height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line-2); background: #fff; color: var(--text); cursor: pointer; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+  .btn:hover { background: #F8FAFC; }
+  .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 700; }
+  .btn.primary:hover { background: var(--blue-d); }
+  .btn.sm { min-height: 32px; padding: 0 10px; font-size: 13px; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(22,96,214,.35); outline-offset: 1px; }
+
+  .tbl-wrap { margin-top: 14px; border: 1px solid var(--line); border-radius: 14px; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-weight: 700; font-size: 12.5px; color: var(--muted-2); background: #F8FAFC; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; position: sticky; top: 0; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  tr.off td { color: var(--muted); background: #FAFAFB; }
+  .acct { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 600; letter-spacing: .5px; white-space: nowrap; }
+  .nm { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .ph { white-space: nowrap; }
+  .ph .rel { color: var(--muted); margin-right: 4px; }
+  .pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; font-weight: 700; white-space: nowrap; }
+  .pill.on { background: var(--green-l); color: var(--green); }
+  .pill.offp { background: #F1F5F9; color: var(--muted); }
+  .pill.left { background: var(--rose-l); color: var(--rose); }
+  .pin { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .pin code { font-size: 16px; font-weight: 700; letter-spacing: 3px; min-width: 52px; display: inline-block; }
+  .pin .na { font-size: 12px; color: var(--muted); }
+  .empty { text-align: center; color: var(--muted); padding: 36px 0; }
+  tbody tr[data-id] { cursor: pointer; }
+  tbody tr[data-id]:hover td { background: #F8FAFF; }
+  tbody tr[data-id]:focus-visible { outline: 3px solid rgba(22,96,214,.35); outline-offset: -3px; }
+  .dsec { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  .dsec h4 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: .5px; }
+  .dl { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; margin: 0; font-size: 15px; }
+  .dl dt { color: var(--muted); }
+  .dl dd { margin: 0; font-weight: 500; }
+  .clist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .clist li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 15px; }
+  .clist .rel { color: var(--muted); min-width: 48px; }
+  .clist a { color: var(--blue-d); font-weight: 700; text-decoration: none; letter-spacing: .5px; }
+  .clist a:hover { text-decoration: underline; }
+  .prim { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #FEF3C7; color: #92400E; }
+  .dpin { display: flex; align-items: center; gap: 10px; }
+  .dpin code { font-size: 22px; font-weight: 700; letter-spacing: 6px; min-width: 80px; }
+
+  dialog { border: 0; border-radius: 18px; padding: 0; width: min(640px, calc(100vw - 24px)); box-shadow: 0 24px 60px rgba(15,23,42,.3); color: var(--text); }
+  dialog.narrow { width: min(440px, calc(100vw - 24px)); }
+  dialog::backdrop { background: rgba(15,23,42,.45); }
+  .dlg-head { padding: 18px 20px 0; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .dlg-head h3 { margin: 0; font-size: 19px; }
+  .dlg-body { padding: 14px 20px; display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 170px); overflow: auto; }
+  .dlg-foot { padding: 12px 20px 18px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1.3fr 1fr .7fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500; color: #334155; }
+  .field input, .field select, .field textarea { min-height: 44px; border: 1px solid #D5DEEA; border-radius: 10px; padding: 0 12px; font-size: 15px; background: #fff; width: 100%; }
+  .field textarea { padding: 10px 12px; min-height: 64px; resize: vertical; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--blue); outline: none; box-shadow: 0 0 0 3px rgba(22,96,214,.15); }
+  .help { font-size: 12.5px; color: var(--muted); font-weight: 400; }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  legend { font-size: 14px; font-weight: 500; color: #334155; padding: 0; margin-bottom: 8px; }
+  .crow { display: grid; grid-template-columns: 1fr 1.6fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .crow input[type=text], .crow input[type=tel] { min-height: 42px; border: 1px solid #D5DEEA; border-radius: 10px; padding: 0 10px; font-size: 15px; width: 100%; }
+  .crow label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; white-space: nowrap; cursor: pointer; }
+  .checks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .checks label { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 10px; cursor: pointer; font-size: 14px; user-select: none; }
+  .checks label:has(input:checked) { border-color: var(--blue); background: var(--blue-l); color: var(--blue-d); font-weight: 700; }
+  .checks input { accent-color: var(--blue); width: 16px; height: 16px; margin: 0; }
+  .switches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 500; }
+  .sw input { appearance: none; width: 40px; height: 24px; border-radius: 999px; background: #CBD5E1; position: relative; cursor: pointer; transition: background .15s; flex: 0 0 40px; margin: 0; }
+  .sw input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .sw input:checked { background: var(--blue); }
+  .sw input:checked::after { left: 19px; }
+  .err { font-size: 14px; color: var(--rose); background: var(--rose-l); border-radius: 10px; padding: 10px 12px; margin: 0; }
+  .acct-box { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; color: var(--blue-d); background: var(--blue-l); padding: 2px 10px; border-radius: 8px; }
+
+  #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: #1E293B; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 14px; z-index: 9000; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); }
+  #toast.bad { background: var(--rose); }
+  .busy { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgba(15,23,42,.45); display: flex; align-items: center; justify-content: center; z-index: 9400; color: #fff; font-size: 20px; text-shadow: 0 1px 6px rgba(0,0,0,.5); text-align: center; font-weight: 700; }
+  .test-tag { position: fixed; left: 8px; bottom: 8px; z-index: 99; background: #7c3aed; color: #fff; font: 700 11px/1 sans-serif; padding: 6px 10px; border-radius: 999px; opacity: .9; pointer-events: none; }
+  dialog.wide { width: min(920px, calc(100vw - 24px)); }
+  .plist { border: 1px solid var(--line); border-radius: 12px; max-height: 300px; overflow: auto; }
+  .plist label { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 14px; }
+  .plist label:last-child { border-bottom: 0; }
+  .plist label:hover { background: #F8FAFF; }
+  .plist input { accent-color: var(--blue); width: 18px; height: 18px; margin: 0; flex: 0 0 18px; }
+  .pick-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .pick-tools .search { flex: 1 1 200px; min-height: 40px; }
+  .pick-tools .search input { height: 38px; }
+  .warn { font-size: 13.5px; color: #92400E; background: #FEF3C7; border-radius: 10px; padding: 10px 12px; margin: 0; }
+
+  /* ===== 晚餐管理 ===== */
+  .mbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .mnav { display: inline-flex; align-items: center; gap: 6px; }
+  .mnav .sel { font-weight: 700; font-size: 15px; min-width: 150px; }
+  .pricebox { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted-2); }
+  .pricebox input { width: 72px; min-height: 40px; border: 1px solid #D5DEEA; border-radius: 10px; padding: 0 8px; text-align: right; font-size: 15px; font-weight: 700; }
+  .sums { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 12px 0 0; font-size: 13.5px; color: var(--muted); }
+  .sums b { color: var(--text); font-size: 16px; font-variant-numeric: tabular-nums; }
+  .sums .bad b { color: var(--rose); }
+  .grid-wrap { margin-top: 12px; border: 1px solid var(--line); border-radius: 14px; overflow: auto; max-height: calc(100vh - 140px); background: #fff; }
+  table.mt { border-collapse: separate; border-spacing: 0; font-size: 13px; width: max-content; min-width: 100%; }
+  .mt th, .mt td { border-bottom: 1px solid var(--line); border-right: 1px solid #EEF2F7; padding: 0; text-align: center; background: #fff; }
+  .mt thead th { position: sticky; top: 0; z-index: 3; background: #F8FAFC; font-size: 12px; color: var(--muted-2); height: 46px; line-height: 1.25; padding: 2px 0; }
+  .mt thead th small { display: block; font-weight: 400; color: var(--muted); }
+  .mt .nm-c { position: sticky; left: 0; z-index: 2; text-align: left; padding: 0 10px; min-width: 104px; max-width: 120px; white-space: nowrap; box-shadow: 1px 0 0 var(--line); background: #fff; cursor: pointer; }
+  .mt thead .nm-c { z-index: 4; background: #F8FAFC; cursor: default; }
+  .mt .nm-c b { font-size: 14.5px; }
+  .mt .nm-c small { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+  .mt tbody tr:hover td, .mt tbody tr:hover .nm-c { background: #F5F9FF; }
+  .mt td.c { width: 30px; min-width: 30px; height: 34px; cursor: pointer; user-select: none; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .mt td.c.we, .mt th.we { background: #F4F6FA; }
+  .mt td.c.hol, .mt th.hol { background: #FFF1E0; }
+  .mt td.c.on { background: var(--blue); color: #fff; }
+  .mt td.c.on.q2 { background: #0B3C91; }
+  .mt td.c:focus-visible { outline: 3px solid rgba(22,96,214,.5); outline-offset: -3px; }
+  .mt.ro td.c { cursor: default; }
+  .mt td.n { padding: 0 8px; white-space: nowrap; font-variant-numeric: tabular-nums; min-width: 54px; }
+  .mt td.n.amt { font-weight: 700; }
+  .mt td.bal { font-weight: 700; min-width: 86px; }
+  .mt td.bal.pos { color: var(--green); background: #F0FDF7; }
+  .mt td.bal.neg { color: var(--rose); background: #FFF5F6; }
+  .mi { width: 66px; min-height: 30px; border: 1px solid #D5DEEA; border-radius: 7px; padding: 0 6px; font-size: 13px; text-align: right; background: #fff; font-variant-numeric: tabular-nums; margin: 2px 4px; }
+  .mi.dirty { border-color: var(--blue); background: #F0F7FF; }
+  .mt tfoot td, .mt tfoot th { position: sticky; background: #F8FAFC; font-weight: 700; z-index: 2; border-top: 1px solid var(--line); }
+  .mt tfoot th { left: 0; z-index: 3; text-align: left; padding: 0 10px; box-shadow: 1px 0 0 var(--line); }
+  .mt tfoot input.di { width: 28px; min-height: 26px; border: 1px solid #D5DEEA; border-radius: 6px; text-align: center; font-size: 12.5px; padding: 0; margin: 2px 0; background: #fff; }
+  .mt tfoot td { height: 32px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+  .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 4px; border: 1px solid var(--line-2); }
+  .pill.pos { background: var(--green-l); color: var(--green); }
+  .pill.neg { background: var(--rose-l); color: var(--rose); }
+  .wdchecks { display: flex; gap: 6px; flex-wrap: wrap; }
+  .wdchecks label { display: inline-flex; align-items: center; justify-content: center; width: 42px; min-height: 38px; border: 1px solid var(--line-2); border-radius: 10px; cursor: pointer; font-size: 14px; user-select: none; }
+  .wdchecks label:has(input:checked) { border-color: var(--blue); background: var(--blue-l); color: var(--blue-d); font-weight: 700; }
+  .wdchecks input { display: none; }
+  .cards-grid { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; }
+  .cwrap { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .cwrap .btns { display: flex; gap: 6px; }
+  dialog.cards { width: min(860px, calc(100vw - 16px)); }
+  dialog.cards .dlg-body { background: #EEF2F7; }
+
+  /* 每月對帳小卡 */
+  .mc, .dc { --ln: #A9BEDD; --ac: #0F4FB8; width: 350px; background: #fff; color: #1E293B; border: 1.5px solid var(--ac); font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif; font-size: 14px; line-height: 1.35; }
+  .mc .hd, .dc .hd { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 3px solid var(--ac); }
+  .mc .hd .lg, .dc .hd .lg { width: 52px; height: 56px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .mc .hd .lg img, .dc .hd .lg img { width: 52px; height: 56px; object-fit: contain; display: block; }
+  .mc .hd .tt, .dc .hd .tt { flex: 1; text-align: center; }
+  .mc .hd .tt b, .dc .hd .tt b { display: block; font-size: 26px; letter-spacing: 3px; line-height: 1.15; }
+  .mc .hd .tt span, .dc .hd .tt span { font-size: 13px; color: #475569; letter-spacing: 1px; }
+  .mc .who { display: flex; justify-content: center; align-items: baseline; gap: 14px; padding: 8px 8px 6px; font-size: 21px; font-weight: 700; border-bottom: 1px solid var(--ln); }
+  .mc .who small { font-size: 14px; font-weight: 500; color: #475569; }
+  .mc .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding: 8px 10px 10px; }
+  .mc .cal i { font-style: normal; text-align: center; font-size: 13px; line-height: 26px; height: 26px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+  .mc .cal i.h { font-size: 12px; color: #64748B; height: 20px; line-height: 20px; }
+  .mc .cal i.d { border: 1px solid #E2E8F0; color: #94A3B8; }
+  .mc .cal i.d.on { background: var(--ac); border-color: var(--ac); color: #fff; font-weight: 700; }
+  .mc .cal i.d.on.q2 { background: #0B3C91; }
+  .mc .cal i.d.off { background: #F1F5F9; color: #CBD5E1; }
+  .mc .lgd { display: flex; justify-content: center; gap: 14px; font-size: 11.5px; color: #64748B; padding: 0 10px 8px; }
+  .mc .lgd i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 3px; }
+  .mc .r { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 6px 12px; border-top: 1px solid var(--ln); }
+  .mc .r span:first-child { color: #334155; }
+  .mc .r b { font-variant-numeric: tabular-nums; }
+  .mc .r small { color: #64748B; }
+  .mc .res { display: flex; justify-content: space-between; align-items: baseline; padding: 9px 12px; border-top: 2px solid var(--ac); border-bottom: 2px solid var(--ac); background: #F4F8FF; font-weight: 700; }
+  .mc .res b { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .mc .res.pos b { color: #047857; }
+  .mc .res.neg b { color: #BE123C; }
+  .mc .nt { padding: 8px 12px 10px; font-size: 12.5px; color: #475569; }
+
+  /* 每日訂餐名單小卡 */
+  .dc .dt { text-align: center; padding: 8px 8px 6px; font-size: 22px; font-weight: 700; border-bottom: 1px solid var(--ln); }
+  .dc .dt small { display: block; font-size: 13px; font-weight: 500; color: #475569; }
+  .dc .names { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 6px; padding: 10px 12px; min-height: 60px; }
+  .dc .names span { font-size: 16px; font-weight: 500; padding: 3px 0; border-bottom: 1px dotted #CBD5E1; white-space: nowrap; }
+  .dc .names span em { font-style: normal; font-size: 12px; font-weight: 700; color: #fff; background: var(--ac); border-radius: 5px; padding: 0 4px; margin-left: 3px; }
+  .dc .names .none { grid-column: 1 / -1; text-align: center; color: #64748B; padding: 16px 0; border: 0; }
+  .dc .cnt { display: flex; justify-content: space-between; padding: 6px 12px; border-top: 1px solid var(--ln); }
+  .dc .cnt.tot { border-top: 2px solid var(--ac); background: #F4F8FF; font-weight: 700; font-size: 16px; }
+  .dc .cnt.tot b { font-size: 22px; color: var(--ac); }
+  .dc .nt { padding: 8px 12px 10px; font-size: 12.5px; color: #475569; }
+
+  #printArea { display: none; }
+  @media print {
+    @page { size: A4; margin: 8mm; }
+    body > *:not(#printArea) { display: none !important; }
+    dialog { display: none !important; }
+    body { background: #fff; }
+    #printArea { display: grid; grid-template-columns: 350px 350px; gap: 4mm; justify-content: center; }
+    #printArea .mc, #printArea .dc { break-inside: avoid; --ln: #000; --ac: #000; border: 1.5px solid #000; color: #000; -webkit-print-color-adjust: economy; print-color-adjust: economy; }
+    #printArea .hd { border-bottom: 2px solid #000 !important; }
+    #printArea .hd .lg img { filter: grayscale(1) contrast(1.5); }
+    #printArea .cal i.d.on { background: #000 !important; color: #fff !important; }
+    #printArea .cal i.d.off, #printArea .res, #printArea .cnt.tot { background: #fff !important; }
+    #printArea .res.pos b, #printArea .res.neg b, #printArea .cnt.tot b { color: #000 !important; }
+    #printArea .names span em { background: #000 !important; }
+  }
+  @media (max-width: 760px) {
+    .grid-wrap { max-height: none; }
+    .page-title h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="hero-inner">
+    <div class="topbar">
+      <a class="brand" href="../">
+        <div class="logo"><img src="../logo.png" alt="基翔 logo"></div>
+        <div><div class="brand-name">基翔學務雲</div><div class="brand-sub">JX EduCloud</div></div>
+      </a>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="chip" id="roleChip">管理員</span>
+        <a class="ghost-btn" href="../">回首頁</a>
+        <button type="button" class="ghost-btn" id="logoutBtn">登出</button>
+      </div>
+    </div>
+    <div class="page-title">
+      <h1>晚餐管理</h1>
+      <p>每月訂餐、繳費對帳，產生家長對帳小卡與每日訂餐名單</p>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="panel">
+    <div class="mbar">
+      <div class="mnav">
+        <button type="button" class="btn" id="prevM" aria-label="上個月">◀</button>
+        <select class="sel" id="monSel" aria-label="月份"></select>
+        <button type="button" class="btn" id="nextM" aria-label="下個月">▶</button>
+      </div>
+      <label class="pricebox">單價 <input type="text" inputmode="numeric" id="price" aria-label="本月每餐單價"> 元／餐</label>
+      <label class="search" style="flex:1 1 180px;min-width:150px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="search" id="q" placeholder="搜尋姓名" autocomplete="off" aria-label="搜尋姓名"></label>
+    </div>
+    <div class="mbar" style="margin-top:10px">
+      <button type="button" class="btn primary" id="monthCardBtn">每月對帳小卡</button>
+      <button type="button" class="btn primary" id="dayCardBtn">每日訂餐名單</button>
+      <span style="flex:1"></span>
+      <button type="button" class="btn edit-only" id="addBtn">加入學生</button>
+      <button type="button" class="btn edit-only" id="fillBtn">依用餐星期自動填入</button>
+      <button type="button" class="btn edit-only" id="carryBtn">帶入上月結餘</button>
+      <button type="button" class="btn admin-only" id="setBtn">小卡設定</button>
+    </div>
+    <div class="sums" id="sums"></div>
+    <div class="grid-wrap"><table class="mt" id="grid"></table></div>
+    <div class="legend">
+      <span><i style="background:var(--blue)"></i>已訂（深色＝2 份）</span>
+      <span><i style="background:#F4F6FA"></i>週末</span>
+      <span><i style="background:#FFF1E0"></i>放假／停課（雲點名設定）</span>
+      <span>點日期格可切換 空白 → 1 份 → 2 份；點姓名可改用餐星期與備註</span>
+    </div>
+  </div>
+</main>
+
+<!-- 學生設定 -->
+<dialog id="stDlg" class="narrow" aria-labelledby="stTitle">
+  <form method="dialog" id="stForm">
+    <div class="dlg-head"><h3 id="stTitle">學生</h3><span id="stSub" class="help"></span></div>
+    <div class="dlg-body">
+      <fieldset><legend>固定用餐星期（自動填入時使用）</legend>
+        <div class="wdchecks" id="stWd"></div></fieldset>
+      <label class="sw" style="max-width:260px"><span>目前有訂晚餐</span><input type="checkbox" id="stActive"></label>
+      <label class="field">學生備註<textarea id="stNote" rows="2" placeholder="例如：週三不訂、對海鮮過敏…"></textarea></label>
+      <hr style="border:0;border-top:1px solid var(--line);width:100%;margin:0">
+      <div class="help" id="stMonthTitle" style="font-weight:700"></div>
+      <div class="grid2">
+        <label class="field">假日加強／考操（元）<input type="text" inputmode="numeric" id="stExtra"></label>
+        <label class="field">上月結餘（溢繳＋、欠繳−）<input type="text" inputmode="numeric" id="stCarry"></label>
+      </div>
+      <label class="field">加強說明（顯示在小卡）<input type="text" id="stExtraNote" placeholder="例如：假日考操"></label>
+      <label class="field">本月備註（顯示在小卡）<input type="text" id="stLNote"></label>
+      <p class="err hidden" id="stErr"></p>
+    </div>
+    <div class="dlg-foot" style="justify-content:space-between">
+      <button type="button" class="btn" id="stCard">這位的對帳小卡</button>
+      <span style="display:flex;gap:8px">
+        <button type="button" class="btn" data-close>取消</button>
+        <button type="submit" class="btn primary edit-only" id="stSave">儲存</button>
+      </span>
+    </div>
+  </form>
+</dialog>
+
+<!-- 加入學生 -->
+<dialog id="addDlg" aria-labelledby="addTitle">
+  <form method="dialog" id="addForm">
+    <div class="dlg-head"><h3 id="addTitle">加入晚餐學生</h3><span class="help">從學生名冊挑選，加入後就會出現在訂餐表</span></div>
+    <div class="dlg-body">
+      <div class="pick-tools">
+        <label class="search"><input type="search" id="addQ" placeholder="搜尋姓名、年級" autocomplete="off" aria-label="搜尋"></label>
+        <button type="button" class="btn sm" id="addNone">取消全選</button>
+      </div>
+      <div class="plist" id="addList"></div>
+      <fieldset><legend>固定用餐星期</legend><div class="wdchecks" id="addWd"></div></fieldset>
+      <p class="err hidden" id="addErr"></p>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn" data-close>取消</button><button type="submit" class="btn primary">加入</button></div>
+  </form>
+</dialog>
+
+<!-- 自動填入 -->
+<dialog id="fillDlg" aria-labelledby="fillTitle">
+  <form method="dialog" id="fillForm">
+    <div class="dlg-head"><h3 id="fillTitle">依用餐星期自動填入</h3><span class="help" id="fillSub"></span></div>
+    <div class="dlg-body">
+      <div class="checks">
+        <label><input type="radio" name="fillMode" value="blank" checked>只填還沒有紀錄的格子</label>
+        <label><input type="radio" name="fillMode" value="reset">整個月重填（依星期覆蓋）</label>
+      </div>
+      <p class="help">會略過雲點名設定的放假、停課日。填完仍可逐格修改（請假、不訂的日子取消即可）。</p>
+      <div class="pick-tools"><button type="button" class="btn sm" id="fillAll">全選</button><button type="button" class="btn sm" id="fillNone">取消全選</button></div>
+      <div class="plist" id="fillList"></div>
+      <p class="err hidden" id="fillErr"></p>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn" data-close>取消</button><button type="submit" class="btn primary">開始填入</button></div>
+  </form>
+</dialog>
+
+<!-- 選擇學生產生對帳小卡 -->
+<dialog id="mcDlg" aria-labelledby="mcTitle">
+  <form method="dialog" id="mcForm">
+    <div class="dlg-head"><h3 id="mcTitle">每月對帳小卡</h3><span class="help" id="mcSub"></span></div>
+    <div class="dlg-body">
+      <div class="pick-tools">
+        <label class="search"><input type="search" id="mcQ" placeholder="搜尋姓名" autocomplete="off" aria-label="搜尋"></label>
+        <select class="sel" id="mcFilter" aria-label="篩選">
+          <option value="all">全部</option><option value="ordered">本月有訂餐</option>
+          <option value="neg">尚需補繳</option><option value="pos">溢繳</option>
+        </select>
+        <button type="button" class="btn sm" id="mcAll">全選目前清單</button>
+        <button type="button" class="btn sm" id="mcNone">取消全選</button>
+      </div>
+      <div class="plist" id="mcList"></div>
+      <p class="help" id="mcCount"></p>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn" data-close>取消</button><button type="submit" class="btn primary">產生小卡</button></div>
+  </form>
+</dialog>
+
+<!-- 小卡預覽（每月、每日共用） -->
+<dialog id="cardsDlg" class="cards" aria-labelledby="cardsTitle">
+  <div class="dlg-head"><h3 id="cardsTitle">小卡</h3><span class="help" id="cardsSub"></span></div>
+  <div class="dlg-body"><div class="cards-grid" id="cardsGrid"></div></div>
+  <div class="dlg-foot" style="flex-wrap:wrap">
+    <button type="button" class="btn" data-close>關閉</button>
+    <button type="button" class="btn" id="cardsPrint">列印</button>
+    <button type="button" class="btn primary" id="cardsAll">全部下載</button>
+  </div>
+</dialog>
+
+<!-- 每日訂餐名單 -->
+<dialog id="dayDlg" class="cards" aria-labelledby="dayTitle">
+  <div class="dlg-head"><h3 id="dayTitle">每日訂餐名單</h3><span class="help">給老師點餐、備餐用</span></div>
+  <div class="dlg-body" style="align-items:center">
+    <div class="mbar" style="justify-content:center">
+      <button type="button" class="btn" id="dayPrev" aria-label="前一天">◀</button>
+      <input type="date" class="sel" id="dayInput" aria-label="日期">
+      <button type="button" class="btn" id="dayNext" aria-label="後一天">▶</button>
+      <button type="button" class="btn sm" id="dayToday">今天</button>
+    </div>
+    <div class="mbar edit-only" style="justify-content:center">
+      <label class="pricebox">臨時加餐 <input type="text" inputmode="numeric" id="dayExtra" style="width:56px"> 份</label>
+      <label class="pricebox">老師 <input type="text" inputmode="numeric" id="dayTeach" style="width:56px"> 份</label>
+      <label class="pricebox">備註 <input type="text" id="dayNote" style="width:150px;min-height:40px;border:1px solid #D5DEEA;border-radius:10px;padding:0 8px"></label>
+      <button type="button" class="btn sm" id="daySave">儲存份數</button>
+    </div>
+    <div id="dayCard"></div>
+  </div>
+  <div class="dlg-foot" style="flex-wrap:wrap">
+    <button type="button" class="btn" data-close>關閉</button>
+    <button type="button" class="btn" id="dayPrintMonth">列印本月每天名單</button>
+    <button type="button" class="btn" id="dayPrint">列印</button>
+    <button type="button" class="btn" id="dayDown">下載圖片</button>
+    <button type="button" class="btn" id="dayCopy">複製圖片</button>
+    <button type="button" class="btn primary" id="dayShare">傳送</button>
+  </div>
+</dialog>
+
+<!-- 小卡設定 -->
+<dialog id="setDlg" class="narrow" aria-labelledby="setTitle">
+  <form method="dialog" id="setForm">
+    <div class="dlg-head"><h3 id="setTitle">小卡設定</h3></div>
+    <div class="dlg-body">
+      <label class="field">小卡標題<input type="text" id="setTitleIn" maxlength="20"></label>
+      <label class="field">小卡底部說明<textarea id="setFooter" rows="3" maxlength="120" placeholder="例如：請於每月 5 日前繳費，如有疑問請洽班導師。"></textarea></label>
+      <p class="err hidden" id="setErr"></p>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn" data-close>取消</button><button type="submit" class="btn primary">儲存</button></div>
+  </form>
+</dialog>
+
+<div id="printArea"></div>
+<div id="toast" class="hidden" role="status"></div>
+<div id="busy" class="busy hidden" popover="manual">處理中…</div>
+<div class="test-tag">學務雲 測試版・整合版</div>
+
+<script>
+const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
+const SUPABASE_KEY = "sb_publishable_ZVT08ujYz6NmsowKmqBNng_JxBJaVmb";
+const PORTAL_URL = "../";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: window.sessionStorage, storageKey: "jx-auth" }
+});
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = n => (n < 0 ? "-" : "") + Math.abs(Number(n) || 0).toLocaleString("en-US");
+const num = v => { const n = parseInt(String(v == null ? "" : v).replace(/[^\d-]/g, ""), 10); return Number.isFinite(n) ? n : 0; };
+const pad = n => String(n).padStart(2, "0");
+const WD = "日一二三四五六";
+
+let ME = null, IS_ADMIN = false, CAN_EDIT = false;
+let Y = 2026, M = new Date().getMonth() + 1;
+let ROSTER = [], RMAP = new Map();
+let MS = new Map();            // student_id -> meal_students
+let MONTHS = new Map();        // ym -> {price}
+let ORD = new Map();           // `${sid}|${date}` -> qty（只載入上月與本月）
+let LEDGER = new Map();        // `${sid}|${ym}` -> row
+let MDAYS = new Map();         // date -> {extra, teachers, note}
+let HOL = new Map();           // date -> reason
+let SETTINGS = { card_title: "晚餐訂購單", card_footer: "" };
+let stuId = null;              // 正在編輯的學生
+let pending = new Set();       // 進行中的格子
+
+/* ---------- 共用 ---------- */
+function busy(on) {
+  const el = $("busy");
+  el.classList.toggle("hidden", !on);
+  try { if (on) { if (!el.matches(":popover-open")) el.showPopover(); } else if (el.matches(":popover-open")) el.hidePopover(); } catch (_) { /* 舊瀏覽器 */ }
+}
+let toastTimer;
+function toast(msg, bad) {
+  const t = $("toast"); t.textContent = msg; t.className = bad ? "bad" : "";
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add("hidden"), 3200);
+}
+function friendly(err) {
+  const m = (err && err.message) || String(err || "");
+  if (/meal_|Could not find the function|does not exist/i.test(m) && !/permission|row-level/i.test(m)) return "資料庫還沒安裝晚餐管理的資料表（14_meals.sql），請先在 SQL Editor 執行";
+  if (/no fee (edit|view) permission|admin only|42501|row-level|permission denied|JWT|not authenticated/i.test(m)) return "沒有權限或登入已過期，請重新登入";
+  if (/Failed to fetch|NetworkError/i.test(m)) return "無法連線，請檢查網路後再試一次";
+  return "發生錯誤：" + m;
+}
+async function rpc(name, args) {
+  const { data, error } = await sb.rpc(name, args);
+  if (error) throw error;
+  return data;
+}
+async function goPortal(msg) {
+  try { await sb.auth.signOut({ scope: "local" }); } catch (_) { /* 忽略 */ }
+  ["authToken", "isTeacherLoggedIn", "loggedInStudentId", "lastActivityTime", "jx-me"].forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });
+  try { sessionStorage.setItem("jx-notice", msg || ""); } catch (_) { /* 忽略 */ }
+  location.replace(PORTAL_URL);
+}
+const IDLE_MS = 60 * 60 * 1000;
+function touch() { try { sessionStorage.setItem("lastActivityTime", String(Date.now())); } catch (_) {} }
+let lastTouch = 0;
+["mousedown", "keydown", "touchstart", "scroll"].forEach(ev => window.addEventListener(ev, () => {
+  if (Date.now() - lastTouch > 15000) { lastTouch = Date.now(); touch(); }
+}, { passive: true, capture: true }));
+setInterval(() => {
+  const last = parseInt(sessionStorage.getItem("lastActivityTime") || "0", 10);
+  if (last && Date.now() - last > IDLE_MS) goPortal("閒置超過 60 分鐘，已自動登出");
+}, 15000);
+
+async function fetchAll(build) {
+  const out = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await build().range(from, from + 999);
+    if (error) throw error;
+    out.push(...data);
+    if (data.length < 1000) break;
+  }
+  return out;
+}
+
+/* ---------- 日期與計算 ---------- */
+const ymOf = (y, m) => `${y}-${pad(m)}`;
+const dateKey = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
+const dim = (y, m) => new Date(y, m, 0).getDate();
+const prevYM = (y, m) => m === 1 ? [y - 1, 12] : [y, m - 1];
+const rocLabel = (y, m) => `${y - 1911} 年 ${m} 月`;
+const gradeNo = g => {
+  const t = String(g || ""); const d = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  if (/^國/.test(t)) return (d[t[1]] || 0) + 6;
+  if (/^高/.test(t)) return (d[t[1]] || 0) + 9;
+  return d[t[0]] || 0;
+};
+const zh = (a, b) => String(a || "").localeCompare(String(b || ""), "zh-Hant");
+const cmpStu = (a, b) => gradeNo(b.grade) - gradeNo(a.grade) || zh(a.name, b.name);
+
+function priceOf(y, m) {
+  const k = ymOf(y, m);
+  if (MONTHS.has(k)) return MONTHS.get(k).price;
+  let yy = y, mm = m;
+  for (let i = 0; i < 24; i++) { [yy, mm] = prevYM(yy, mm); const r = MONTHS.get(ymOf(yy, mm)); if (r) return r.price; }
+  return 100;
+}
+function calcStu(sid, y, m) {
+  const ym = ymOf(y, m); let cnt = 0;
+  for (let d = 1, n = dim(y, m); d <= n; d++) cnt += ORD.get(sid + "|" + dateKey(y, m, d)) || 0;
+  const L = LEDGER.get(sid + "|" + ym) || {};
+  const price = priceOf(y, m), paid = L.paid || 0, extra = L.extra || 0, carry = L.carry || 0;
+  const amount = cnt * price;
+  return { cnt, price, amount, paid, extra, carry, extra_note: L.extra_note || "", note: L.note || "", bal: carry + paid - amount - extra };
+}
+function monthRows() {
+  const ym = ymOf(Y, M), ids = new Set();
+  MS.forEach((ms, id) => { if (ms.active) ids.add(id); });
+  ORD.forEach((q, k) => { if (q > 0 && k.indexOf("|" + ym + "-") > 0) ids.add(k.split("|")[0]); });
+  LEDGER.forEach((L, k) => { if (L.ym === ym && (L.paid || L.extra || L.carry)) ids.add(L.student_id); });
+  return [...ids].map(id => RMAP.get(id)).filter(Boolean).sort(cmpStu);
+}
+
+/* ---------- 讀資料 ---------- */
+async function loadBase() {
+  const [stu, ms, mo, st] = await Promise.all([
+    rpc("meal_list_students"),
+    sb.from("meal_students").select("*"),
+    sb.from("meal_months").select("*"),
+    sb.from("meal_settings").select("*")
+  ]);
+  if (ms.error) throw ms.error;
+  if (mo.error) throw mo.error;
+  ROSTER = stu || []; RMAP = new Map(ROSTER.map(s => [s.id, s]));
+  MS = new Map((ms.data || []).map(r => [r.student_id, r]));
+  MONTHS = new Map((mo.data || []).map(r => [r.ym, r]));
+  (st.data || []).forEach(r => { SETTINGS[r.key] = r.value; });
+}
+async function loadMonth() {
+  const [py, pm] = prevYM(Y, M);
+  const start = dateKey(py, pm, 1), end = dateKey(Y, M, dim(Y, M));
+  const [ords, led, days, hol] = await Promise.all([
+    fetchAll(() => sb.from("meal_orders").select("student_id,day,qty").gte("day", start).lte("day", end).order("day").order("student_id")),
+    sb.from("meal_ledger").select("*").in("ym", [ymOf(py, pm), ymOf(Y, M)]),
+    sb.from("meal_days").select("*").gte("day", start).lte("day", end),
+    sb.rpc("meal_holidays", { p_from: start, p_to: end })
+  ]);
+  if (led.error) throw led.error; if (days.error) throw days.error; if (hol.error) throw hol.error;
+  ORD = new Map(ords.map(r => [r.student_id + "|" + r.day, r.qty]));
+  LEDGER = new Map((led.data || []).map(r => [r.student_id + "|" + r.ym, r]));
+  MDAYS = new Map((days.data || []).map(r => [r.day, r]));
+  HOL = new Map((hol.data || []).map(r => [r.day, r.reason || (r.type === "holiday" ? "放假" : "停課")]));
+}
+async function reload() {
+  busy(true);
+  try { await loadMonth(); render(); }
+  catch (ex) { $("grid").innerHTML = `<tbody><tr><td class="empty" style="padding:40px">${esc(friendly(ex))}</td></tr></tbody>`; }
+  finally { busy(false); }
+}
+
+/* ---------- 月份選單 ---------- */
+function buildMonthSelect() {
+  const sel = $("monSel"), now = new Date();
+  let a = 2026 * 12 + 0, b = now.getFullYear() * 12 + now.getMonth() + 3;
+  MONTHS.forEach((_, k) => { const [yy, mm] = k.split("-").map(Number); a = Math.min(a, yy * 12 + mm - 1); b = Math.max(b, yy * 12 + mm - 1); });
+  let h = "";
+  for (let i = a; i <= b; i++) { const yy = Math.floor(i / 12), mm = i % 12 + 1; h += `<option value="${ymOf(yy, mm)}">${rocLabel(yy, mm)}</option>`; }
+  sel.innerHTML = h; sel.value = ymOf(Y, M);
+}
+function gotoMonth(y, m) {
+  Y = y; M = m; $("monSel").value = ymOf(Y, M);
+  if (![...$("monSel").options].some(o => o.value === ymOf(Y, M))) buildMonthSelect();
+  reload();
+}
+
+/* ---------- 訂餐表 ---------- */
+function rowHtml(s) {
+  const n = dim(Y, M); let cells = "";
+  for (let d = 1; d <= n; d++) {
+    const dk = dateKey(Y, M, d), q = ORD.get(s.id + "|" + dk) || 0, dow = new Date(Y, M - 1, d).getDay();
+    const cls = ["c", (dow === 0 || dow === 6) ? "we" : "", HOL.has(dk) ? "hol" : "", q > 0 ? "on" : "", q > 1 ? "q2" : ""].filter(Boolean).join(" ");
+    cells += `<td class="${cls}" data-sid="${esc(s.id)}" data-d="${d}" tabindex="0" role="button" aria-label="${esc(s.name)} ${M}/${d}">${q > 0 ? q : ""}</td>`;
+  }
+  const L = LEDGER.get(s.id + "|" + ymOf(Y, M)) || {};
+  const inp = (k, v) => CAN_EDIT ? `<input class="mi" data-k="${k}" inputmode="numeric" value="${v ? v : ""}" aria-label="${k}">` : `<span>${v ? fmt(v) : ""}</span>`;
+  return `<tr data-sid="${esc(s.id)}"><td class="nm-c" data-open="${esc(s.id)}"><b>${esc(s.name)}</b><small>${esc(s.grade || "")}</small></td>${cells}
+    <td class="n" data-f="cnt"></td><td class="n amt" data-f="amount"></td>
+    <td class="n">${inp("extra", L.extra)}</td><td class="n">${inp("carry", L.carry)}</td><td class="n">${inp("paid", L.paid)}</td>
+    <td class="n bal" data-f="bal"></td></tr>`;
+}
+function render() {
+  const n = dim(Y, M), q = $("q").value.trim().toLowerCase();
+  const all = monthRows(), rows = all.filter(s => !q || (s.name + (s.grade || "")).toLowerCase().includes(q));
+  let th = `<th class="nm-c">姓名</th>`;
+  for (let d = 1; d <= n; d++) {
+    const dk = dateKey(Y, M, d), dow = new Date(Y, M - 1, d).getDay();
+    th += `<th class="${(dow === 0 || dow === 6) ? "we" : ""} ${HOL.has(dk) ? "hol" : ""}" title="${esc(HOL.get(dk) || "")}">${d}<small>${WD[dow]}</small></th>`;
+  }
+  th += `<th>次數</th><th>餐費</th><th>假日加強</th><th>上月結餘</th><th>已繳</th><th>溢繳／補繳</th>`;
+  const day = (f, lbl, cls) => { let t = `<th>${lbl}</th>`; for (let d = 1; d <= n; d++) t += f(d); return t; };
+  const dayIn = k => d => { const r = MDAYS.get(dateKey(Y, M, d)) || {}; const v = r[k] || 0; return `<td>${CAN_EDIT ? `<input class="di" data-dd="${d}" data-k="${k}" inputmode="numeric" value="${v || ""}" aria-label="${k} ${d}">` : (v || "")}</td>`; };
+  const foot = `<tr>${day(d => `<td data-sum="${d}"></td>`, "學生小計")}<td colspan="6" data-tot="stu"></td></tr>
+    <tr>${day(dayIn("extra"), "臨時")}<td colspan="6"></td></tr>
+    <tr>${day(dayIn("teachers"), "老師")}<td colspan="6"></td></tr>
+    <tr>${day(d => `<td data-all="${d}"></td>`, "合計份數")}<td colspan="6" data-tot="all"></td></tr>`;
+  $("grid").className = "mt" + (CAN_EDIT ? "" : " ro");
+  $("grid").innerHTML = `<thead><tr>${th}</tr></thead><tbody>${rows.length ? rows.map(rowHtml).join("") : `<tr><td class="empty" style="padding:36px" colspan="${n + 7}">${q ? "找不到符合的學生" : "這個月還沒有學生，請先「加入學生」"}</td></tr>`}</tbody><tfoot>${foot}</tfoot>`;
+  $("price").value = priceOf(Y, M);
+  $("price").disabled = !CAN_EDIT;
+  $("grid").querySelectorAll("tbody tr[data-sid]").forEach(updateRow);
+  updateFoot();
+}
+function updateRow(tr) {
+  const sid = tr.dataset.sid, c = calcStu(sid, Y, M);
+  tr.querySelector('[data-f="cnt"]').textContent = c.cnt || "";
+  tr.querySelector('[data-f="amount"]').textContent = c.amount ? fmt(c.amount) : "";
+  const b = tr.querySelector('[data-f="bal"]');
+  const has = c.cnt || c.paid || c.extra || c.carry;
+  b.className = "n bal" + (has ? (c.bal > 0 ? " pos" : c.bal < 0 ? " neg" : "") : "");
+  b.textContent = !has ? "" : c.bal > 0 ? "溢 " + fmt(c.bal) : c.bal < 0 ? "補 " + fmt(-c.bal) : "0";
+  tr.querySelectorAll("td.c").forEach(td => {
+    const q = ORD.get(sid + "|" + dateKey(Y, M, +td.dataset.d)) || 0;
+    td.textContent = q > 0 ? q : ""; td.classList.toggle("on", q > 0); td.classList.toggle("q2", q > 1);
+  });
+}
+function updateFoot() {
+  const n = dim(Y, M), rowsIds = [...$("grid").querySelectorAll("tbody tr[data-sid]")].map(t => t.dataset.sid);
+  let stuTot = 0, allTot = 0;
+  for (let d = 1; d <= n; d++) {
+    const dk = dateKey(Y, M, d); let s = 0;
+    rowsIds.forEach(id => { s += ORD.get(id + "|" + dk) || 0; });
+    const r = MDAYS.get(dk) || {}, all = s + (r.extra || 0) + (r.teachers || 0);
+    const a = $("grid").querySelector(`[data-sum="${d}"]`), b = $("grid").querySelector(`[data-all="${d}"]`);
+    if (a) a.textContent = s || ""; if (b) b.textContent = all || "";
+    stuTot += s; allTot += all;
+  }
+  const t1 = $("grid").querySelector('[data-tot="stu"]'), t2 = $("grid").querySelector('[data-tot="all"]');
+  if (t1) t1.textContent = `學生共 ${stuTot} 份`; if (t2) t2.textContent = `全月共 ${allTot} 份`;
+  // 摘要
+  let amt = 0, paid = 0, owe = 0, over = 0, oweN = 0;
+  rowsIds.forEach(id => { const c = calcStu(id, Y, M); amt += c.amount + c.extra; paid += c.paid; if (c.bal < 0) { owe += -c.bal; oweN++; } else over += c.bal; });
+  $("sums").innerHTML = `<span>學生 <b>${rowsIds.length}</b> 位</span><span>學生餐數 <b>${stuTot}</b> 份</span><span>應收（含加強） <b>$${fmt(amt)}</b></span><span>已繳 <b>$${fmt(paid)}</b></span><span class="${owe ? "bad" : ""}">尚需補繳 <b>$${fmt(owe)}</b>（${oweN} 位）</span><span>溢繳 <b>$${fmt(over)}</b></span>`;
+}
+
+/* ---------- 寫入 ---------- */
+async function setOrders(list) {
+  list.forEach(o => ORD.set(o.student_id + "|" + o.day, o.qty));
+  try { await rpc("meal_set_orders", { p: list }); }
+  catch (ex) { toast(friendly(ex), true); await reload(); throw ex; }
+}
+async function toggleCell(td) {
+  if (!CAN_EDIT) return;
+  const sid = td.dataset.sid, d = +td.dataset.d, dk = dateKey(Y, M, d), key = sid + "|" + dk;
+  if (pending.has(key)) return;
+  const cur = ORD.get(key) || 0, next = cur === 0 ? 1 : cur === 1 ? 2 : 0;
+  pending.add(key);
+  try { await setOrders([{ student_id: sid, day: dk, qty: next }]); updateRow(td.closest("tr")); updateFoot(); }
+  catch (_) { /* 已提示 */ }
+  finally { pending.delete(key); }
+}
+async function saveLedger(sid, patch) {
+  const ym = ymOf(Y, M), key = sid + "|" + ym;
+  const cur = Object.assign({ student_id: sid, ym, paid: 0, extra: 0, extra_note: "", carry: 0, note: "" }, LEDGER.get(key) || {});
+  const next = Object.assign({}, cur, patch);
+  LEDGER.set(key, next);
+  try { await rpc("meal_save_ledger", { p: { student_id: sid, ym, paid: next.paid, extra: next.extra, extra_note: next.extra_note, carry: next.carry, note: next.note } }); }
+  catch (ex) { LEDGER.set(key, cur); toast(friendly(ex), true); throw ex; }
+}
+async function savePrice() {
+  const v = Math.max(0, num($("price").value));
+  try {
+    await rpc("meal_save_month", { p_ym: ymOf(Y, M), p_price: v, p_note: (MONTHS.get(ymOf(Y, M)) || {}).note || "" });
+    MONTHS.set(ymOf(Y, M), Object.assign({ ym: ymOf(Y, M), note: "" }, MONTHS.get(ymOf(Y, M)), { price: v }));
+    $("grid").querySelectorAll("tbody tr[data-sid]").forEach(updateRow); updateFoot(); toast("單價已更新");
+  } catch (ex) { toast(friendly(ex), true); $("price").value = priceOf(Y, M); }
+}
+async function saveDay(d, patch) {
+  const dk = dateKey(Y, M, d), cur = Object.assign({ day: dk, extra: 0, teachers: 0, note: "" }, MDAYS.get(dk) || {});
+  const next = Object.assign({}, cur, patch);
+  MDAYS.set(dk, next);
+  try { await rpc("meal_save_day", { p_day: dk, p_extra: next.extra, p_teachers: next.teachers, p_note: next.note }); }
+  catch (ex) { MDAYS.set(dk, cur); toast(friendly(ex), true); throw ex; }
+}
+
+/* ---------- 學生設定 ---------- */
+function wdChecks(box, sel) {
+  box.innerHTML = [1, 2, 3, 4, 5, 6, 7].map(n => `<label><input type="checkbox" value="${n}"${sel.includes(n) ? " checked" : ""}>${WD[n % 7]}</label>`).join("");
+}
+const wdValue = box => [...box.querySelectorAll("input:checked")].map(i => +i.value);
+function openStudent(sid) {
+  const s = RMAP.get(sid); if (!s) return;
+  stuId = sid;
+  const ms = MS.get(sid) || { weekdays: [1, 2, 3, 4, 5], active: true, note: "" };
+  const L = LEDGER.get(sid + "|" + ymOf(Y, M)) || {};
+  $("stTitle").textContent = s.name; $("stSub").textContent = `${s.grade || ""}${s.school_class ? " " + s.school_class + " 班" : ""}`;
+  wdChecks($("stWd"), (ms.weekdays || []).map(Number));
+  $("stActive").checked = ms.active !== false; $("stNote").value = ms.note || "";
+  $("stMonthTitle").textContent = `${rocLabel(Y, M)} 對帳資料`;
+  $("stExtra").value = L.extra || ""; $("stCarry").value = L.carry || ""; $("stExtraNote").value = L.extra_note || ""; $("stLNote").value = L.note || "";
+  $("stErr").classList.add("hidden");
+  document.querySelectorAll("#stDlg input, #stDlg textarea").forEach(e => e.disabled = !CAN_EDIT);
+  $("stDlg").showModal();
+}
+$("stForm").addEventListener("submit", async e => {
+  e.preventDefault(); if (!CAN_EDIT) return;
+  busy(true);
+  try {
+    await rpc("meal_save_student", { p: { student_id: stuId, weekdays: wdValue($("stWd")), active: $("stActive").checked, note: $("stNote").value.trim() } });
+    MS.set(stuId, { student_id: stuId, weekdays: wdValue($("stWd")), active: $("stActive").checked, note: $("stNote").value.trim() });
+    await saveLedger(stuId, { extra: num($("stExtra").value), carry: num($("stCarry").value), extra_note: $("stExtraNote").value.trim(), note: $("stLNote").value.trim() });
+    $("stDlg").close(); render(); toast("已儲存");
+  } catch (ex) { $("stErr").textContent = friendly(ex); $("stErr").classList.remove("hidden"); }
+  finally { busy(false); }
+});
+$("stCard").addEventListener("click", () => { $("stDlg").close(); showMonthCards([stuId]); });
+
+/* ---------- 加入學生 ---------- */
+function openAdd() {
+  wdChecks($("addWd"), [1, 2, 3, 4, 5]); $("addQ").value = ""; $("addErr").classList.add("hidden");
+  renderAdd(); $("addDlg").showModal();
+}
+function renderAdd() {
+  const q = $("addQ").value.trim().toLowerCase();
+  const checked = new Set([...$("addList").querySelectorAll("input:checked")].map(i => i.value));
+  const list = ROSTER.filter(s => !MS.has(s.id) && (!q || (s.name + (s.grade || "")).toLowerCase().includes(q))).sort(cmpStu);
+  $("addList").innerHTML = list.length ? list.map(s => `<label><input type="checkbox" value="${esc(s.id)}"${checked.has(s.id) ? " checked" : ""}><b>${esc(s.name)}</b><span class="sub" style="margin:0">${esc(s.grade || "")} ${esc(s.school || "")}</span></label>`).join("") : `<div class="empty">沒有可加入的學生（都已加入，或名冊裡找不到）</div>`;
+}
+$("addQ").addEventListener("input", renderAdd);
+$("addNone").addEventListener("click", () => $("addList").querySelectorAll("input").forEach(i => i.checked = false));
+$("addForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const ids = [...$("addList").querySelectorAll("input:checked")].map(i => i.value), wk = wdValue($("addWd"));
+  if (!ids.length) { $("addErr").textContent = "請先勾選學生"; $("addErr").classList.remove("hidden"); return; }
+  if (!wk.length) { $("addErr").textContent = "請至少選一個用餐星期"; $("addErr").classList.remove("hidden"); return; }
+  busy(true);
+  try {
+    for (const id of ids) { await rpc("meal_save_student", { p: { student_id: id, weekdays: wk, active: true, note: "" } }); MS.set(id, { student_id: id, weekdays: wk, active: true, note: "" }); }
+    $("addDlg").close(); render(); toast(`已加入 ${ids.length} 位`);
+  } catch (ex) { $("addErr").textContent = friendly(ex); $("addErr").classList.remove("hidden"); }
+  finally { busy(false); }
+});
+
+/* ---------- 自動填入 ---------- */
+function openFill() {
+  $("fillSub").textContent = rocLabel(Y, M);
+  const list = monthRows().filter(s => MS.has(s.id) && MS.get(s.id).active);
+  $("fillList").innerHTML = list.length ? list.map(s => `<label><input type="checkbox" value="${esc(s.id)}" checked><b>${esc(s.name)}</b><span class="sub" style="margin:0">每週 ${(MS.get(s.id).weekdays || []).map(n => WD[n % 7]).join("、")}</span></label>`).join("") : `<div class="empty">沒有在訂晚餐的學生</div>`;
+  $("fillErr").classList.add("hidden"); $("fillDlg").showModal();
+}
+$("fillAll").addEventListener("click", () => $("fillList").querySelectorAll("input").forEach(i => i.checked = true));
+$("fillNone").addEventListener("click", () => $("fillList").querySelectorAll("input").forEach(i => i.checked = false));
+$("fillForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const ids = [...$("fillList").querySelectorAll("input:checked")].map(i => i.value);
+  const mode = document.querySelector('input[name="fillMode"]:checked').value;
+  if (!ids.length) { $("fillErr").textContent = "請先勾選學生"; $("fillErr").classList.remove("hidden"); return; }
+  const list = [];
+  ids.forEach(sid => {
+    const wk = (MS.get(sid).weekdays || []).map(Number);
+    for (let d = 1, n = dim(Y, M); d <= n; d++) {
+      const dk = dateKey(Y, M, d), dow = new Date(Y, M - 1, d).getDay() || 7, key = sid + "|" + dk;
+      const want = wk.includes(dow) && !HOL.has(dk);
+      if (mode === "blank") { if (want && !ORD.has(key)) list.push({ student_id: sid, day: dk, qty: 1 }); }
+      else if ((want ? 1 : 0) !== (ORD.get(key) || 0) && (want || ORD.get(key))) list.push({ student_id: sid, day: dk, qty: want ? 1 : 0 });
+    }
+  });
+  if (!list.length) { $("fillErr").textContent = "沒有需要填入的格子"; $("fillErr").classList.remove("hidden"); return; }
+  busy(true);
+  try {
+    for (let i = 0; i < list.length; i += 300) await setOrders(list.slice(i, i + 300));
+    $("fillDlg").close(); render(); toast(`已填入 ${list.length} 格`);
+  } catch (ex) { $("fillErr").textContent = friendly(ex); $("fillErr").classList.remove("hidden"); }
+  finally { busy(false); }
+});
+
+/* ---------- 帶入上月結餘 ---------- */
+async function carryOver() {
+  const [py, pm] = prevYM(Y, M);
+  const ids = monthRows().map(s => s.id).filter(id => {
+    const L = LEDGER.get(id + "|" + ymOf(Y, M)) || {};
+    if (L.carry) return false;
+    const c = calcStu(id, py, pm);
+    return c.cnt || c.paid || c.extra || c.carry;
+  });
+  const todo = ids.map(id => ({ id, bal: calcStu(id, py, pm).bal })).filter(x => x.bal !== 0);
+  if (!todo.length) return toast("沒有需要帶入的結餘（上月都已結清，或本月已填過）");
+  if (!confirm(`將把 ${rocLabel(py, pm)} 的溢繳／欠繳帶入本月「上月結餘」，共 ${todo.length} 位。\n\n注意：舊 Excel 的「繳費紀錄」已含退補上個月，所以只在上月是在這裡記錄的情況下使用，以免重複計算。要繼續嗎？`)) return;
+  busy(true);
+  try { for (const x of todo) await saveLedger(x.id, { carry: x.bal }); render(); toast(`已帶入 ${todo.length} 位`); }
+  catch (_) { /* 已提示 */ } finally { busy(false); }
+}
+
+/* ---------- 小卡共用 ---------- */
+function cardHead(sub) {
+  return `<div class="hd"><div class="lg"><img src="../logo-full.jpg" alt=""></div><div class="tt"><b>基翔文理</b><span>${esc(sub)}</span></div></div>`;
+}
+function monthCardHtml(sid) {
+  const s = RMAP.get(sid) || { name: "", grade: "" }, c = calcStu(sid, Y, M), n = dim(Y, M), first = new Date(Y, M - 1, 1).getDay();
+  let cal = [...WD].map(w => `<i class="h">${w}</i>`).join("");
+  for (let i = 0; i < first; i++) cal += "<i></i>";
+  for (let d = 1; d <= n; d++) {
+    const dk = dateKey(Y, M, d), q = ORD.get(sid + "|" + dk) || 0;
+    cal += `<i class="d${q > 0 ? " on" : ""}${q > 1 ? " q2" : ""}${HOL.has(dk) && !q ? " off" : ""}">${d}${q > 1 ? "×" + q : ""}</i>`;
+  }
+  const row = (l, v, sm) => `<div class="r"><span>${l}${sm ? ` <small>${esc(sm)}</small>` : ""}</span><b>${v}</b></div>`;
+  let rows = row(`訂餐 ${c.cnt} 次 × ${fmt(c.price)}`, "$" + fmt(c.amount));
+  if (c.extra) rows += row("假日加強", "$" + fmt(c.extra), c.extra_note);
+  if (c.carry) rows += row("上月結餘", (c.carry > 0 ? "+" : "-") + "$" + fmt(Math.abs(c.carry)), c.carry > 0 ? "溢繳" : "欠繳");
+  rows += row("本月已繳", "$" + fmt(c.paid));
+  const cls = c.bal > 0 ? "pos" : c.bal < 0 ? "neg" : "";
+  const res = c.bal > 0 ? `<span>溢繳（可折抵下月）</span><b>$${fmt(c.bal)}</b>` : c.bal < 0 ? `<span>本月尚需補繳</span><b>$${fmt(-c.bal)}</b>` : `<span>本月結算</span><b>已結清</b>`;
+  const note = [c.note, SETTINGS.card_footer].filter(Boolean).map(esc).join("<br>");
+  return `<div class="mc">${cardHead(`${SETTINGS.card_title || "晚餐訂購單"}　${rocLabel(Y, M)}`)}
+    <div class="who"><span>${esc(s.name)}</span><small>${esc(s.grade || "")}</small></div>
+    <div class="cal">${cal}</div>
+    <div class="lgd"><span><i style="background:#0F4FB8"></i>有訂餐</span><span><i style="background:#F1F5F9;border:1px solid #CBD5E1"></i>放假／停課</span></div>
+    ${rows}<div class="res ${cls}">${res}</div>${note ? `<div class="nt">${note}</div>` : ""}</div>`;
+}
+function dayCardHtml(dk) {
+  const [yy, mm, dd] = dk.split("-").map(Number), dow = new Date(yy, mm - 1, dd).getDay();
+  const names = [];
+  ORD.forEach((q, k) => { if (q > 0 && k.endsWith("|" + dk)) { const s = RMAP.get(k.split("|")[0]); if (s) names.push({ s, q }); } });
+  names.sort((a, b) => cmpStu(a.s, b.s));
+  const r = MDAYS.get(dk) || {}, stu = names.reduce((t, x) => t + x.q, 0), ex = r.extra || 0, te = r.teachers || 0;
+  const body = names.length ? names.map(x => `<span>${esc(x.s.name)}${x.q > 1 ? `<em>×${x.q}</em>` : ""}</span>`).join("") : `<span class="none">這天沒有人訂餐</span>`;
+  const hol = HOL.get(dk);
+  return `<div class="dc">${cardHead(SETTINGS.card_title ? SETTINGS.card_title.replace(/單$/, "") + "名單" : "晚餐訂購名單")}
+    <div class="dt">${mm} 月 ${dd} 日（週${WD[dow]}）<small>${hol ? "放假／停課：" + esc(hol) : `學生 ${names.length} 人`}</small></div>
+    <div class="names">${body}</div>
+    <div class="cnt"><span>學生</span><b>${stu} 份</b></div>
+    ${ex ? `<div class="cnt"><span>臨時加餐</span><b>${ex} 份</b></div>` : ""}${te ? `<div class="cnt"><span>老師</span><b>${te} 份</b></div>` : ""}
+    <div class="cnt tot"><span>合計</span><b>${stu + ex + te} 份</b></div>
+    ${r.note ? `<div class="nt">備註：${esc(r.note)}</div>` : ""}</div>`;
+}
+const blobOf = c => new Promise(r => c.toBlob(r, "image/png"));
+async function cardBlob(el) { return blobOf(await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true })); }
+async function imgAct(kind, el, name) {
+  busy(true);
+  try {
+    const blob = await cardBlob(el), fname = name.replace(/[\\/:*?"<>|]/g, "_") + ".png";
+    if (kind === "down") {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } else if (kind === "copy") {
+      if (!(navigator.clipboard && window.ClipboardItem)) throw new Error("這個瀏覽器不支援複製圖片，請改用下載");
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      toast("已複製，可貼到 LINE");
+    } else {
+      const file = new File([blob], fname, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: fname });
+      else throw new Error("這個裝置不支援直接傳送，請改用下載或複製");
+    }
+  } catch (ex) { if (!(ex && ex.name === "AbortError")) toast(ex.message || "操作失敗", true); }
+  finally { busy(false); }
+}
+function printHtml(list) {
+  if (!list.length) return;
+  $("printArea").innerHTML = list.join("");
+  setTimeout(() => window.print(), 80);
+}
+
+/* ---------- 每月對帳小卡 ---------- */
+let mcPick = new Set();
+function openMonthCards() {
+  $("mcSub").textContent = rocLabel(Y, M); $("mcQ").value = ""; $("mcFilter").value = "all";
+  mcPick = new Set(monthRows().filter(s => calcStu(s.id, Y, M).cnt > 0).map(s => s.id));
+  renderMc(); $("mcDlg").showModal();
+}
+function mcVisible() {
+  const q = $("mcQ").value.trim().toLowerCase(), f = $("mcFilter").value;
+  return monthRows().filter(s => {
+    const c = calcStu(s.id, Y, M);
+    if (q && !(s.name + (s.grade || "")).toLowerCase().includes(q)) return false;
+    return f === "all" || (f === "ordered" && c.cnt > 0) || (f === "neg" && c.bal < 0) || (f === "pos" && c.bal > 0);
+  });
+}
+function renderMc() {
+  const list = mcVisible();
+  $("mcList").innerHTML = list.length ? list.map(s => {
+    const c = calcStu(s.id, Y, M);
+    const pill = c.bal < 0 ? `<span class="pill neg">補 ${fmt(-c.bal)}</span>` : c.bal > 0 ? `<span class="pill pos">溢 ${fmt(c.bal)}</span>` : "";
+    return `<label><input type="checkbox" value="${esc(s.id)}"${mcPick.has(s.id) ? " checked" : ""}><b>${esc(s.name)}</b><span class="sub" style="margin:0">${esc(s.grade || "")}　${c.cnt} 次</span><span style="margin-left:auto">${pill}</span></label>`;
+  }).join("") : `<div class="empty">沒有符合的學生</div>`;
+  $("mcCount").textContent = `已勾選 ${mcPick.size} 位`;
+}
+$("mcList").addEventListener("change", e => { if (e.target.type === "checkbox") { e.target.checked ? mcPick.add(e.target.value) : mcPick.delete(e.target.value); $("mcCount").textContent = `已勾選 ${mcPick.size} 位`; } });
+$("mcQ").addEventListener("input", renderMc); $("mcFilter").addEventListener("change", renderMc);
+$("mcAll").addEventListener("click", () => { mcVisible().forEach(s => mcPick.add(s.id)); renderMc(); });
+$("mcNone").addEventListener("click", () => { mcPick.clear(); renderMc(); });
+$("mcForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const ids = monthRows().map(s => s.id).filter(id => mcPick.has(id));
+  if (!ids.length) return toast("請先勾選學生", true);
+  $("mcDlg").close(); showMonthCards(ids);
+});
+let shown = [];   // 目前預覽中的卡片 [{html, name}]
+function showCards(title, sub, items) {
+  shown = items;
+  $("cardsTitle").textContent = title; $("cardsSub").textContent = sub;
+  $("cardsGrid").innerHTML = items.map((it, i) => `<div class="cwrap">${it.html}<div class="btns"><button type="button" class="btn sm" data-act="share" data-i="${i}">傳送</button><button type="button" class="btn sm" data-act="copy" data-i="${i}">複製</button><button type="button" class="btn sm" data-act="down" data-i="${i}">下載</button></div></div>`).join("");
+  $("cardsAll").classList.toggle("hidden", items.length < 2);
+  $("cardsDlg").showModal();
+}
+function showMonthCards(ids) {
+  showCards(`每月對帳小卡（${rocLabel(Y, M)}）`, `${ids.length} 張`, ids.map(id => ({ html: monthCardHtml(id), name: `${(RMAP.get(id) || {}).name || ""}_晚餐_${ymOf(Y, M)}` })));
+}
+$("cardsGrid").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const it = shown[+b.dataset.i], el = b.closest(".cwrap").querySelector(".mc, .dc");
+  imgAct(b.dataset.act, el, it.name);
+});
+$("cardsAll").addEventListener("click", async () => {
+  const els = [...$("cardsGrid").querySelectorAll(".cwrap")];
+  for (let i = 0; i < els.length; i++) { await imgAct("down", els[i].querySelector(".mc, .dc"), shown[i].name); await new Promise(r => setTimeout(r, 350)); }
+});
+$("cardsPrint").addEventListener("click", () => printHtml(shown.map(x => x.html)));
+
+/* ---------- 每日訂餐名單 ---------- */
+let dayKey = "";
+function clampDay(dk) {
+  const lo = dateKey(Y, M, 1), hi = dateKey(Y, M, dim(Y, M));
+  return dk < lo ? lo : dk > hi ? hi : dk;
+}
+function openDay() {
+  const t = new Date(), today = dateKey(t.getFullYear(), t.getMonth() + 1, t.getDate());
+  $("dayInput").min = dateKey(Y, M, 1); $("dayInput").max = dateKey(Y, M, dim(Y, M));
+  showDay(today.startsWith(ymOf(Y, M)) ? today : dateKey(Y, M, 1));
+  $("dayDlg").showModal();
+}
+function showDay(dk) {
+  dayKey = clampDay(dk); $("dayInput").value = dayKey;
+  $("dayCard").innerHTML = dayCardHtml(dayKey);
+  const r = MDAYS.get(dayKey) || {};
+  $("dayExtra").value = r.extra || ""; $("dayTeach").value = r.teachers || ""; $("dayNote").value = r.note || "";
+  document.querySelectorAll("#dayDlg .edit-only input, #dayDlg .edit-only button").forEach(e => e.disabled = !CAN_EDIT);
+}
+const shiftDay = n => { const [y, m, d] = dayKey.split("-").map(Number); const t = new Date(y, m - 1, d + n); return dateKey(t.getFullYear(), t.getMonth() + 1, t.getDate()); };
+$("dayPrev").addEventListener("click", () => showDay(shiftDay(-1)));
+$("dayNext").addEventListener("click", () => showDay(shiftDay(1)));
+$("dayInput").addEventListener("change", e => e.target.value && showDay(e.target.value));
+$("dayToday").addEventListener("click", () => { const t = new Date(); showDay(dateKey(t.getFullYear(), t.getMonth() + 1, t.getDate())); });
+$("daySave").addEventListener("click", async () => {
+  try { await saveDay(+dayKey.slice(8), { extra: Math.max(0, num($("dayExtra").value)), teachers: Math.max(0, num($("dayTeach").value)), note: $("dayNote").value.trim() }); showDay(dayKey); render(); toast("已儲存"); } catch (_) { /* 已提示 */ }
+});
+const dayName = () => `晚餐名單_${dayKey}`;
+$("dayDown").addEventListener("click", () => imgAct("down", $("dayCard").firstElementChild, dayName()));
+$("dayCopy").addEventListener("click", () => imgAct("copy", $("dayCard").firstElementChild, dayName()));
+$("dayShare").addEventListener("click", () => imgAct("share", $("dayCard").firstElementChild, dayName()));
+$("dayPrint").addEventListener("click", () => printHtml([dayCardHtml(dayKey)]));
+$("dayPrintMonth").addEventListener("click", () => {
+  const list = [];
+  for (let d = 1, n = dim(Y, M); d <= n; d++) { const dk = dateKey(Y, M, d); let has = false; ORD.forEach((q, k) => { if (q > 0 && k.endsWith("|" + dk)) has = true; }); if (has) list.push(dayCardHtml(dk)); }
+  if (!list.length) return toast("這個月還沒有人訂餐", true);
+  printHtml(list);
+});
+
+/* ---------- 小卡設定 ---------- */
+$("setBtn").addEventListener("click", () => { $("setTitleIn").value = SETTINGS.card_title || ""; $("setFooter").value = SETTINGS.card_footer || ""; $("setErr").classList.add("hidden"); $("setDlg").showModal(); });
+$("setForm").addEventListener("submit", async e => {
+  e.preventDefault(); busy(true);
+  try {
+    await rpc("meal_save_setting", { p_key: "card_title", p_value: $("setTitleIn").value.trim() || "晚餐訂購單" });
+    await rpc("meal_save_setting", { p_key: "card_footer", p_value: $("setFooter").value.trim() });
+    SETTINGS.card_title = $("setTitleIn").value.trim() || "晚餐訂購單"; SETTINGS.card_footer = $("setFooter").value.trim();
+    $("setDlg").close(); toast("已儲存");
+  } catch (ex) { $("setErr").textContent = friendly(ex); $("setErr").classList.remove("hidden"); }
+  finally { busy(false); }
+});
+
+/* ---------- 事件 ---------- */
+$("grid").addEventListener("click", e => {
+  const td = e.target.closest("td.c"); if (td) return toggleCell(td);
+  const nm = e.target.closest("[data-open]"); if (nm) openStudent(nm.dataset.open);
+});
+$("grid").addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches("td.c")) { e.preventDefault(); toggleCell(e.target); }
+});
+$("grid").addEventListener("input", e => {
+  if (e.target.matches("input.mi, input.di")) e.target.classList.add("dirty");
+});
+$("grid").addEventListener("change", async e => {
+  const t = e.target;
+  if (t.matches("input.mi")) {
+    const sid = t.closest("tr").dataset.sid, v = num(t.value);
+    t.value = v || "";
+    try { await saveLedger(sid, { [t.dataset.k]: v }); t.classList.remove("dirty"); updateRow(t.closest("tr")); updateFoot(); }
+    catch (_) { const L = LEDGER.get(sid + "|" + ymOf(Y, M)) || {}; t.value = L[t.dataset.k] || ""; }
+  } else if (t.matches("input.di")) {
+    const v = Math.max(0, num(t.value)); t.value = v || "";
+    try { await saveDay(+t.dataset.dd, { [t.dataset.k]: v }); t.classList.remove("dirty"); updateFoot(); }
+    catch (_) { const r = MDAYS.get(dateKey(Y, M, +t.dataset.dd)) || {}; t.value = r[t.dataset.k] || ""; }
+  }
+});
+$("price").addEventListener("change", savePrice);
+$("q").addEventListener("input", () => { clearTimeout(window.__qt); window.__qt = setTimeout(render, 150); });
+$("monSel").addEventListener("change", e => { const [y, m] = e.target.value.split("-").map(Number); gotoMonth(y, m); });
+$("prevM").addEventListener("click", () => { const [y, m] = prevYM(Y, M); gotoMonth(y, m); });
+$("nextM").addEventListener("click", () => gotoMonth(M === 12 ? Y + 1 : Y, M === 12 ? 1 : M + 1));
+$("monthCardBtn").addEventListener("click", openMonthCards);
+$("dayCardBtn").addEventListener("click", openDay);
+$("addBtn").addEventListener("click", openAdd);
+$("fillBtn").addEventListener("click", openFill);
+$("carryBtn").addEventListener("click", carryOver);
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
+$("logoutBtn").addEventListener("click", () => goPortal(""));
+
+/* ---------- 啟動：管理員、主任、被開通的老師 ---------- */
+(async () => {
+  busy(true);
+  try {
+    const last = parseInt(sessionStorage.getItem("lastActivityTime") || "0", 10);
+    if (last && Date.now() - last > IDLE_MS) return goPortal("閒置超過 60 分鐘，已自動登出");
+    const { data: s } = await sb.auth.getSession();
+    if (!s || !s.session) return location.replace(PORTAL_URL);
+    const me = await sb.from("profiles").select("role,title,fee_access").eq("id", s.session.user.id).maybeSingle();
+    ME = me.data;
+    const ok = ME && (ME.role === "admin" || (ME.role === "teacher" && (ME.title === "主任" || ME.fee_access)));
+    if (!ok) return goPortal("沒有晚餐管理的權限");
+    IS_ADMIN = ME.role === "admin";
+    CAN_EDIT = IS_ADMIN || !!ME.fee_access;
+    $("roleChip").textContent = IS_ADMIN ? "管理員" : (ME.title || "老師") + (CAN_EDIT ? "" : "（唯讀）");
+    document.querySelectorAll(".edit-only").forEach(el => el.classList.toggle("hidden", !CAN_EDIT));
+    document.querySelectorAll(".admin-only").forEach(el => el.classList.toggle("hidden", !IS_ADMIN));
+    touch();
+    await loadBase();
+    const now = new Date(); Y = now.getFullYear(); M = now.getMonth() + 1;
+    buildMonthSelect();
+    await loadMonth();
+    render();
+  } catch (ex) {
+    $("grid").innerHTML = `<tbody><tr><td class="empty" style="padding:40px">${esc(friendly(ex))}</td></tr></tbody>`;
+  } finally { busy(false); }
+})();
+</script>
+<script src="../switcher.js" data-app="meals" defer></script>
+</body>
+</html>

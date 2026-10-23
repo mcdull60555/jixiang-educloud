@@ -5,7 +5,7 @@
  *
  * 用法：在頁面最後加上
  *   <script src="https://mcdull60555.github.io/jixiang-educloud/switcher.js" data-app="rollcall" defer></script>
- * data-app：目前所在的系統（rollcall / learning / roster / tuition / accounts）
+ * data-app：目前所在的系統（rollcall / learning / roster / tuition / meals / accounts）
  *
  * 登入狀態來自學務雲入口寫在 sessionStorage 的 jx-me 與 jx-auth（同網域、同分頁共用）。
  * 沒有從學務雲登入（或已登出）時不顯示。
@@ -23,11 +23,12 @@
     learning: { title: '學習通', en: 'JX Learning', url: BASE + '/jixiang2017-test/', bg: '#E0EAFF', fg: '#1D4ED8' },
     roster:   { title: '學生名冊', en: 'Student Roster', url: BASE + '/jixiang-educloud/roster/', bg: '#FEF3C7', fg: '#92400E' },
     tuition:  { title: '學費管理', en: 'Tuition', url: BASE + '/jixiang-educloud/tuition/', bg: '#D1FAE5', fg: '#047857' },
+    meals:    { title: '晚餐管理', en: 'Dinner', url: BASE + '/jixiang-educloud/meals/', bg: '#FFEDD5', fg: '#C2410C' },
     tuitionFamily: { title: '學費單', en: 'Tuition', tag: '規劃中', bg: '#D1FAE5', fg: '#047857', icon: 'tuition' },
     accounts: { title: '帳號管理', en: 'Accounts', url: BASE + '/jixiang-educloud/accounts/', bg: '#E2E8F0', fg: '#334155' }
   };
   var BY_ROLE = {
-    admin: ['rollcall', 'learning', 'roster', 'tuition', 'accounts'],
+    admin: ['rollcall', 'learning', 'roster', 'tuition', 'meals', 'accounts'],
     teacher: ['rollcall', 'learning'],
     student: ['learning', 'tuitionFamily']
   };
@@ -42,6 +43,7 @@
     learning: '<path d="M2 5h7a3 3 0 013 3v12a2 2 0 00-2-2H2z"/><path d="M22 5h-7a3 3 0 00-3 3v12a2 2 0 012-2h8z"/>',
     roster: '<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3.5 3.5 0 010 7M21 20c0-2.6-1.6-4.8-4-5.6"/>',
     tuition: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+    meals: '<path d="M7 3v7a2 2 0 002 2v9M11 3v7a2 2 0 01-2 2M9 3v6"/><path d="M17 21V3c-2.2 1.2-3.5 3.8-3.5 7 0 2 1.2 3 3.5 3"/>',
     accounts: '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
     grid: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
@@ -153,7 +155,7 @@
     var me = readMe();
     if (!me) return refresh();
     var keys = BY_ROLE[me.role].slice();
-    if (me.role === 'teacher' && me.fee) keys.push('tuition');   // 主任、被開通學費權限的老師
+    if (me.role === 'teacher' && me.fee) keys.push('tuition', 'meals');   // 主任、被開通學費權限的老師
     var who = (me.name && me.role !== 'admin' ? me.name + '・' : '') + (ROLE_NAME[me.role] || '');
     bg.innerHTML =
       '<div id="jxsw-panel" role="dialog" aria-modal="true" aria-labelledby="jxsw-title">' +

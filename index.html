@@ -417,7 +417,8 @@ const NEXT_TARGET = {
   learning: { url: LEARNING_URL, roles: ["admin", "teacher", "student"], name: "學習通" },
   rollcall: { url: ROLLCALL_URL, roles: ["admin", "teacher"], name: "雲點名" },
   accounts: { url: "accounts/", roles: ["admin"], name: "帳號管理" },
-  tuition: { url: "tuition/", roles: ["admin", "teacher"], name: "學費管理" }
+  tuition: { url: "tuition/", roles: ["admin", "teacher"], name: "學費管理" },
+  meals: { url: "meals/", roles: ["admin", "teacher"], name: "晚餐管理" }
 };
 function clearNext() { try { if (NEXT) history.replaceState(null, "", location.pathname); } catch (_) { /* 忽略 */ } }
 // 有權限就直接進去，回傳 true；沒有權限就留在入口
@@ -434,6 +435,7 @@ const ICONS = {
   learning: '<svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h7a3 3 0 013 3v12a2 2 0 00-2-2H2z"/><path d="M22 5h-7a3 3 0 00-3 3v12a2 2 0 012-2h8z"/></svg>',
   roster: '<svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3.5 3.5 0 010 7M21 20c0-2.6-1.6-4.8-4-5.6"/></svg>',
   tuition: '<svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>',
+  meals: '<svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v7a2 2 0 002 2v9M11 3v7a2 2 0 01-2 2M9 3v6"/><path d="M17 21V3c-2.2 1.2-3.5 3.8-3.5 7 0 2 1.2 3 3.5 3"/></svg>',
   accounts: '<svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>'
 };
 const CARDS = {
@@ -442,11 +444,12 @@ const CARDS = {
   learningFamily: { title: "學習通", en: "JX Learning", desc: "今日作業、送出審核、電子聯絡簿", href: LEARNING_URL, cta: "進入學習通", bg: "#E0EAFF", fg: "#1D4ED8" },
   roster: { title: "學生名冊", en: "Student Roster", desc: "學生資料、學生帳號與密碼、聯絡電話、進點名與學習通開關", href: "roster/", cta: "進入學生名冊", bg: "#FEF3C7", fg: "#92400E" },
   tuition: { title: "學費管理", en: "Tuition", desc: "開立學費單、預覽、列印或轉圖片傳 LINE", href: "tuition/", cta: "進入學費管理", bg: "#D1FAE5", fg: "#047857" },
+  meals: { title: "晚餐管理", en: "Dinner", desc: "每月訂餐、繳費對帳，產生家長對帳小卡與每日訂餐名單", href: "meals/", cta: "進入晚餐管理", bg: "#FFEDD5", fg: "#C2410C" },
   tuitionFamily: { title: "學費單", en: "Tuition", desc: "每月學費明細與繳費紀錄", tag: "規劃中", bg: "#D1FAE5", fg: "#047857" },
   accounts: { title: "帳號管理", en: "Accounts", desc: "新增老師、指定負責班級與年級、重設密碼、刪除、排序", href: "accounts/", cta: "進入帳號管理", bg: "#E2E8F0", fg: "#334155" }
 };
 const BY_ROLE = {
-  admin: ["rollcall", "learning", "roster", "tuition", "accounts"],
+  admin: ["rollcall", "learning", "roster", "tuition", "meals", "accounts"],
   teacher: ["rollcall", "learning"],
   student: ["learningFamily", "tuitionFamily"]
 };
@@ -478,7 +481,7 @@ function showPortal(me) {
     $("greetSub").textContent = "選擇要進入的系統";
   }
   const keys = (BY_ROLE[me.role] || []).slice();
-  if (me.role === "teacher" && (me.title === "主任" || me.fee_access)) keys.push("tuition");   // 主任、被開通的老師可進學費管理
+  if (me.role === "teacher" && (me.title === "主任" || me.fee_access)) keys.push("tuition", "meals");   // 主任、被開通的老師可進學費管理、晚餐管理
   $("cards").innerHTML = keys.map(cardHtml).join("");
   $("loginView").classList.add("hidden");
   $("portalView").classList.remove("hidden");
