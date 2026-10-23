@@ -149,6 +149,8 @@
   .pick-tools .search input { height: 38px; }
   .warn { font-size: 13.5px; color: #92400E; background: #FEF3C7; border-radius: 10px; padding: 10px 12px; margin: 0; }
   /* ===== 學費管理 ===== */
+  .btn.del { color: var(--rose); border-color: #FBCFD8; }
+  .btn.del:hover { background: var(--rose-l); }
   td.grip { width: 30px; color: var(--muted); cursor: grab; user-select: none; text-align: center; letter-spacing: -2px; font-weight: 700; }
   tr.trow.dragging { opacity: .4; }
   tr.trow.over.above td { box-shadow: inset 0 3px 0 var(--blue); }
@@ -330,6 +332,7 @@
           <button type="button" class="btn sm" data-tpl="regular">學期／月費單</button>
           <button type="button" class="btn sm" data-tpl="summer">暑期夏令營</button>
           <button type="button" class="btn sm" data-tpl="winter">寒假班</button>
+          <button type="button" class="btn sm" id="tplTerm" title="使用「梯次」設定裡的範本">這個梯次的範本</button>
           <button type="button" class="btn sm" id="addRow">＋ 加一列</button>
           <button type="button" class="btn sm" id="calcLeave" style="border-color:var(--blue);color:var(--blue)">計算請假折抵</button>
         </div>
@@ -395,7 +398,7 @@
       </div>
       <div id="batTplOpts" class="hidden">
         <div class="grid3" style="grid-template-columns:1fr 1fr 1fr">
-          <label class="field">範本<select id="batTpl"><option value="regular">學期／月費單</option><option value="summer">暑期夏令營</option><option value="winter">寒假班</option></select></label>
+          <label class="field">範本<select id="batTpl"><option value="term">使用梯次範本</option><option value="regular">學期／月費單</option><option value="summer">暑期夏令營</option><option value="winter">寒假班</option></select></label>
           <label class="field">學費名稱<input type="text" id="batTuiLabel" maxlength="20" placeholder="例：安親班"></label>
           <label class="field">學費金額（全部相同，可留空）<input type="text" id="batTuiAmt" inputmode="numeric" placeholder="例：6000"></label>
         </div>
@@ -414,6 +417,40 @@
     <div class="dlg-foot">
       <button type="button" class="btn" data-close>取消</button>
       <button type="submit" class="btn primary" id="batGo">建立草稿</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 梯次（含開單範本） -->
+<dialog id="tmDlg" class="wide" aria-labelledby="tmTitle">
+  <form method="dialog" id="tmForm" novalidate>
+    <div class="dlg-head"><h3 id="tmTitle">編輯梯次</h3></div>
+    <div class="dlg-body">
+      <div class="grid2">
+        <label class="field">名稱（例：115 下學期 3 月）<input type="text" id="tmName" maxlength="40"></label>
+        <label class="field">類型<select id="tmKind"></select></label>
+      </div>
+      <div class="grid2">
+        <label class="field">單上標題<input type="text" id="tmTitleIn" maxlength="30" placeholder="學費單"></label>
+        <label class="field">預設繳費期限<input type="date" id="tmDue"></label>
+      </div>
+      <fieldset>
+        <legend>開單範本　<span class="help">這個梯次開單時自動帶入的明細。金額可以先留空（開單再填），也可以填常用的固定金額；不勾「計入」＝只顯示、不算進總計</span></legend>
+        <div class="tpls" style="margin-bottom:8px">
+          <span class="help">快速帶入：</span>
+          <button type="button" class="btn sm" data-tmtpl="regular">學期／月費單</button>
+          <button type="button" class="btn sm" data-tmtpl="summer">暑期夏令營</button>
+          <button type="button" class="btn sm" data-tmtpl="winter">寒假班</button>
+          <button type="button" class="btn sm" id="tmAddRow">＋ 加一列</button>
+        </div>
+        <div class="irows" id="tmRows"></div>
+      </fieldset>
+      <label class="sw" style="max-width:280px"><span>使用中</span><input type="checkbox" id="tmActive" checked></label>
+      <p class="err hidden" id="tmErr"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="submit" class="btn primary">儲存</button>
     </div>
   </form>
 </dialog>
@@ -654,7 +691,7 @@ const TEMPLATES = {
 function typeOptions(sel) {
   return TYPES.filter(t => t.active || t.code === sel).map(t => `<option value="${esc(t.code)}" ${t.code === sel ? "selected" : ""}>${esc(t.name)}${t.sign < 0 ? "（折抵）" : ""}</option>`).join("");
 }
-function addRow(it) {
+function addRow(it, box) {
   it = it || { item_type: "tuition", label: "", amount: "", counted: true, period_text: "" };
   const d = document.createElement("div");
   d.className = "irow";
@@ -665,11 +702,11 @@ function addRow(it) {
     <label class="cnt"><input type="checkbox" class="ic" ${it.counted === false ? "" : "checked"}>計入</label>
     <button type="button" class="x" aria-label="刪除這一列">✕</button>`;
   d.dataset.prev = typeOf(it.item_type).name;
-  $("irows").appendChild(d);
+  (box || $("irows")).appendChild(d);
   return d;
 }
-function readRows() {
-  return [...$("irows").querySelectorAll(".irow")].map(r => ({
+function readRows(box) {
+  return [...(box || $("irows")).querySelectorAll(".irow")].map(r => ({
     item_type: r.querySelector(".it").value,
     label: r.querySelector(".il").value.trim(),
     amount: parseInt(r.querySelector(".ia").value.replace(/[^\d]/g, ""), 10) || 0,
@@ -710,11 +747,26 @@ function onStudentInput() {
     $("bStudentHelp").textContent = v ? "不在名冊裡的學生，單上直接使用輸入的姓名" : "";
   }
 }
+function termTpl(t) { return t && Array.isArray(t.template) ? t.template : []; }
+function fillTermTemplate(t) {
+  $("irows").innerHTML = "";
+  termTpl(t).forEach(r => addRow({ item_type: TYPES.some(x => x.code === r.item_type) ? r.item_type : "other", label: r.label, amount: r.amount || "", counted: r.counted !== false, period_text: r.period_text || "" }));
+  calcTotal();
+}
 function onTermChange() {
   const t = termOf($("bTerm").value);
   if (!t) return;
   $("bTitle").value = t.title || "學費單";
   if (t.due_date) $("bDue").value = t.due_date;
+  // 新增學費單、明細還沒填金額時，自動帶入梯次範本
+  if (!editing && termTpl(t).length && !readRows().some(r => r.amount || r.period_text)) fillTermTemplate(t);
+}
+function applyTermTemplate() {
+  const t = termOf($("bTerm").value);
+  if (!t) return toast("請先選擇梯次", true);
+  if (!termTpl(t).length) return toast("這個梯次還沒有設定範本（設定 → 梯次 → 編輯）", true);
+  if (readRows().some(r => r.amount || r.period_text) && !confirm("套用範本會取代目前的明細，確定嗎？")) return;
+  fillTermTemplate(t);
 }
 function openEdit(b) {
   editing = b || null;
@@ -867,6 +919,13 @@ function openBatch() {
   batModeChanged();
   $("batDlg").showModal();
 }
+function syncBatTpl() {
+  const has = termTpl(termOf($("batTerm").value)).length > 0;
+  const opt = [...$("batTpl").options].find(o => o.value === "term");
+  opt.disabled = !has;
+  opt.textContent = has ? "使用梯次範本" : "使用梯次範本（這個梯次還沒設定）";
+  if (has) $("batTpl").value = "term"; else if ($("batTpl").value === "term") $("batTpl").value = "regular";
+}
 function batTermChanged() {
   const t = termOf($("batTerm").value);
   $("batTitleIn").value = t ? (t.title || "學費單") : "學費單";
@@ -878,6 +937,7 @@ function batModeChanged() {
   $("batCopyOpts").classList.toggle("hidden", !copy);
   $("batTplOpts").classList.toggle("hidden", copy);
   batTermChanged();
+  syncBatTpl();
   buildCands();
 }
 function buildCands() {
@@ -922,11 +982,24 @@ function batPayload(c, o) {
     return { student_id: b.student_id, student_name: b.student_name, grade_text: b.grade_text, dept: b.dept, term_id: o.term, title: o.title,
              due_date: o.due || null, account_id: b.account_id, note: "", status: "draft", items };
   }
-  const s = c.stu, tpl = TEMPLATES[o.tpl];
-  const items = tpl.map(([type, label]) => {
-    const isTui = type === "tuition";
-    return { item_type: type, label: isTui && o.tuiLabel ? o.tuiLabel : label, amount: isTui ? o.tuiAmt : 0, counted: true, period_text: isTui ? o.period : "", note: "" };
-  });
+  const s = c.stu;
+  let items;
+  if (o.tpl === "term") {
+    let firstTui = true;
+    items = termTpl(t).map(r => {
+      const it = { item_type: TYPES.some(x => x.code === r.item_type) ? r.item_type : "other", label: r.label, amount: Math.abs(r.amount || 0), counted: r.counted !== false, period_text: r.period_text || "", note: "" };
+      if (it.item_type === "tuition") {
+        if (o.period) it.period_text = o.period;
+        if (firstTui) { if (o.tuiLabel) it.label = o.tuiLabel; if (o.tuiAmt) it.amount = o.tuiAmt; firstTui = false; }
+      }
+      return it;
+    });
+  } else {
+    items = TEMPLATES[o.tpl].map(([type, label]) => {
+      const isTui = type === "tuition";
+      return { item_type: type, label: isTui && o.tuiLabel ? o.tuiLabel : label, amount: isTui ? o.tuiAmt : 0, counted: true, period_text: isTui ? o.period : "", note: "" };
+    });
+  }
   return { student_id: s.id, student_name: s.name, grade_text: s.grade, dept: c.dept, term_id: o.term, title: o.title,
            due_date: o.due || null, account_id: acct ? acct.id : null, note: "", status: "draft", items };
 }
@@ -1000,9 +1073,9 @@ function renderSettings() {
     <div class="tbl-wrap" style="margin-top:0"><table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}<th></th></tr></thead><tbody>${rows || `<tr><td colspan="${head.length + 1}" class="empty">尚未設定</td></tr>`}</tbody></table></div></div>`;
   const onoff = a => `<span class="pill ${a ? "on" : "offp"}">${a ? "使用中" : "停用"}</span>`;
   $("setBody").innerHTML =
-    sec("收款帳戶", "addAcct", ["部別", "銀行", "帳號", "狀態"], ACCOUNTS.map(a => `<tr><td class="nm">${esc(a.dept)}</td><td>${esc(a.bank_name)} ${esc(a.bank_code)}</td><td class="acct">${esc(a.account_no)}</td><td>${onoff(a.active)}</td><td><button type="button" class="btn sm" data-set="acct" data-id="${esc(a.id)}">編輯</button></td></tr>`).join("")) +
-    sec("梯次", "addTerm", ["名稱", "類型", "單上標題", "預設期限", "狀態"], TERMS.map(t => `<tr><td class="nm">${esc(t.name)}</td><td>${esc(KIND[t.kind] || t.kind)}</td><td>${esc(t.title)}</td><td>${esc(fmtDate(t.due_date))}</td><td>${onoff(t.active)}</td><td><button type="button" class="btn sm" data-set="term" data-id="${esc(t.id)}">編輯</button></td></tr>`).join("")) +
-    sec("項目種類　<span class=\"help\" style=\"font-weight:400\">拖曳左邊的 ⋮⋮ 可以調整順序（開單時的下拉選單照這個順序）</span>", "addType", ["", "名稱", "性質", "狀態"], TYPES.map((t, i) => `<tr class="trow" draggable="true" data-code="${esc(t.code)}"><td class="grip" title="拖曳排序" aria-label="拖曳排序">⋮⋮</td><td class="nm">${esc(t.name)}</td><td>${t.sign < 0 ? "折抵（扣除）" : "收費"}</td><td>${onoff(t.active)}</td><td style="white-space:nowrap"><button type="button" class="btn sm" data-mv="-1" data-id="${esc(t.code)}" aria-label="上移" ${i === 0 ? "disabled" : ""}>▲</button> <button type="button" class="btn sm" data-mv="1" data-id="${esc(t.code)}" aria-label="下移" ${i === TYPES.length - 1 ? "disabled" : ""}>▼</button> <button type="button" class="btn sm" data-set="type" data-id="${esc(t.code)}">編輯</button></td></tr>`).join(""));
+    sec("收款帳戶", "addAcct", ["部別", "銀行", "帳號", "狀態"], ACCOUNTS.map(a => `<tr><td class="nm">${esc(a.dept)}</td><td>${esc(a.bank_name)} ${esc(a.bank_code)}</td><td class="acct">${esc(a.account_no)}</td><td>${onoff(a.active)}</td><td style="white-space:nowrap"><button type="button" class="btn sm" data-set="acct" data-id="${esc(a.id)}">編輯</button> <button type="button" class="btn sm del" data-del="acct" data-id="${esc(a.id)}">刪除</button></td></tr>`).join("")) +
+    sec("梯次", "addTerm", ["名稱", "類型", "單上標題", "預設期限", "範本", "狀態"], TERMS.map(t => `<tr><td class="nm">${esc(t.name)}</td><td>${esc(KIND[t.kind] || t.kind)}</td><td>${esc(t.title)}</td><td>${esc(fmtDate(t.due_date))}</td><td>${termTpl(t).length ? termTpl(t).length + " 列" : '<span class="help">未設定</span>'}</td><td>${onoff(t.active)}</td><td style="white-space:nowrap"><button type="button" class="btn sm" data-set="term" data-id="${esc(t.id)}">編輯</button> <button type="button" class="btn sm del" data-del="term" data-id="${esc(t.id)}">刪除</button></td></tr>`).join("")) +
+    sec("項目種類　<span class=\"help\" style=\"font-weight:400\">拖曳左邊的 ⋮⋮ 可以調整順序（開單時的下拉選單照這個順序）</span>", "addType", ["", "名稱", "性質", "狀態"], TYPES.map((t, i) => `<tr class="trow" draggable="true" data-code="${esc(t.code)}"><td class="grip" title="拖曳排序" aria-label="拖曳排序">⋮⋮</td><td class="nm">${esc(t.name)}</td><td>${t.sign < 0 ? "折抵（扣除）" : "收費"}</td><td>${onoff(t.active)}</td><td style="white-space:nowrap"><button type="button" class="btn sm" data-mv="-1" data-id="${esc(t.code)}" aria-label="上移" ${i === 0 ? "disabled" : ""}>▲</button> <button type="button" class="btn sm" data-mv="1" data-id="${esc(t.code)}" aria-label="下移" ${i === TYPES.length - 1 ? "disabled" : ""}>▼</button> <button type="button" class="btn sm" data-set="type" data-id="${esc(t.code)}">編輯</button> <button type="button" class="btn sm del" data-del="type" data-id="${esc(t.code)}">刪除</button></td></tr>`).join(""));
 }
 let formSave = null;
 function openForm(title, fields, vals, save) {
@@ -1039,15 +1112,60 @@ function editAcct(a) {
     await dbWrite("fee_accounts", a && a.id, "id", { dept: o.dept, bank_name: o.bank_name, bank_code: o.bank_code, account_no: o.account_no, report_note: o.report_note, active: o.active });
   });
 }
+let editingTerm = null;
 function editTerm(t) {
-  openForm(t ? "編輯梯次" : "新增梯次", [
-    { k: "name", label: "名稱（例：115 下學期 3 月）" },
-    { k: "kind", label: "類型", type: "select", options: Object.entries(KIND) },
-    { k: "title", label: "單上標題（例：學費單）" }, { k: "due_date", label: "預設繳費期限", type: "date" }, { k: "active", label: "使用中", type: "check" }
-  ], t || { kind: "regular", title: "學費單", active: true }, async o => {
-    if (!o.name) throw new Error("missing");
-    await dbWrite("fee_terms", t && t.id, "id", { name: o.name, kind: o.kind, title: o.title || "學費單", due_date: o.due_date || null, active: o.active });
-  });
+  editingTerm = t || null;
+  $("tmTitle").textContent = t ? "編輯梯次" : "新增梯次";
+  $("tmName").value = t ? t.name : "";
+  $("tmKind").innerHTML = Object.entries(KIND).map(([k, l]) => `<option value="${k}" ${(t ? t.kind : "regular") === k ? "selected" : ""}>${l}</option>`).join("");
+  $("tmTitleIn").value = t ? t.title : "學費單";
+  $("tmDue").value = t && t.due_date ? t.due_date : "";
+  $("tmActive").checked = t ? !!t.active : true;
+  $("tmRows").innerHTML = "";
+  termTpl(t).forEach(r => addRow({ item_type: TYPES.some(x => x.code === r.item_type) ? r.item_type : "other", label: r.label, amount: r.amount || "", counted: r.counted !== false, period_text: r.period_text || "" }, $("tmRows")));
+  $("tmErr").classList.add("hidden");
+  $("tmDlg").showModal();
+  $("tmName").focus();
+}
+async function saveTerm(e) {
+  e.preventDefault();
+  const err = m => { $("tmErr").textContent = m; $("tmErr").classList.remove("hidden"); };
+  const name = $("tmName").value.trim();
+  if (!name) return err("請輸入梯次名稱");
+  const template = readRows($("tmRows")).filter(r => r.label || r.amount).map(r => ({ item_type: r.item_type, label: r.label || typeOf(r.item_type).name, amount: r.amount, counted: r.counted, period_text: r.period_text }));
+  busy(true);
+  try {
+    await dbWrite("fee_terms", editingTerm && editingTerm.id, "id", { name, kind: $("tmKind").value, title: $("tmTitleIn").value.trim() || "學費單", due_date: $("tmDue").value || null, active: $("tmActive").checked, template });
+    $("tmDlg").close(); await load(); toast("已儲存");
+  } catch (ex) { err(friendly(ex)); } finally { busy(false); }
+}
+async function delSetting(kind, id) {
+  let table, key, name, extra = "";
+  if (kind === "acct") {
+    const a = ACCOUNTS.find(x => x.id === id); if (!a) return;
+    const n = BILLS.filter(b => b.account_id === id).length;
+    if (n) return alert(`「${a.dept}・${a.account_no}」已有 ${n} 張學費單在使用，刪除後那些單會沒有匯款資訊。\n請改用「編輯」把它設成停用，或先把那些單改選別的帳戶。`);
+    table = "fee_accounts"; key = "id"; name = `收款帳戶「${a.dept}・${a.account_no}」`;
+  } else if (kind === "term") {
+    const t = termOf(id); if (!t) return;
+    const n = BILLS.filter(b => b.term_id === id).length;
+    table = "fee_terms"; key = "id"; name = `梯次「${t.name}」`;
+    if (n) extra = `\n已有 ${n} 張學費單屬於這個梯次，刪除後它們會變成「未指定梯次」，學費單內容不受影響。`;
+  } else {
+    const t = TYPES.find(x => x.code === id); if (!t) return;
+    const n = BILLS.filter(b => b.items.some(i => i.item_type === id)).length;
+    if (n) return alert(`「${t.name}」已被 ${n} 張學費單的明細使用，不能刪除。\n請改用「編輯」把它設成停用，開單時就不會再出現。`);
+    table = "fee_item_types"; key = "code"; name = `項目種類「${t.name}」`;
+  }
+  if (!confirm(`確定要刪除${name}嗎？此動作無法復原。${extra}`)) return;
+  busy(true);
+  try {
+    const { error } = await sb.from(table).delete().eq(key, id);
+    if (error) throw error;
+    await load(); toast("已刪除");
+  } catch (ex) {
+    toast(/23503|foreign key|violates/i.test(String(ex && ex.message)) ? "還有資料在使用這一項，不能刪除，請改成停用" : friendly(ex), true);
+  } finally { busy(false); }
 }
 function editType(t) {
   openForm(t ? "編輯項目種類" : "新增項目種類", [
@@ -1144,7 +1262,7 @@ $("addBill").addEventListener("click", () => { QUEUE = []; openEdit(null); });
 $("batchBtn").addEventListener("click", openBatch);
 $("issueSel").addEventListener("click", issueSelected);
 document.querySelectorAll('input[name="batMode"]').forEach(r => r.addEventListener("change", batModeChanged));
-$("batTerm").addEventListener("change", () => { batTermChanged(); buildCands(); });
+$("batTerm").addEventListener("change", () => { batTermChanged(); syncBatTpl(); buildCands(); });
 $("batSrc").addEventListener("change", buildCands);
 $("batQ").addEventListener("input", renderBat);
 $("batDept").addEventListener("change", renderBat);
@@ -1163,29 +1281,43 @@ $("bStudent").addEventListener("input", onStudentInput);
 $("bGrade").addEventListener("change", () => applyDept(deptOfGrade($("bGrade").value)));
 $("bTerm").addEventListener("change", onTermChange);
 $("calcLeave").addEventListener("click", openLeave);
+$("tplTerm").addEventListener("click", applyTermTemplate);
 $("lvRun").addEventListener("click", runLeave);
 $("lvAdd").addEventListener("click", addLeaveRow);
 $("addRow").addEventListener("click", () => { const r = addRow(); r.querySelector(".il").focus(); });
 document.querySelectorAll("[data-tpl]").forEach(b => b.addEventListener("click", () => applyTemplate(b.dataset.tpl)));
-$("irows").addEventListener("input", calcTotal);
-$("irows").addEventListener("change", e => {
-  const r = e.target.closest(".irow");
-  if (r && e.target.matches(".it")) {
-    const l = r.querySelector(".il");
-    if (!l.value.trim() || l.value.trim() === r.dataset.prev) l.value = typeOf(e.target.value).name;
-    r.dataset.prev = typeOf(e.target.value).name;
-  }
-  calcTotal();
-});
-$("irows").addEventListener("click", e => { if (e.target.closest(".x")) { e.target.closest(".irow").remove(); calcTotal(); } });
+function bindRows(box, after) {
+  box.addEventListener("input", () => after && after());
+  box.addEventListener("change", e => {
+    const r = e.target.closest(".irow");
+    if (r && e.target.matches(".it")) {
+      const l = r.querySelector(".il");
+      if (!l.value.trim() || l.value.trim() === r.dataset.prev) l.value = typeOf(e.target.value).name;
+      r.dataset.prev = typeOf(e.target.value).name;
+    }
+    after && after();
+  });
+  box.addEventListener("click", e => { if (e.target.closest(".x")) { e.target.closest(".irow").remove(); after && after(); } });
+}
+bindRows($("irows"), calcTotal);
+bindRows($("tmRows"), null);
 $("bSaveDraft").addEventListener("click", () => saveBill("draft"));
 $("bSaveIssue").addEventListener("click", () => saveBill("issued"));
 $("bForm").addEventListener("submit", e => e.preventDefault());
 $("fForm").addEventListener("submit", submitForm);
+$("tmForm").addEventListener("submit", saveTerm);
+$("tmAddRow").addEventListener("click", () => { const r = addRow(null, $("tmRows")); r.querySelector(".il").focus(); });
+document.querySelectorAll("[data-tmtpl]").forEach(b => b.addEventListener("click", () => {
+  if (readRows($("tmRows")).some(r => r.amount || r.label) && !confirm("套用會取代目前的範本明細，確定嗎？")) return;
+  $("tmRows").innerHTML = "";
+  TEMPLATES[b.dataset.tmtpl].forEach(([t, l]) => addRow({ item_type: t, label: l, amount: "", counted: true, period_text: "" }, $("tmRows")));
+}));
 $("setBody").addEventListener("click", e => {
   if (e.target.id === "addAcct") return editAcct(null);
   if (e.target.id === "addTerm") return editTerm(null);
   if (e.target.id === "addType") return editType(null);
+  const del = e.target.closest("[data-del]");
+  if (del) return delSetting(del.dataset.del, del.dataset.id);
   const mv = e.target.closest("[data-mv]");
   if (mv) return moveType(mv.dataset.id, +mv.dataset.mv);
   const b = e.target.closest("[data-set]"); if (!b) return;
