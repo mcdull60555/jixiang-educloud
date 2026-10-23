@@ -149,6 +149,19 @@
   .pick-tools .search input { height: 38px; }
   .warn { font-size: 13.5px; color: #92400E; background: #FEF3C7; border-radius: 10px; padding: 10px 12px; margin: 0; }
   /* ===== 學費管理 ===== */
+  .pm-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+  .pm-wrap table { min-width: 720px; }
+  .pm-in { width: 84px; min-height: 36px; border: 1px solid #D5DEEA; border-radius: 8px; padding: 0 8px; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums; }
+  .pm-in.dirty { border-color: var(--blue); background: #F0F7FF; }
+  .pm-grp { text-align: center; border-left: 1px solid var(--line); }
+  .bulkbar { border: 1px dashed var(--line-2); border-radius: 12px; padding: 10px 12px; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; background: #FAFCFF; }
+  .bulkbar .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .enrow { display: grid; grid-template-columns: 1.3fr 110px 110px; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .enrow.on { border-color: var(--blue); background: #F5F9FF; }
+  .enrow label.nm2 { display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; }
+  .enrow select, .enrow input[type=text] { min-height: 38px; border: 1px solid #D5DEEA; border-radius: 9px; padding: 0 8px; font-size: 14px; width: 100%; background: #fff; }
+  .rrow { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .rrow select { min-height: 38px; border: 1px solid #D5DEEA; border-radius: 9px; padding: 0 8px; }
   .btn.del { color: var(--rose); border-color: #FBCFD8; }
   .btn.del:hover { background: var(--rose-l); }
   td.grip { width: 30px; color: var(--muted); cursor: grab; user-select: none; text-align: center; letter-spacing: -2px; font-weight: 700; }
@@ -249,6 +262,7 @@
   <div class="panel">
     <div class="tabs" role="tablist">
       <button type="button" class="tab" role="tab" id="tabBills" aria-selected="true">學費單</button>
+      <button type="button" class="tab hidden" role="tab" id="tabPlan" aria-selected="false">收費設定</button>
       <button type="button" class="tab hidden" role="tab" id="tabSet" aria-selected="false">設定</button>
     </div>
 
@@ -273,6 +287,25 @@
           <tbody id="tbody"><tr><td colspan="7" class="empty">載入中…</td></tr></tbody>
         </table>
       </div>
+    </section>
+
+    <section id="planView" class="hidden">
+      <h3 style="margin:0 0 4px;font-size:17px">學生收費設定</h3>
+      <p class="help" style="margin:0 0 10px">設定每位學生上哪些班、月繳或期繳、每月優惠。批次建立選「依收費設定」時，會照這裡和價目表自動帶出每位學生的明細。</p>
+      <div class="toolbar">
+        <label class="search"><input type="search" id="pq" placeholder="搜尋姓名、年級" autocomplete="off" aria-label="搜尋學生"></label>
+        <select class="sel" id="pGrade" aria-label="年級"></select>
+        <label class="tog"><input type="checkbox" id="pNone">只看還沒設定的</label>
+        <span class="count" id="pCount"></span>
+      </div>
+      <div class="bulkbar" id="pBulk"></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th class="c-chk"><input type="checkbox" id="pAll" aria-label="全選" style="width:18px;height:18px;accent-color:#1660D6"></th><th>學生</th><th>年級</th><th>上的班／繳費方式</th><th></th></tr></thead>
+          <tbody id="pTbody"></tbody>
+        </table>
+      </div>
+      <div id="pAdmin" style="margin-top:26px"></div>
     </section>
 
     <section id="setView" class="hidden">
@@ -371,7 +404,8 @@
     <div class="dlg-head"><h3 id="batTitle">批次建立學費單</h3><span class="help">一次替很多位學生產生草稿，再逐張微調、一起發布</span></div>
     <div class="dlg-body">
       <div class="checks" role="radiogroup" aria-label="建立方式">
-        <label><input type="radio" name="batMode" value="copy" checked>複製上一期（推薦，每月最快）</label>
+        <label><input type="radio" name="batMode" value="plan" checked>依收費設定（推薦：價目表＋學生班別）</label>
+        <label><input type="radio" name="batMode" value="copy">複製上一期</label>
         <label><input type="radio" name="batMode" value="tpl">用範本從名冊建立（新學期、新學生）</label>
       </div>
       <div class="grid2">
@@ -380,7 +414,7 @@
       </div>
       <div class="grid2">
         <label class="field">繳費期限<input type="date" id="batDue"></label>
-        <label class="field">學費的期間文字<input type="text" id="batPeriod" maxlength="40" placeholder="例：115/11（不填＝沿用）"></label>
+        <label class="field" id="batPeriodWrap">學費的期間文字<input type="text" id="batPeriod" maxlength="40" placeholder="例：115/11（不填＝沿用）"></label>
       </div>
       <div id="batCopyOpts">
         <label class="field">複製哪一期的學費單<select id="batSrc"></select></label>
@@ -388,11 +422,15 @@
           <label><input type="checkbox" id="batClear" checked>不帶入溢繳折抵、請假折抵、已繳訂金（每期不同）</label>
           <label><input type="checkbox" id="batDrop" checked>不帶入「不計入」的項目（例如已繳的教材費）</label>
         </div>
-        <div class="checks" style="margin-top:8px">
-          <label><input type="checkbox" id="batLeave">自動計入請假折抵（依雲點名請假紀錄）</label>
-          <label class="field" style="flex-direction:row;align-items:center;gap:8px;font-weight:400">計算月份<input type="month" id="batLeaveMonth" style="min-height:36px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px"></label>
-        </div>
-        <p class="help" style="margin:6px 0 0">優惠折扣、餐費、車資、活動費會照上一期帶入；備註不帶入。請假折抵以各單的「學費」項目合計當月學費計算。</p>
+        <p class="help" style="margin:6px 0 0">優惠折扣、餐費、車資、活動費會照上一期帶入；備註不帶入。</p>
+      </div>
+      <div id="batPlanOpts">
+        <label class="field">帳單月份（要收哪個月的學費）<input type="month" id="batMonth"></label>
+        <p class="help" style="margin:6px 0 0">月繳學生收當月；期繳學生只有在期繳的起始月才會出單。金額依價目表（看學生年級）和學生收費設定計算。沒設定收費的學生不會出現在名單。</p>
+      </div>
+      <div id="batLeaveOpts" class="checks">
+        <label><input type="checkbox" id="batLeave">自動計入請假折抵（依雲點名請假紀錄）</label>
+        <label class="field" style="flex-direction:row;align-items:center;gap:8px;font-weight:400">計算月份<input type="month" id="batLeaveMonth" style="min-height:36px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px"></label>
       </div>
       <div id="batTplOpts" class="hidden">
         <div class="grid3" style="grid-template-columns:1fr 1fr 1fr">
@@ -444,6 +482,44 @@
       </fieldset>
       <label class="sw" style="max-width:280px"><span>使用中</span><input type="checkbox" id="tmActive" checked></label>
       <p class="err hidden" id="tmErr"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="submit" class="btn primary">儲存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 學生收費設定 -->
+<dialog id="enDlg" class="narrow" style="width:min(560px,calc(100vw - 24px))" aria-labelledby="enTitle">
+  <form method="dialog" id="enForm" novalidate>
+    <div class="dlg-head"><h3 id="enTitle">收費設定</h3><span class="help" id="enSub"></span></div>
+    <div class="dlg-body">
+      <p class="help" style="margin:0">勾選這位學生上的班，並選月繳或期繳。「每月優惠」是每個月折抵的金額（期繳會乘以該期月數）。</p>
+      <div id="enRows" style="display:flex;flex-direction:column;gap:8px"></div>
+      <p class="err hidden" id="enErr"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="submit" class="btn primary">儲存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 班別（含期繳期間） -->
+<dialog id="pgDlg" class="narrow" aria-labelledby="pgTitle">
+  <form method="dialog" id="pgForm" novalidate>
+    <div class="dlg-head"><h3 id="pgTitle">編輯班別</h3></div>
+    <div class="dlg-body">
+      <label class="field">名稱（例：安親班、數學班、國小教材費）<input type="text" id="pgName" maxlength="20"></label>
+      <label class="field">開單時用的項目種類<select id="pgType"></select></label>
+      <fieldset>
+        <legend>期繳的期間 <span class="help">每一期從哪個月到哪個月；跨年請照實填（例：11 月～1 月）。期繳只有在「起始月」才會出單</span></legend>
+        <div id="pgRules"></div>
+        <button type="button" class="btn sm" id="pgAddRule">＋ 加一期</button>
+      </fieldset>
+      <label class="sw" style="max-width:280px"><span>使用中</span><input type="checkbox" id="pgActive" checked></label>
+      <p class="err hidden" id="pgErr"></p>
     </div>
     <div class="dlg-foot">
       <button type="button" class="btn" data-close>取消</button>
@@ -506,6 +582,7 @@ const fmt = n => (n < 0 ? "-" : "") + Math.abs(Number(n) || 0).toLocaleString("e
 
 let ME = null, IS_ADMIN = false, CAN_EDIT = false;
 let BILLS = [], ACCOUNTS = [], TYPES = [], TERMS = [], STUDENTS = [];
+let PROGRAMS = [], PRICES = [], ENROLLS = [], PRICE_MAP = {};
 let editing = null;      // 正在編輯的學費單（null = 新增）
 let editStudentId = null;
 let pvBill = null;
@@ -576,15 +653,22 @@ async function load() {
     sb.from("fee_terms").select("*").order("sort_order")
   ];
   q.push(sb.from("fee_presets").select("*").order("sort_order"));
+  q.push(sb.from("fee_programs").select("*").order("sort_order"));
+  q.push(sb.from("fee_prices").select("*"));
+  q.push(sb.from("fee_enrollments").select("*"));
   if (CAN_EDIT) q.push(sb.rpc("fee_list_students"));
   const r = await Promise.all(q);
-  for (let i = 0; i < r.length; i++) if (r[i].error && i !== 4) throw r[i].error;
+  for (let i = 0; i < r.length; i++) if (r[i].error && !(i >= 4 && i <= 7)) throw r[i].error;
   PRESETS = !r[4].error && r[4].data ? r[4].data : DEFAULT_PRESETS.slice();
   BILLS = (r[0].data || []).map(b => Object.assign(b, { items: sortedItems(b) }));
   ACCOUNTS = r[1].data || [];
   TYPES = r[2].data || [];
   TERMS = r[3].data || [];
-  STUDENTS = CAN_EDIT ? (r[5].data || []) : [];
+  PROGRAMS = !r[5].error ? (r[5].data || []) : [];
+  PRICES = !r[6].error ? (r[6].data || []) : [];
+  ENROLLS = !r[7].error ? (r[7].data || []) : [];
+  PRICE_MAP = {}; PRICES.forEach(x => { if (x.amount != null) PRICE_MAP[priceKey(x.grade, x.program_code, x.billing)] = x.amount; });
+  STUDENTS = CAN_EDIT ? (r[8].data || []) : [];
   const curT = $("fTerm").value, curD = $("fDept").value;
   $("fTerm").innerHTML = '<option value="">全部梯次</option>' + TERMS.map(t => `<option value="${esc(t.id)}">${esc(t.name)}${t.active ? "" : "（停用）"}</option>`).join("");
   const depts = [...new Set(ACCOUNTS.map(a => a.dept).concat(BILLS.map(b => b.dept)).filter(Boolean))];
@@ -592,6 +676,7 @@ async function load() {
   $("fTerm").value = curT; $("fDept").value = curD;
   renderPresetButtons();
   render();
+  renderPlan();
   if (IS_ADMIN) renderSettings();
 }
 
@@ -950,7 +1035,7 @@ function openBatch() {
   $("batSrc").innerHTML = termsWithBills.length ? termsWithBills.map(t => `<option value="${esc(t.id)}">${esc(t.name)}（${BILLS.filter(b => b.term_id === t.id && b.status !== "void").length} 張）</option>`).join("") : '<option value="">（還沒有任何梯次有學費單）</option>';
   const depts = [...new Set(BILLS.map(b => b.dept).concat(ACCOUNTS.map(a => a.dept)).filter(Boolean))];
   $("batDept").innerHTML = '<option value="">全部部別</option>' + depts.map(d => `<option>${esc(d)}</option>`).join("");
-  document.querySelector('input[name="batMode"][value="copy"]').checked = true;
+  document.querySelector('input[name="batMode"][value="plan"]').checked = true;
   $("batQ").value = ""; $("batPeriod").value = ""; $("batErr").classList.add("hidden");
   $("batLeave").checked = false;
   batModeChanged();
@@ -968,11 +1053,15 @@ function batTermChanged() {
   $("batTitleIn").value = t ? (t.title || "學費單") : "學費單";
   $("batDue").value = t && t.due_date ? t.due_date : "";
   $("batLeaveMonth").value = prevMonth($("batDue").value);
+  $("batMonth").value = ($("batDue").value || new Date().toISOString().slice(0, 10)).slice(0, 7);
 }
 function batModeChanged() {
-  const copy = batMode() === "copy";
-  $("batCopyOpts").classList.toggle("hidden", !copy);
-  $("batTplOpts").classList.toggle("hidden", copy);
+  const m = batMode();
+  $("batCopyOpts").classList.toggle("hidden", m !== "copy");
+  $("batTplOpts").classList.toggle("hidden", m !== "tpl");
+  $("batPlanOpts").classList.toggle("hidden", m !== "plan");
+  $("batLeaveOpts").classList.toggle("hidden", m === "tpl");
+  $("batPeriodWrap").classList.toggle("hidden", m === "plan");
   batTermChanged();
   syncBatTpl();
   buildCands();
@@ -980,14 +1069,22 @@ function batModeChanged() {
 function buildCands() {
   const target = $("batTerm").value;
   const have = new Set(BILLS.filter(b => b.term_id === target && b.status !== "void").map(keyOf));
-  if (batMode() === "copy") {
+  if (batMode() === "plan") {
+    const ym = $("batMonth").value;
+    batCands = !ym ? [] : STUDENTS.filter(s => enrollsOf(s.id).length).map(s => {
+      const r = enrollItems(s, ym), has = r.items.length > 0;
+      return { key: s.id, name: s.name, grade: s.grade, dept: deptOfGrade(s.grade), stu: s, exists: have.has(s.id), none: !has,
+               sub: has ? r.items.map(i => `${i.label}${i.amount ? " " + fmt(i.amount) : " ⚠無金額"}`).join("、") : "這個月沒有要收的項目（期繳還沒到收費月份）" };
+    });
+    if (!STUDENTS.some(s => enrollsOf(s.id).length)) batCands = [];
+  } else if (batMode() === "copy") {
     const src = $("batSrc").value, seen = new Set();
     batCands = BILLS.filter(b => b.term_id === src && b.status !== "void").filter(b => { const k = keyOf(b); if (seen.has(k)) return false; seen.add(k); return true; })
       .map(b => ({ key: keyOf(b), name: b.student_name, grade: b.grade_text, dept: b.dept, sub: itemSummary(b) + `　合計 ${fmt(b.total)}`, src: b, exists: have.has(keyOf(b)) }));
   } else {
     batCands = STUDENTS.map(s => ({ key: s.id, name: s.name, grade: s.grade, dept: deptOfGrade(s.grade), sub: `${s.school || ""} ${s.grade}${s.school_class ? " " + s.school_class + " 班" : ""}`, stu: s, exists: have.has(s.id) }));
   }
-  const pre = new Set(batCands.filter(c => !c.exists).map(c => c.key));
+  const pre = new Set(batCands.filter(c => !c.exists && !c.none).map(c => c.key));
   batChecked = pre;
   renderBat();
 }
@@ -1001,15 +1098,22 @@ function renderBat() {
   $("batList").innerHTML = list.length ? list.map(c => `<label style="${c.exists ? "opacity:.55" : ""}">
     <input type="checkbox" data-k="${esc(c.key)}" ${batChecked.has(c.key) ? "checked" : ""} ${c.exists ? "disabled" : ""}>
     <span><b>${esc(c.name)}</b>　<span class="sub">${esc(c.grade)}${c.dept ? "・" + esc(c.dept) : ""}</span><div class="sub">${c.exists ? "這一期已經有學費單，會略過" : esc(c.sub)}</div></span></label>`).join("")
-    : '<p class="empty">沒有符合的學生</p>';
+    : `<p class="empty">${batMode() === "plan" ? "還沒有學生設定收費（請先到「收費設定」頁設定學生上的班）" : "沒有符合的學生"}</p>`;
   const n = batCands.filter(c => batChecked.has(c.key)).length;
   $("batCount").textContent = `已選 ${n} 位`;
   $("batGo").textContent = n ? `建立 ${n} 張草稿` : "建立草稿";
   $("batAll").checked = list.length > 0 && list.filter(c => !c.exists).every(c => batChecked.has(c.key));
 }
+let batWarns = [];
 function batPayload(c, o) {
   const t = termOf(o.term);
   const acct = ACCOUNTS.find(a => a.active && a.dept === (c.dept || "")) || null;
+  if (o.mode === "plan") {
+    const r = enrollItems(c.stu, o.month);
+    batWarns.push(...r.warns);
+    return { student_id: c.stu.id, student_name: c.stu.name, grade_text: c.stu.grade, dept: c.dept, term_id: o.term, title: o.title,
+             due_date: o.due || null, account_id: acct ? acct.id : null, note: "", status: "draft", items: r.items, _base: r.base };
+  }
   if (o.mode === "copy") {
     const b = c.src;
     let items = sortedItems(b).map(i => ({ item_type: i.item_type, label: i.label, amount: Math.abs(i.amount), counted: i.counted, period_text: i.period_text, note: "" }));
@@ -1042,12 +1146,14 @@ async function runBatch(e) {
   const o = { mode: batMode(), term: $("batTerm").value, title: $("batTitleIn").value.trim() || "學費單", due: $("batDue").value, period: $("batPeriod").value.trim(),
               clear: $("batClear").checked, drop: $("batDrop").checked, tpl: $("batTpl").value, tuiLabel: $("batTuiLabel").value.trim(),
               tuiAmt: parseInt($("batTuiAmt").value.replace(/[^\d]/g, ""), 10) || 0,
-              leave: batMode() === "copy" && $("batLeave").checked, leaveMonth: $("batLeaveMonth").value };
+              leave: batMode() !== "tpl" && $("batLeave").checked, leaveMonth: $("batLeaveMonth").value, month: $("batMonth").value };
   if (!o.term) return err("請選擇這一期（目標梯次）");
   const picked = batCands.filter(c => batChecked.has(c.key) && !c.exists);
   if (!picked.length) return err("請至少選一位學生");
   if (o.mode === "copy" && !$("batSrc").value) return err("請選擇要複製哪一期");
   if (o.leave && !o.leaveMonth) return err("請選擇要計算哪個月的請假折抵");
+  if (o.mode === "plan" && !o.month) return err("請選擇帳單月份");
+  batWarns = [];
   if (!confirm(`要建立 ${picked.length} 張草稿嗎？建立後可以逐張微調，確認沒問題再一起發布。`)) return;
   busy(true);
   const ok = [], fail = [];
@@ -1057,7 +1163,7 @@ async function runBatch(e) {
     try {
       const payload = batPayload(picked[i], o);
       if (o.leave && payload.student_id) {
-        const base = payload.items.filter(x => x.item_type === "tuition" && x.counted).reduce((a, x) => a + x.amount, 0);
+        const base = payload._base != null ? payload._base : payload.items.filter(x => x.item_type === "tuition" && x.counted).reduce((a, x) => a + x.amount, 0);
         if (base > 0) {
           try {
             const lr = await rpc("fee_leave_rebate", { p_student_id: payload.student_id, p_month: o.leaveMonth + "-01", p_base: base });
@@ -1066,6 +1172,7 @@ async function runBatch(e) {
           } catch (ex) { fail.push(picked[i].name + "：請假折抵沒算到（" + friendly(ex) + "），單仍會建立"); }
         }
       }
+      delete payload._base;
       const r = await rpc("fee_save_bill", { p: payload }); ok.push(r.id);
     } catch (ex) { fail.push(picked[i].name + "：" + friendly(ex)); }
   }
@@ -1080,6 +1187,7 @@ async function runBatch(e) {
   } finally { busy(false); }
   if (fail.length) alert(`成功 ${ok.length} 張，失敗 ${fail.length} 張：\n` + fail.join("\n"));
   else toast(`已建立 ${ok.length} 張草稿` + (o.leave ? `，其中 ${rebated} 張有請假折抵` : "") + "，可逐張檢查後發布");
+  if (batWarns.length) alert("價目表提醒（這些金額請檢查）：\n" + [...new Set(batWarns)].slice(0, 30).join("\n"));
   if (incomplete) alert("提醒：雲點名的點名紀錄只保留 40 天，這個月的請假資料可能不完整，請假折抵請人工確認。");
 }
 async function issueSelected() {
@@ -1256,6 +1364,204 @@ function editType(t) {
   });
 }
 
+/* ---------- 價目表、班別、學生收費設定 ---------- */
+const GRADE_LIST = ["大班", "一年級", "二年級", "三年級", "四年級", "五年級", "六年級", "國一", "國二", "國三"];
+const priceKey = (g, p, b) => `${g}|${p}|${b}`;
+const priceOf = (g, p, b) => PRICE_MAP[priceKey(g, p, b)];
+const monthsOf = r => ((+r.to - +r.from + 12) % 12) + 1;
+const ruleStarting = (p, m) => (p.period_rule || []).find(r => +r.from === m);
+const ruleText = r => `${r.from}~${r.to}月`;
+function periodText(Y, r) {
+  const y2 = +r.to < +r.from ? Y + 1 : Y;
+  return y2 === Y ? `${Y - 1911}/${r.from}~${r.to}` : `${Y - 1911}/${r.from}~${y2 - 1911}/${r.to}`;
+}
+const billingName = b => (b === "period" ? "期繳" : "月繳");
+const enrollsOf = sid => ENROLLS.filter(e => e.student_id === sid && e.active && PROGRAMS.some(p => p.code === e.program_code));
+function enrollSummary(sid) {
+  return enrollsOf(sid).map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `${p.name}（${billingName(e.billing)}${e.discount ? "，優惠 " + fmt(e.discount) + "/月" : ""}）`; }).join("、");
+}
+// 依學生的收費設定，算出某個月份要收的明細
+function enrollItems(stu, ym) {
+  const [Y, M] = ym.split("-").map(Number);
+  const items = [], warns = []; let base = 0;
+  const discType = TYPES.some(t => t.code === "discount") ? "discount" : "other";
+  enrollsOf(stu.id).forEach(e => {
+    const p = PROGRAMS.find(x => x.code === e.program_code && x.active); if (!p) return;
+    const mp = priceOf(stu.grade, p.code, "month"), pp = priceOf(stu.grade, p.code, "period");
+    const first = (p.period_rule || [])[0];
+    if (p.item_type === "tuition") base += e.billing === "month" ? (mp || 0) : (mp != null ? mp : (pp != null && first ? Math.round(pp / monthsOf(first)) : 0));
+    let amount, period, months = 1;
+    if (e.billing === "month") { amount = mp; period = `${Y - 1911}/${M}`; }
+    else {
+      const r = ruleStarting(p, M); if (!r) return;
+      months = monthsOf(r); period = periodText(Y, r);
+      amount = pp != null ? pp : (mp != null ? mp * months : null);
+      if (pp == null && mp != null) warns.push(`${stu.name}　${p.name}：沒有期繳價，暫以月費 × ${months} 個月計算`);
+    }
+    if (amount == null) { warns.push(`${stu.name}　${p.name}：價目表沒有「${stu.grade}」的${billingName(e.billing)}金額`); amount = 0; }
+    items.push({ item_type: p.item_type, label: p.name, amount, counted: true, period_text: period, note: "" });
+    if (e.discount > 0 && amount > 0) items.push({ item_type: discType, label: `優惠折扣（${p.name}）`, amount: e.discount * months, counted: true, period_text: period, note: "" });
+  });
+  return { items, warns, base };
+}
+
+const PSEL = new Set();
+function planFiltered() {
+  const q = $("pq").value.trim().toLowerCase(), g = $("pGrade").value, none = $("pNone").checked;
+  return STUDENTS.filter(s => (!g || s.grade === g) && (!q || `${s.name} ${s.grade} ${s.account_code || ""}`.toLowerCase().includes(q)) && (!none || !enrollsOf(s.id).length));
+}
+function renderPlan() {
+  const canEditPlan = CAN_EDIT;
+  if (!canEditPlan) return;
+  const grades = [...new Set(STUDENTS.map(s => s.grade).filter(Boolean))].sort((a, b) => GRADE_LIST.indexOf(a) - GRADE_LIST.indexOf(b));
+  const cur = $("pGrade").value;
+  $("pGrade").innerHTML = '<option value="">全部年級</option>' + grades.map(g => `<option>${esc(g)}</option>`).join("");
+  $("pGrade").value = cur;
+  const progs = PROGRAMS.filter(p => p.active);
+  $("pBulk").innerHTML = `<div class="row"><b style="font-size:14px">批次設定選取的學生：</b>
+      ${progs.length ? progs.map(p => `<label class="tog"><input type="checkbox" data-bp="${esc(p.code)}">${esc(p.name)}</label>`).join("") : '<span class="help">還沒有班別（管理員可在下方「班別與期繳期間」新增）</span>'}</div>
+    <div class="row">
+      <select class="sel" id="pbBilling" aria-label="繳費方式"><option value="month">月繳</option><option value="period">期繳</option></select>
+      <label class="field" style="flex-direction:row;align-items:center;gap:6px;font-weight:400">每月優惠<input type="text" id="pbDisc" inputmode="numeric" placeholder="不改" style="width:90px;min-height:40px;border:1px solid #D5DEEA;border-radius:10px;padding:0 8px"></label>
+      <button type="button" class="btn primary sm" id="pbApply">加入／更新這些班</button>
+      <button type="button" class="btn sm del" id="pbRemove">從選取的學生移除這些班</button>
+      <span class="help" id="pbCount"></span></div>`;
+  const list = planFiltered();
+  $("pCount").textContent = `共 ${list.length} 位`;
+  $("pTbody").innerHTML = list.length ? list.map(s => {
+    const sm = enrollSummary(s.id);
+    return `<tr data-sid="${esc(s.id)}" tabindex="0">
+      <td class="c-chk"><input type="checkbox" data-psel="${esc(s.id)}" ${PSEL.has(s.id) ? "checked" : ""} aria-label="選取 ${esc(s.name)}"></td>
+      <td><div class="nm">${esc(s.name)}</div><div class="sub">${esc(s.account_code || "")}</div></td>
+      <td>${esc(s.grade)}</td>
+      <td>${sm ? esc(sm) : '<span class="help">還沒設定</span>'}</td>
+      <td><button type="button" class="btn sm" data-pedit="${esc(s.id)}">編輯</button></td></tr>`;
+  }).join("") : '<tr><td colspan="5" class="empty">沒有符合的學生</td></tr>';
+  $("pAll").checked = list.length > 0 && list.every(s => PSEL.has(s.id));
+  $("pbCount").textContent = PSEL.size ? `已選 ${PSEL.size} 位` : "先在下方勾選學生";
+  renderPlanAdmin();
+}
+function renderPlanAdmin() {
+  const box = $("pAdmin");
+  if (!IS_ADMIN) { box.innerHTML = ""; return; }
+  const progs = PROGRAMS.filter(p => p.active);
+  const head1 = progs.map(p => `<th class="pm-grp" colspan="2">${esc(p.name)}</th>`).join("");
+  const head2 = progs.map(() => '<th class="pm-grp">月繳／月</th><th>期繳／期</th>').join("");
+  const rows = GRADE_LIST.map(g => `<tr><td class="nm" style="white-space:nowrap">${esc(g)}</td>${progs.map(p => ["month", "period"].map(b => {
+    const v = priceOf(g, p.code, b);
+    return `<td${b === "month" ? ' class="pm-grp"' : ""}><input class="pm-in" inputmode="numeric" data-g="${esc(g)}" data-p="${esc(p.code)}" data-b="${b}" value="${v == null ? "" : v}" aria-label="${esc(g + p.name + billingName(b))}"></td>`;
+  }).join("")).join("")}</tr>`).join("");
+  box.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+      <h3 style="margin:0;font-size:17px">價目表（年級 × 班別 × 繳費方式）</h3>
+      <button type="button" class="btn primary sm" id="pmSave">儲存價目表</button></div>
+    <p class="help" style="margin:0 0 8px">月繳填「每月」金額；期繳填「一期」總金額。期繳留空時，開單會用月費 × 該期月數計算並提醒您。</p>
+    <div class="pm-wrap"><table><thead><tr><th rowspan="2">年級</th>${head1}</tr><tr>${head2}</tr></thead><tbody>${rows || ""}</tbody></table></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:26px 0 6px;flex-wrap:wrap">
+      <h3 style="margin:0;font-size:17px">班別與期繳期間</h3><button type="button" class="btn primary sm" id="pgAdd">＋ 新增班別</button></div>
+    <div class="tbl-wrap" style="margin-top:0"><table><thead><tr><th>名稱</th><th>項目種類</th><th>期繳期間</th><th>狀態</th><th></th></tr></thead><tbody>
+      ${PROGRAMS.map(p => `<tr><td class="nm">${esc(p.name)}</td><td>${esc(typeOf(p.item_type).name)}</td><td>${esc((p.period_rule || []).map(ruleText).join("、") || "（未設定）")}</td><td><span class="pill ${p.active ? "on" : "offp"}">${p.active ? "使用中" : "停用"}</span></td><td><button type="button" class="btn sm" data-pg="${esc(p.code)}">編輯</button></td></tr>`).join("") || '<tr><td colspan="5" class="empty">尚未設定</td></tr>'}
+    </tbody></table></div>`;
+}
+async function upsertRows(table, rows, conflict) {
+  for (let i = 0; i < rows.length; i += 200) {
+    const { error } = await sb.from(table).upsert(rows.slice(i, i + 200), { onConflict: conflict });
+    if (error) throw error;
+  }
+}
+async function savePrices() {
+  const rows = [];
+  $("pAdmin").querySelectorAll(".pm-in").forEach(inp => {
+    const raw = inp.value.replace(/[^\d]/g, ""), cur = priceOf(inp.dataset.g, inp.dataset.p, inp.dataset.b);
+    const nv = raw === "" ? null : parseInt(raw, 10);
+    if ((cur == null ? null : cur) !== nv) rows.push({ grade: inp.dataset.g, program_code: inp.dataset.p, billing: inp.dataset.b, amount: nv });
+  });
+  if (!rows.length) return toast("價目表沒有變動");
+  busy(true);
+  try { await upsertRows("fee_prices", rows, "grade,program_code,billing"); await load(); toast(`價目表已儲存（${rows.length} 格）`); }
+  catch (ex) { toast(friendly(ex), true); } finally { busy(false); }
+}
+async function bulkEnroll(remove) {
+  const ids = [...PSEL], codes = [...$("pBulk").querySelectorAll("[data-bp]:checked")].map(x => x.dataset.bp);
+  if (!ids.length) return toast("請先勾選學生", true);
+  if (!codes.length) return toast("請先勾選要設定的班", true);
+  const disc = $("pbDisc").value.replace(/[^\d]/g, "");
+  let rows = [];
+  if (remove) {
+    ids.forEach(id => codes.forEach(c => { const ex = ENROLLS.find(e => e.student_id === id && e.program_code === c && e.active); if (ex) rows.push({ student_id: id, program_code: c, active: false }); }));
+    if (!rows.length) return toast("選取的學生沒有這些班", true);
+    if (!confirm(`要從 ${ids.length} 位學生移除所選的班嗎？（共 ${rows.length} 筆，之後批次出單不會再帶這些班）`)) return;
+  } else {
+    const billing = $("pbBilling").value;
+    ids.forEach(id => codes.forEach(c => { const r = { student_id: id, program_code: c, billing, active: true }; if (disc !== "") r.discount = parseInt(disc, 10); rows.push(r); }));
+    if (!confirm(`要把 ${ids.length} 位學生加入／更新 ${codes.length} 個班（${billingName(billing)}${disc !== "" ? "，每月優惠 " + disc : ""}）嗎？`)) return;
+  }
+  busy(true);
+  try { await upsertRows("fee_enrollments", rows, "student_id,program_code"); await load(); toast("已更新收費設定"); }
+  catch (ex) { toast(friendly(ex), true); } finally { busy(false); }
+}
+let enStudent = null;
+function openEnroll(sid) {
+  const s = STUDENTS.find(x => x.id === sid); if (!s) return;
+  enStudent = s;
+  $("enTitle").textContent = `${s.name}　收費設定`;
+  $("enSub").textContent = `${s.grade}${s.account_code ? "・" + s.account_code : ""}`;
+  $("enRows").innerHTML = PROGRAMS.filter(p => p.active || ENROLLS.some(e => e.student_id === sid && e.program_code === p.code && e.active)).map(p => {
+    const e = ENROLLS.find(x => x.student_id === sid && x.program_code === p.code), on = !!(e && e.active);
+    return `<div class="enrow ${on ? "on" : ""}" data-code="${esc(p.code)}">
+      <label class="nm2"><input type="checkbox" class="en-on" ${on ? "checked" : ""} style="width:18px;height:18px;accent-color:var(--blue)">${esc(p.name)}</label>
+      <select class="en-b" aria-label="繳費方式"><option value="month" ${e && e.billing === "month" || !e ? "selected" : ""}>月繳</option><option value="period" ${e && e.billing === "period" ? "selected" : ""}>期繳</option></select>
+      <input type="text" class="en-d" inputmode="numeric" placeholder="每月優惠" value="${e && e.discount ? e.discount : ""}" aria-label="每月優惠">
+    </div>`;
+  }).join("") || '<p class="empty">還沒有班別，請管理員先在下方新增</p>';
+  $("enErr").classList.add("hidden");
+  $("enDlg").showModal();
+}
+async function saveEnroll(e) {
+  e.preventDefault();
+  if (!enStudent) return;
+  const rows = [];
+  $("enRows").querySelectorAll(".enrow").forEach(r => {
+    const code = r.dataset.code, on = r.querySelector(".en-on").checked;
+    const ex = ENROLLS.find(x => x.student_id === enStudent.id && x.program_code === code);
+    if (!on && !(ex && ex.active)) return;
+    rows.push({ student_id: enStudent.id, program_code: code, billing: r.querySelector(".en-b").value, discount: parseInt(r.querySelector(".en-d").value.replace(/[^\d]/g, ""), 10) || 0, active: on });
+  });
+  busy(true);
+  try { if (rows.length) await upsertRows("fee_enrollments", rows, "student_id,program_code"); $("enDlg").close(); await load(); toast("已儲存"); }
+  catch (ex) { $("enErr").textContent = friendly(ex); $("enErr").classList.remove("hidden"); } finally { busy(false); }
+}
+let editingProg = null;
+function ruleRowHtml(r) {
+  const opts = sel => Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${+sel === i + 1 ? "selected" : ""}>${i + 1} 月</option>`).join("");
+  return `<div class="rrow"><select class="rf" aria-label="起始月">${opts(r ? r.from : 9)}</select>～<select class="rt" aria-label="結束月">${opts(r ? r.to : 12)}</select><button type="button" class="x" style="border:0;background:none;color:var(--muted);font-size:18px;cursor:pointer" aria-label="刪除這一期">✕</button></div>`;
+}
+function editProgram(code) {
+  const p = code ? PROGRAMS.find(x => x.code === code) : null;
+  editingProg = p || null;
+  $("pgTitle").textContent = p ? "編輯班別" : "新增班別";
+  $("pgName").value = p ? p.name : "";
+  $("pgType").innerHTML = TYPES.filter(t => t.active || (p && t.code === p.item_type)).map(t => `<option value="${esc(t.code)}" ${(p ? p.item_type : "tuition") === t.code ? "selected" : ""}>${esc(t.name)}</option>`).join("");
+  $("pgRules").innerHTML = (p ? (p.period_rule || []) : []).map(ruleRowHtml).join("");
+  $("pgActive").checked = p ? !!p.active : true;
+  $("pgErr").classList.add("hidden");
+  $("pgDlg").showModal();
+}
+async function saveProgram(e) {
+  e.preventDefault();
+  const err = m => { $("pgErr").textContent = m; $("pgErr").classList.remove("hidden"); };
+  const name = $("pgName").value.trim();
+  if (!name) return err("請輸入班別名稱");
+  const rules = [...$("pgRules").querySelectorAll(".rrow")].map(r => ({ from: +r.querySelector(".rf").value, to: +r.querySelector(".rt").value }));
+  const row = { name, item_type: $("pgType").value, period_rule: rules, active: $("pgActive").checked };
+  busy(true);
+  try {
+    if (editingProg) await dbWrite("fee_programs", editingProg.code, "code", row);
+    else await dbWrite("fee_programs", null, "code", Object.assign(row, { sort_order: PROGRAMS.length * 10 + 10 }));
+    $("pgDlg").close(); await load(); toast("已儲存");
+  } catch (ex) { err(friendly(ex)); } finally { busy(false); }
+}
+
 /* ---------- 項目種類：拖曳排序 ---------- */
 async function saveTypeOrder(codes) {
   const byCode = Object.fromEntries(TYPES.map(t => [t.code, t]));
@@ -1426,11 +1732,38 @@ $("setBody").addEventListener("click", e => {
 });
 function showTab(name) {
   $("tabBills").setAttribute("aria-selected", String(name === "bills"));
+  $("tabPlan").setAttribute("aria-selected", String(name === "plan"));
   $("tabSet").setAttribute("aria-selected", String(name === "set"));
+  $("planView").classList.toggle("hidden", name !== "plan");
   $("billsView").classList.toggle("hidden", name !== "bills");
   $("setView").classList.toggle("hidden", name !== "set");
 }
 $("tabBills").addEventListener("click", () => showTab("bills"));
+$("tabPlan").addEventListener("click", () => showTab("plan"));
+$("batMonth").addEventListener("change", buildCands);
+let pqTimer;
+$("pq").addEventListener("input", () => { clearTimeout(pqTimer); pqTimer = setTimeout(renderPlan, 150); });
+["pGrade", "pNone"].forEach(id => $(id).addEventListener("change", renderPlan));
+$("pAll").addEventListener("change", e => { planFiltered().forEach(s => e.target.checked ? PSEL.add(s.id) : PSEL.delete(s.id)); renderPlan(); });
+$("pTbody").addEventListener("click", e => {
+  const c = e.target.closest("[data-psel]");
+  if (c) { c.checked ? PSEL.add(c.dataset.psel) : PSEL.delete(c.dataset.psel); $("pbCount").textContent = PSEL.size ? `已選 ${PSEL.size} 位` : "先在下方勾選學生"; $("pAll").checked = planFiltered().every(s => PSEL.has(s.id)); return; }
+  const b = e.target.closest("[data-pedit]"); if (b) return openEnroll(b.dataset.pedit);
+  if (e.target.closest(".c-chk")) return;
+  const tr = e.target.closest("tr[data-sid]"); if (tr) openEnroll(tr.dataset.sid);
+});
+$("pBulk").addEventListener("click", e => { if (e.target.id === "pbApply") bulkEnroll(false); if (e.target.id === "pbRemove") bulkEnroll(true); });
+$("pAdmin").addEventListener("click", e => {
+  if (e.target.id === "pmSave") return savePrices();
+  if (e.target.id === "pgAdd") return editProgram(null);
+  const b = e.target.closest("[data-pg]"); if (b) editProgram(b.dataset.pg);
+});
+$("pAdmin").addEventListener("input", e => { if (e.target.matches(".pm-in")) { const cur = priceOf(e.target.dataset.g, e.target.dataset.p, e.target.dataset.b); const raw = e.target.value.replace(/[^\d]/g, ""); e.target.classList.toggle("dirty", (cur == null ? "" : String(cur)) !== raw); } });
+$("enForm").addEventListener("submit", saveEnroll);
+$("enRows").addEventListener("change", e => { const r = e.target.closest(".enrow"); if (r && e.target.matches(".en-on")) r.classList.toggle("on", e.target.checked); });
+$("pgForm").addEventListener("submit", saveProgram);
+$("pgAddRule").addEventListener("click", () => $("pgRules").insertAdjacentHTML("beforeend", ruleRowHtml(null)));
+$("pgRules").addEventListener("click", e => { if (e.target.closest(".x")) e.target.closest(".rrow").remove(); });
 $("tabSet").addEventListener("click", () => showTab("set"));
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
 $("logoutBtn").addEventListener("click", () => goPortal(""));
@@ -1454,6 +1787,7 @@ $("logoutBtn").addEventListener("click", () => goPortal(""));
     $("batchBtn").classList.toggle("hidden", !CAN_EDIT);
     $("issueSel").classList.toggle("hidden", !CAN_EDIT);
     $("tabSet").classList.toggle("hidden", !IS_ADMIN);
+    $("tabPlan").classList.toggle("hidden", !CAN_EDIT);
     touch();
     await load();
   } catch (ex) {
