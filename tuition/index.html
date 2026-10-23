@@ -291,6 +291,7 @@
         <select class="sel" id="fDept" aria-label="部別"></select>
         <button type="button" class="btn" id="printSel" disabled title="列印勾選的學費單">列印</button>
         <button type="button" class="btn hidden" id="issueSel" disabled title="發布勾選的草稿">發布草稿</button>
+        <button type="button" class="btn hidden" id="delSel" disabled title="刪除勾選的草稿或已作廢的學費單" style="color:var(--rose)">刪除</button>
         <button type="button" class="btn hidden" id="batchBtn" style="border-color:var(--blue);color:var(--blue);font-weight:700">批次建立</button>
         <button type="button" class="btn primary hidden" id="addBill">＋ 新增學費單</button>
       </div>
@@ -343,6 +344,7 @@
     <button type="button" class="btn" id="pvCopy">複製圖片</button>
     <button type="button" class="btn" id="pvShare">傳送</button>
     <button type="button" class="btn hidden" id="pvVoid" style="color:var(--rose)">作廢</button>
+    <button type="button" class="btn hidden" id="pvDel" style="color:var(--rose)">刪除</button>
     <button type="button" class="btn hidden" id="pvIssue">發布</button>
     <button type="button" class="btn primary hidden" id="pvEdit">編輯</button>
   </div>
@@ -611,7 +613,7 @@ function toast(msg, bad) {
 }
 function friendly(err) {
   const m = (err && err.message) || String(err || "");
-  if (/fee_save_bill|fee_list_students|fee_bills|fee_accounts|fee_terms|fee_item_types|Could not find the function|does not exist/i.test(m) && !/permission|row-level/i.test(m)) return "資料庫還沒安裝學費管理的資料表（07_tuition.sql），請先在 SQL Editor 執行";
+  if (/fee_save_bill|fee_delete_bills|fee_list_students|fee_bills|fee_accounts|fee_terms|fee_item_types|Could not find the function|does not exist/i.test(m) && !/permission|row-level/i.test(m)) return "資料庫還沒安裝學費管理的資料表（07_tuition.sql），請先在 SQL Editor 執行";
   if (/no fee edit permission|admin only|42501|row-level|permission denied|JWT|not authenticated/i.test(m)) return "沒有權限或登入已過期，請重新登入";
   if (/name required/.test(m)) return "請輸入學生姓名";
   if (/unknown item type/.test(m)) return "有一列的項目種類不存在，請重新選擇";
@@ -727,6 +729,9 @@ function render() {
   $("printSel").disabled = !SELECTED.size;
   const nDraft = BILLS.filter(b => SELECTED.has(b.id) && b.status === "draft").length;
   $("issueSel").disabled = !nDraft;
+  const nDel = BILLS.filter(b => SELECTED.has(b.id) && b.status !== "issued").length;
+  $("delSel").disabled = !nDel;
+  $("delSel").textContent = nDel ? `刪除（${nDel}）` : "刪除";
   $("issueSel").textContent = nDraft ? `發布草稿（${nDraft}）` : "發布草稿";
   $("printSel").textContent = SELECTED.size ? `列印（${SELECTED.size}）` : "列印";
   $("chkAll").checked = list.length > 0 && list.every(b => SELECTED.has(b.id));
@@ -767,6 +772,7 @@ function openPreview(b) {
   $("pvEdit").classList.toggle("hidden", !CAN_EDIT);
   $("pvIssue").classList.toggle("hidden", !(CAN_EDIT && b.status === "draft"));
   $("pvVoid").classList.toggle("hidden", !(CAN_EDIT && b.status !== "void"));
+  $("pvDel").classList.toggle("hidden", !(CAN_EDIT && b.status !== "issued"));
   $("pvDlg").showModal();
 }
 async function paperCanvas() {
@@ -1205,6 +1211,18 @@ async function runBatch(e) {
   else toast(`已建立 ${ok.length} 張草稿` + (o.leave ? `，其中 ${rebated} 張有請假折抵` : "") + "，可逐張檢查後發布");
   if (batWarns.length) alert("價目表提醒（這些金額請檢查）：\n" + [...new Set(batWarns)].slice(0, 30).join("\n"));
   if (incomplete) alert("提醒：雲點名的點名紀錄只保留 40 天，這個月的請假資料可能不完整，請假折抵請人工確認。");
+}
+async function deleteBills(ids, label) {
+  if (!ids.length) return;
+  if (!confirm(`確定要刪除${label}嗎？\n刪除後無法復原（只有草稿與已作廢的單能刪除；已發布的要先作廢）。`)) return;
+  busy(true);
+  try {
+    const r = await rpc("fee_delete_bills", { p_ids: ids });
+    ids.forEach(id => SELECTED.delete(id));
+    if ($("pvDlg").open) $("pvDlg").close();
+    await load();
+    toast(`已刪除 ${r.deleted} 張` + (r.skipped ? `，略過 ${r.skipped} 張（已發布的請先作廢）` : ""), !!r.skipped && !r.deleted);
+  } catch (ex) { toast(friendly(ex), true); } finally { busy(false); }
 }
 async function issueSelected() {
   const list = BILLS.filter(b => SELECTED.has(b.id) && b.status === "draft");
@@ -1686,6 +1704,8 @@ $("printSel").addEventListener("click", () => printBills(BILLS.filter(b => SELEC
 $("addBill").addEventListener("click", () => { QUEUE = []; openEdit(null); });
 $("batchBtn").addEventListener("click", openBatch);
 $("issueSel").addEventListener("click", issueSelected);
+$("delSel").addEventListener("click", () => { const l = BILLS.filter(b => SELECTED.has(b.id) && b.status !== "issued"); deleteBills(l.map(b => b.id), `勾選的 ${l.length} 張學費單（草稿／已作廢）`); });
+$("pvDel").addEventListener("click", () => { if (pvBill) deleteBills([pvBill.id], `「${pvBill.student_name}　${pvBill.title || "學費單"}」`); });
 document.querySelectorAll('input[name="batMode"]').forEach(r => r.addEventListener("change", batModeChanged));
 $("batTerm").addEventListener("change", () => { batTermChanged(); syncBatTpl(); buildCands(); });
 $("batSrc").addEventListener("change", buildCands);
@@ -1828,6 +1848,7 @@ $("logoutBtn").addEventListener("click", () => goPortal(""));
     $("addBill").classList.toggle("hidden", !CAN_EDIT);
     $("batchBtn").classList.toggle("hidden", !CAN_EDIT);
     $("issueSel").classList.toggle("hidden", !CAN_EDIT);
+    $("delSel").classList.toggle("hidden", !CAN_EDIT);
     $("tabSet").classList.toggle("hidden", !IS_ADMIN);
     $("tabPlan").classList.toggle("hidden", !CAN_EDIT);
     touch();
