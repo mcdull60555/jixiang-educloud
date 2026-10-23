@@ -322,6 +322,7 @@
           <button type="button" class="btn sm" data-tpl="summer">暑期夏令營</button>
           <button type="button" class="btn sm" data-tpl="winter">寒假班</button>
           <button type="button" class="btn sm" id="addRow">＋ 加一列</button>
+          <button type="button" class="btn sm" id="calcLeave" style="border-color:var(--blue);color:var(--blue)">計算請假折抵</button>
         </div>
         <div class="irows" id="irows"></div>
       </fieldset>
@@ -336,6 +337,22 @@
       <button type="button" class="btn primary" id="bSaveIssue">儲存並發布</button>
     </div>
   </form>
+</dialog>
+
+<!-- 請假折抵試算 -->
+<dialog id="lvDlg" class="narrow" aria-labelledby="lvTitle">
+  <div class="dlg-head"><h3 id="lvTitle">請假折抵試算</h3></div>
+  <div class="dlg-body">
+    <p class="help" style="margin:0">依雲點名的請假紀錄：連續請假滿 3 個上課日才折抵（週六日不影響；國定假日、颱風日會中斷），每天折抵＝月學費 ÷ 當月平日天數；預約請假原因含「出國」的天數折半。</p>
+    <label class="field">要計算哪個月的請假<input type="month" id="lvMonth"></label>
+    <fieldset><legend>以哪些項目當作月學費</legend><div class="checks" id="lvBase"></div></fieldset>
+    <div id="lvResult"></div>
+  </div>
+  <div class="dlg-foot">
+    <button type="button" class="btn" data-close>關閉</button>
+    <button type="button" class="btn" id="lvRun">計算</button>
+    <button type="button" class="btn primary" id="lvAdd" disabled>加入明細</button>
+  </div>
 </dialog>
 
 <!-- 批次建立 -->
@@ -361,7 +378,11 @@
           <label><input type="checkbox" id="batClear" checked>不帶入溢繳折抵、請假折抵、已繳訂金（每期不同）</label>
           <label><input type="checkbox" id="batDrop" checked>不帶入「不計入」的項目（例如已繳的教材費）</label>
         </div>
-        <p class="help" style="margin:6px 0 0">優惠折扣、餐費、車資、活動費會照上一期帶入；備註不帶入。</p>
+        <div class="checks" style="margin-top:8px">
+          <label><input type="checkbox" id="batLeave">自動計入請假折抵（依雲點名請假紀錄）</label>
+          <label class="field" style="flex-direction:row;align-items:center;gap:8px;font-weight:400">計算月份<input type="month" id="batLeaveMonth" style="min-height:36px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px"></label>
+        </div>
+        <p class="help" style="margin:6px 0 0">優惠折扣、餐費、車資、活動費會照上一期帶入；備註不帶入。請假折抵以各單的「學費」項目合計當月學費計算。</p>
       </div>
       <div id="batTplOpts" class="hidden">
         <div class="grid3" style="grid-template-columns:1fr 1fr 1fr">
@@ -767,6 +788,52 @@ async function setStatus(b, status) {
   } catch (ex) { toast(friendly(ex), true); } finally { busy(false); }
 }
 
+/* ---------- 請假折抵 ---------- */
+const mdText = d => { const [, m, dd] = d.split("-"); return `${+m}/${+dd}`; };
+function segText(segs) { return segs.map(g => g.start === g.end ? mdText(g.start) : `${mdText(g.start)}~${mdText(g.end)}`).join("、"); }
+function prevMonth(dateStr) {
+  const d = dateStr ? new Date(dateStr + "T12:00:00") : new Date();
+  d.setDate(1); d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+let lvResult = null;
+function openLeave() {
+  if (!editStudentId) return toast("這位學生不在名冊裡，讀不到雲點名的請假紀錄，請手動輸入", true);
+  const rows = readRows().map((r, i) => Object.assign(r, { i })).filter(r => r.item_type === "tuition" && r.amount > 0);
+  if (!rows.length) return toast("請先填好「學費」項目的金額", true);
+  $("lvBase").innerHTML = rows.map(r => `<label><input type="checkbox" data-amt="${r.amount}" checked>${esc(r.label || "學費")} ${fmt(r.amount)}</label>`).join("");
+  $("lvMonth").value = prevMonth($("bDue").value);
+  $("lvResult").innerHTML = ""; lvResult = null; $("lvAdd").disabled = true;
+  $("lvDlg").showModal();
+}
+async function runLeave() {
+  const base = [...$("lvBase").querySelectorAll("input:checked")].reduce((a, c) => a + (+c.dataset.amt || 0), 0);
+  if (!$("lvMonth").value) return toast("請選擇月份", true);
+  if (!base) return toast("請至少勾一個項目當作月學費", true);
+  busy(true);
+  try {
+    const r = await rpc("fee_leave_rebate", { p_student_id: editStudentId, p_month: $("lvMonth").value + "-01", p_base: base });
+    lvResult = r;
+    const segs = r.segments.map(g => `<li>${esc(segText([g]))}　${g.days} 天${g.abroad_days ? `（含出國 ${g.abroad_days} 天，折半）` : ""}　<b>${fmt(Math.round(g.amount))}</b></li>`).join("");
+    $("lvResult").innerHTML = `<div class="dsec"><h4>${esc(r.month)} 試算結果</h4>
+      <p style="margin:0 0 6px;font-size:13.5px;color:var(--muted-2)">月學費 ${fmt(base)} ÷ 平日 ${r.class_days} 天 ＝ 每天 ${fmt(Math.round(r.per_day * 100) / 100)}</p>
+      ${r.segments.length ? `<ul class="clist">${segs}</ul>` : '<p style="margin:0">這個月沒有連續請假滿 3 天的紀錄，不需折抵。</p>'}
+      <p style="margin:8px 0 0;font-size:17px"><b>請假折抵 ${fmt(r.total)} 元</b>　<span class="help">（四捨五入到 5 的倍數）</span></p>
+      ${r.covered ? "" : `<p class="warn" style="margin-top:8px">雲點名的點名紀錄只保留 40 天，最早只到 ${esc(r.data_from || "（無資料）")}，這個月的資料可能不完整，結果請人工確認。</p>`}</div>`;
+    $("lvAdd").disabled = !(r.total > 0);
+  } catch (ex) { toast(friendly(ex), true); } finally { busy(false); }
+}
+function addLeaveRow() {
+  if (!lvResult || !(lvResult.total > 0)) return;
+  const period = segText(lvResult.segments);
+  const row = [...$("irows").querySelectorAll(".irow")].find(r => r.querySelector(".it").value === "leave");
+  if (row) { row.querySelector(".ia").value = lvResult.total; row.querySelector(".ip").value = period; row.querySelector(".ic").checked = true; }
+  else addRow({ item_type: "leave", label: "請假折抵", amount: lvResult.total, counted: true, period_text: period });
+  calcTotal();
+  $("lvDlg").close();
+  toast("已加入請假折抵，可再手動調整");
+}
+
 /* ---------- 批次建立 ---------- */
 let QUEUE = [];                       // 剛批次建立的草稿 id，供「儲存並編輯下一張」
 function nextInQueue(id) {
@@ -787,6 +854,7 @@ function openBatch() {
   $("batDept").innerHTML = '<option value="">全部部別</option>' + depts.map(d => `<option>${esc(d)}</option>`).join("");
   document.querySelector('input[name="batMode"][value="copy"]').checked = true;
   $("batQ").value = ""; $("batPeriod").value = ""; $("batErr").classList.add("hidden");
+  $("batLeave").checked = false;
   batModeChanged();
   $("batDlg").showModal();
 }
@@ -794,6 +862,7 @@ function batTermChanged() {
   const t = termOf($("batTerm").value);
   $("batTitleIn").value = t ? (t.title || "學費單") : "學費單";
   $("batDue").value = t && t.due_date ? t.due_date : "";
+  $("batLeaveMonth").value = prevMonth($("batDue").value);
 }
 function batModeChanged() {
   const copy = batMode() === "copy";
@@ -857,18 +926,33 @@ async function runBatch(e) {
   const err = m => { $("batErr").textContent = m; $("batErr").classList.remove("hidden"); };
   const o = { mode: batMode(), term: $("batTerm").value, title: $("batTitleIn").value.trim() || "學費單", due: $("batDue").value, period: $("batPeriod").value.trim(),
               clear: $("batClear").checked, drop: $("batDrop").checked, tpl: $("batTpl").value, tuiLabel: $("batTuiLabel").value.trim(),
-              tuiAmt: parseInt($("batTuiAmt").value.replace(/[^\d]/g, ""), 10) || 0 };
+              tuiAmt: parseInt($("batTuiAmt").value.replace(/[^\d]/g, ""), 10) || 0,
+              leave: batMode() === "copy" && $("batLeave").checked, leaveMonth: $("batLeaveMonth").value };
   if (!o.term) return err("請選擇這一期（目標梯次）");
   const picked = batCands.filter(c => batChecked.has(c.key) && !c.exists);
   if (!picked.length) return err("請至少選一位學生");
   if (o.mode === "copy" && !$("batSrc").value) return err("請選擇要複製哪一期");
+  if (o.leave && !o.leaveMonth) return err("請選擇要計算哪個月的請假折抵");
   if (!confirm(`要建立 ${picked.length} 張草稿嗎？建立後可以逐張微調，確認沒問題再一起發布。`)) return;
   busy(true);
   const ok = [], fail = [];
+  let rebated = 0, incomplete = false;
   for (let i = 0; i < picked.length; i++) {
     $("busy").textContent = `建立中 ${i + 1} / ${picked.length}…`;
-    try { const r = await rpc("fee_save_bill", { p: batPayload(picked[i], o) }); ok.push(r.id); }
-    catch (ex) { fail.push(picked[i].name + "：" + friendly(ex)); }
+    try {
+      const payload = batPayload(picked[i], o);
+      if (o.leave && payload.student_id) {
+        const base = payload.items.filter(x => x.item_type === "tuition" && x.counted).reduce((a, x) => a + x.amount, 0);
+        if (base > 0) {
+          try {
+            const lr = await rpc("fee_leave_rebate", { p_student_id: payload.student_id, p_month: o.leaveMonth + "-01", p_base: base });
+            if (!lr.covered) incomplete = true;
+            if (lr.total > 0) { payload.items.push({ item_type: "leave", label: "請假折抵", amount: lr.total, counted: true, period_text: segText(lr.segments), note: "" }); rebated++; }
+          } catch (ex) { fail.push(picked[i].name + "：請假折抵沒算到（" + friendly(ex) + "），單仍會建立"); }
+        }
+      }
+      const r = await rpc("fee_save_bill", { p: payload }); ok.push(r.id);
+    } catch (ex) { fail.push(picked[i].name + "：" + friendly(ex)); }
   }
   $("busy").textContent = "處理中…";
   try {
@@ -880,7 +964,8 @@ async function runBatch(e) {
     render();
   } finally { busy(false); }
   if (fail.length) alert(`成功 ${ok.length} 張，失敗 ${fail.length} 張：\n` + fail.join("\n"));
-  else toast(`已建立 ${ok.length} 張草稿，可逐張檢查後發布`);
+  else toast(`已建立 ${ok.length} 張草稿` + (o.leave ? `，其中 ${rebated} 張有請假折抵` : "") + "，可逐張檢查後發布");
+  if (incomplete) alert("提醒：雲點名的點名紀錄只保留 40 天，這個月的請假資料可能不完整，請假折抵請人工確認。");
 }
 async function issueSelected() {
   const list = BILLS.filter(b => SELECTED.has(b.id) && b.status === "draft");
@@ -1008,6 +1093,9 @@ $("pvShare").addEventListener("click", () => imgAct("share"));
 $("bStudent").addEventListener("input", onStudentInput);
 $("bGrade").addEventListener("change", () => applyDept(deptOfGrade($("bGrade").value)));
 $("bTerm").addEventListener("change", onTermChange);
+$("calcLeave").addEventListener("click", openLeave);
+$("lvRun").addEventListener("click", runLeave);
+$("lvAdd").addEventListener("click", addLeaveRow);
 $("addRow").addEventListener("click", () => { const r = addRow(); r.querySelector(".il").focus(); });
 document.querySelectorAll("[data-tpl]").forEach(b => b.addEventListener("click", () => applyTemplate(b.dataset.tpl)));
 $("irows").addEventListener("input", calcTotal);
