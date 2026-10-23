@@ -329,9 +329,7 @@
         <legend>收費明細　<span class="help">折抵類（溢繳折抵、優惠折扣…）金額請輸入正數，系統會自動當成扣除；不勾「計入」＝只顯示、不算進總計（例如教材費已繳）</span></legend>
         <div class="tpls" style="margin-bottom:8px">
           <span class="help">套用範本：</span>
-          <button type="button" class="btn sm" data-tpl="regular">學期／月費單</button>
-          <button type="button" class="btn sm" data-tpl="summer">暑期夏令營</button>
-          <button type="button" class="btn sm" data-tpl="winter">寒假班</button>
+          <span id="tplBtns" style="display:contents"></span>
           <button type="button" class="btn sm" id="tplTerm" title="使用「梯次」設定裡的範本">這個梯次的範本</button>
           <button type="button" class="btn sm" id="addRow">＋ 加一列</button>
           <button type="button" class="btn sm" id="calcLeave" style="border-color:var(--blue);color:var(--blue)">計算請假折抵</button>
@@ -398,7 +396,7 @@
       </div>
       <div id="batTplOpts" class="hidden">
         <div class="grid3" style="grid-template-columns:1fr 1fr 1fr">
-          <label class="field">範本<select id="batTpl"><option value="term">使用梯次範本</option><option value="regular">學期／月費單</option><option value="summer">暑期夏令營</option><option value="winter">寒假班</option></select></label>
+          <label class="field">範本<select id="batTpl"></select></label>
           <label class="field">學費名稱<input type="text" id="batTuiLabel" maxlength="20" placeholder="例：安親班"></label>
           <label class="field">學費金額（全部相同，可留空）<input type="text" id="batTuiAmt" inputmode="numeric" placeholder="例：6000"></label>
         </div>
@@ -438,15 +436,37 @@
         <legend>開單範本　<span class="help">這個梯次開單時自動帶入的明細。金額可以先留空（開單再填），也可以填常用的固定金額；不勾「計入」＝只顯示、不算進總計</span></legend>
         <div class="tpls" style="margin-bottom:8px">
           <span class="help">快速帶入：</span>
-          <button type="button" class="btn sm" data-tmtpl="regular">學期／月費單</button>
-          <button type="button" class="btn sm" data-tmtpl="summer">暑期夏令營</button>
-          <button type="button" class="btn sm" data-tmtpl="winter">寒假班</button>
+          <span id="tmTplBtns" style="display:contents"></span>
           <button type="button" class="btn sm" id="tmAddRow">＋ 加一列</button>
+          <button type="button" class="btn sm" id="tmSavePreset" title="把目前這份明細存成一個新的快速範本">存成快速範本</button>
         </div>
         <div class="irows" id="tmRows"></div>
       </fieldset>
       <label class="sw" style="max-width:280px"><span>使用中</span><input type="checkbox" id="tmActive" checked></label>
       <p class="err hidden" id="tmErr"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="submit" class="btn primary">儲存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 快速範本 -->
+<dialog id="pzDlg" class="wide" aria-labelledby="pzTitle">
+  <form method="dialog" id="pzForm" novalidate>
+    <div class="dlg-head"><h3 id="pzTitle">編輯快速範本</h3></div>
+    <div class="dlg-body">
+      <div class="grid2">
+        <label class="field">範本名稱（例：學期／月費單）<input type="text" id="pzName" maxlength="30"></label>
+        <label class="field">對應梯次類型（套用時自動選該類型的梯次）<select id="pzKind"></select></label>
+      </div>
+      <fieldset>
+        <legend>範本明細　<span class="help">金額可以留空；不勾「計入」＝只顯示、不算進總計</span></legend>
+        <div class="tpls" style="margin-bottom:8px"><button type="button" class="btn sm" id="pzAddRow">＋ 加一列</button></div>
+        <div class="irows" id="pzRows"></div>
+      </fieldset>
+      <p class="err hidden" id="pzErr"></p>
     </div>
     <div class="dlg-foot">
       <button type="button" class="btn" data-close>取消</button>
@@ -555,19 +575,22 @@ async function load() {
     sb.from("fee_item_types").select("*").order("sort_order"),
     sb.from("fee_terms").select("*").order("sort_order")
   ];
+  q.push(sb.from("fee_presets").select("*").order("sort_order"));
   if (CAN_EDIT) q.push(sb.rpc("fee_list_students"));
   const r = await Promise.all(q);
-  for (const x of r) if (x.error) throw x.error;
+  for (let i = 0; i < r.length; i++) if (r[i].error && i !== 4) throw r[i].error;
+  PRESETS = !r[4].error && r[4].data ? r[4].data : DEFAULT_PRESETS.slice();
   BILLS = (r[0].data || []).map(b => Object.assign(b, { items: sortedItems(b) }));
   ACCOUNTS = r[1].data || [];
   TYPES = r[2].data || [];
   TERMS = r[3].data || [];
-  STUDENTS = CAN_EDIT ? (r[4].data || []) : [];
+  STUDENTS = CAN_EDIT ? (r[5].data || []) : [];
   const curT = $("fTerm").value, curD = $("fDept").value;
   $("fTerm").innerHTML = '<option value="">全部梯次</option>' + TERMS.map(t => `<option value="${esc(t.id)}">${esc(t.name)}${t.active ? "" : "（停用）"}</option>`).join("");
   const depts = [...new Set(ACCOUNTS.map(a => a.dept).concat(BILLS.map(b => b.dept)).filter(Boolean))];
   $("fDept").innerHTML = '<option value="">全部部別</option>' + depts.map(d => `<option>${esc(d)}</option>`).join("");
   $("fTerm").value = curT; $("fDept").value = curD;
+  renderPresetButtons();
   render();
   if (IS_ADMIN) renderSettings();
 }
@@ -683,11 +706,24 @@ function printBills(list) {
 }
 
 /* ---------- 新增／編輯 ---------- */
-const TEMPLATES = {
-  regular: [["tuition", "學費"], ["material", "教材費"], ["meal", "餐費"], ["transport", "車資"], ["carry", "溢繳折抵"], ["discount", "優惠折扣"]],
-  summer: [["tuition", "安親"], ["activity", "活動"], ["material", "預習教材費"], ["deposit", "已繳訂金"], ["carry", "溢繳折抵"], ["discount", "優惠折抵"]],
-  winter: [["tuition", "寒假班"], ["activity", "活動"]]
-};
+// 快速範本（資料庫 fee_presets，管理員可在「設定」自訂）；資料庫還沒建立時用這份內建的
+const mkItems = a => a.map(([item_type, label]) => ({ item_type, label }));
+const DEFAULT_PRESETS = [
+  { id: "d_regular", name: "學期／月費單", kind: "regular", items: mkItems([["tuition", "學費"], ["material", "教材費"], ["meal", "餐費"], ["transport", "車資"], ["carry", "溢繳折抵"], ["discount", "優惠折扣"]]) },
+  { id: "d_summer", name: "暑期夏令營", kind: "summer", items: mkItems([["tuition", "安親"], ["activity", "活動"], ["material", "預習教材費"], ["deposit", "已繳訂金"], ["carry", "溢繳折抵"], ["discount", "優惠折抵"]]) },
+  { id: "d_winter", name: "寒假班", kind: "winter", items: mkItems([["tuition", "寒假班"], ["activity", "活動"]]) }
+];
+let PRESETS = DEFAULT_PRESETS.slice();
+const presetOf = id => PRESETS.find(p => p.id === id);
+function normRows(arr) {
+  return (Array.isArray(arr) ? arr : []).map(r => ({ item_type: TYPES.some(x => x.code === r.item_type) ? r.item_type : "other", label: r.label || "", amount: Math.abs(+r.amount || 0), counted: r.counted !== false, period_text: r.period_text || "" }));
+}
+const presetRows = p => normRows(p && p.items);
+function renderPresetButtons() {
+  const html = PRESETS.map(p => `<button type="button" class="btn sm" data-tpl="${esc(p.id)}">${esc(p.name)}</button>`).join("");
+  $("tplBtns").innerHTML = html;
+  $("tmTplBtns").innerHTML = PRESETS.map(p => `<button type="button" class="btn sm" data-tmtpl="${esc(p.id)}">${esc(p.name)}</button>`).join("");
+}
 function typeOptions(sel) {
   return TYPES.filter(t => t.active || t.code === sel).map(t => `<option value="${esc(t.code)}" ${t.code === sel ? "selected" : ""}>${esc(t.name)}${t.sign < 0 ? "（折抵）" : ""}</option>`).join("");
 }
@@ -785,7 +821,7 @@ function openEdit(b) {
   $("bAcct").value = b ? (b.account_id || "") : "";
   $("bNote").value = b ? b.note : "";
   $("irows").innerHTML = "";
-  if (b && b.items.length) b.items.forEach(addRow); else TEMPLATES.regular.forEach(([t, l]) => addRow({ item_type: t, label: l, amount: "", counted: true, period_text: "" }));
+  if (b && b.items.length) b.items.forEach(addRow); else presetRows(PRESETS.find(p => p.kind === "regular") || PRESETS[0]).forEach(r => addRow({ item_type: r.item_type, label: r.label, amount: r.amount || "", counted: r.counted, period_text: r.period_text }));
   $("bSaveIssue").textContent = b && b.status === "issued" ? "儲存（維持已發布）" : "儲存並發布";
   $("bSaveDraft").classList.toggle("hidden", !!(b && b.status === "issued"));
   $("bSaveNext").classList.toggle("hidden", !(b && nextInQueue(b.id)));
@@ -794,13 +830,14 @@ function openEdit(b) {
   $("bDlg").showModal();
   $("bStudent").focus();
 }
-function applyTemplate(key) {
-  const has = readRows().some(r => r.amount || r.label);
+function applyTemplate(id) {
+  const p = presetOf(id); if (!p) return;
+  const has = readRows().some(r => r.amount || r.period_text);
   if (has && !confirm("套用範本會取代目前的明細，確定嗎？")) return;
   $("irows").innerHTML = "";
-  TEMPLATES[key].forEach(([t, l]) => addRow({ item_type: t, label: l, amount: "", counted: true, period_text: "" }));
-  if (key === "summer" || key === "winter") {
-    const t = TERMS.find(x => x.active && x.kind === key);
+  presetRows(p).forEach(r => addRow({ item_type: r.item_type, label: r.label, amount: r.amount || "", counted: r.counted, period_text: r.period_text }));
+  if (p.kind && p.kind !== "regular") {
+    const t = TERMS.find(x => x.active && x.kind === p.kind);
     if (t && !$("bTerm").value) { $("bTerm").value = t.id; onTermChange(); }
   }
   calcTotal();
@@ -921,10 +958,10 @@ function openBatch() {
 }
 function syncBatTpl() {
   const has = termTpl(termOf($("batTerm").value)).length > 0;
-  const opt = [...$("batTpl").options].find(o => o.value === "term");
-  opt.disabled = !has;
-  opt.textContent = has ? "使用梯次範本" : "使用梯次範本（這個梯次還沒設定）";
-  if (has) $("batTpl").value = "term"; else if ($("batTpl").value === "term") $("batTpl").value = "regular";
+  const sel = $("batTpl"), prev = sel.value;
+  sel.innerHTML = `<option value="term" ${has ? "" : "disabled"}>${has ? "使用梯次範本" : "使用梯次範本（這個梯次還沒設定）"}</option>` + PRESETS.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  if (has) sel.value = "term";
+  else sel.value = presetOf(prev) ? prev : ((PRESETS.find(p => p.kind === (termOf($("batTerm").value) || {}).kind) || PRESETS[0] || {}).id || "");
 }
 function batTermChanged() {
   const t = termOf($("batTerm").value);
@@ -984,20 +1021,16 @@ function batPayload(c, o) {
   }
   const s = c.stu;
   let items;
-  if (o.tpl === "term") {
+  {
+    const base = o.tpl === "term" ? normRows(termTpl(t)) : presetRows(presetOf(o.tpl));
     let firstTui = true;
-    items = termTpl(t).map(r => {
-      const it = { item_type: TYPES.some(x => x.code === r.item_type) ? r.item_type : "other", label: r.label, amount: Math.abs(r.amount || 0), counted: r.counted !== false, period_text: r.period_text || "", note: "" };
+    items = base.map(r => {
+      const it = { item_type: r.item_type, label: r.label, amount: r.amount, counted: r.counted, period_text: r.period_text, note: "" };
       if (it.item_type === "tuition") {
         if (o.period) it.period_text = o.period;
         if (firstTui) { if (o.tuiLabel) it.label = o.tuiLabel; if (o.tuiAmt) it.amount = o.tuiAmt; firstTui = false; }
       }
       return it;
-    });
-  } else {
-    items = TEMPLATES[o.tpl].map(([type, label]) => {
-      const isTui = type === "tuition";
-      return { item_type: type, label: isTui && o.tuiLabel ? o.tuiLabel : label, amount: isTui ? o.tuiAmt : 0, counted: true, period_text: isTui ? o.period : "", note: "" };
     });
   }
   return { student_id: s.id, student_name: s.name, grade_text: s.grade, dept: c.dept, term_id: o.term, title: o.title,
@@ -1075,6 +1108,7 @@ function renderSettings() {
   $("setBody").innerHTML =
     sec("收款帳戶", "addAcct", ["部別", "銀行", "帳號", "狀態"], ACCOUNTS.map(a => `<tr><td class="nm">${esc(a.dept)}</td><td>${esc(a.bank_name)} ${esc(a.bank_code)}</td><td class="acct">${esc(a.account_no)}</td><td>${onoff(a.active)}</td><td style="white-space:nowrap"><button type="button" class="btn sm" data-set="acct" data-id="${esc(a.id)}">編輯</button> <button type="button" class="btn sm del" data-del="acct" data-id="${esc(a.id)}">刪除</button></td></tr>`).join("")) +
     sec("梯次", "addTerm", ["名稱", "類型", "單上標題", "預設期限", "範本", "狀態"], TERMS.map(t => `<tr><td class="nm">${esc(t.name)}</td><td>${esc(KIND[t.kind] || t.kind)}</td><td>${esc(t.title)}</td><td>${esc(fmtDate(t.due_date))}</td><td>${termTpl(t).length ? termTpl(t).length + " 列" : '<span class="help">未設定</span>'}</td><td>${onoff(t.active)}</td><td style="white-space:nowrap"><button type="button" class="btn sm" data-set="term" data-id="${esc(t.id)}">編輯</button> <button type="button" class="btn sm del" data-del="term" data-id="${esc(t.id)}">刪除</button></td></tr>`).join("")) +
+    sec("快速範本　<span class=\"help\" style=\"font-weight:400\">開單與梯次設定裡「快速帶入」的選項</span>", "addPreset", ["名稱", "梯次類型", "明細"], PRESETS.map((p, i) => `<tr><td class="nm">${esc(p.name)}</td><td>${p.kind ? esc(KIND[p.kind] || p.kind) : '<span class="help">不指定</span>'}</td><td class="sub">${esc(presetRows(p).map(r => r.label).join("、"))}</td><td style="white-space:nowrap"><button type="button" class="btn sm" data-pmv="-1" data-id="${esc(p.id)}" aria-label="上移" ${i === 0 ? "disabled" : ""}>▲</button> <button type="button" class="btn sm" data-pmv="1" data-id="${esc(p.id)}" aria-label="下移" ${i === PRESETS.length - 1 ? "disabled" : ""}>▼</button> <button type="button" class="btn sm" data-set="preset" data-id="${esc(p.id)}">編輯</button> <button type="button" class="btn sm del" data-del="preset" data-id="${esc(p.id)}">刪除</button></td></tr>`).join("")) +
     sec("項目種類　<span class=\"help\" style=\"font-weight:400\">拖曳左邊的 ⋮⋮ 可以調整順序（開單時的下拉選單照這個順序）</span>", "addType", ["", "名稱", "性質", "狀態"], TYPES.map((t, i) => `<tr class="trow" draggable="true" data-code="${esc(t.code)}"><td class="grip" title="拖曳排序" aria-label="拖曳排序">⋮⋮</td><td class="nm">${esc(t.name)}</td><td>${t.sign < 0 ? "折抵（扣除）" : "收費"}</td><td>${onoff(t.active)}</td><td style="white-space:nowrap"><button type="button" class="btn sm" data-mv="-1" data-id="${esc(t.code)}" aria-label="上移" ${i === 0 ? "disabled" : ""}>▲</button> <button type="button" class="btn sm" data-mv="1" data-id="${esc(t.code)}" aria-label="下移" ${i === TYPES.length - 1 ? "disabled" : ""}>▼</button> <button type="button" class="btn sm" data-set="type" data-id="${esc(t.code)}">編輯</button> <button type="button" class="btn sm del" data-del="type" data-id="${esc(t.code)}">刪除</button></td></tr>`).join(""));
 }
 let formSave = null;
@@ -1111,6 +1145,47 @@ function editAcct(a) {
     if (!o.dept || !o.account_no) throw new Error("missing");
     await dbWrite("fee_accounts", a && a.id, "id", { dept: o.dept, bank_name: o.bank_name, bank_code: o.bank_code, account_no: o.account_no, report_note: o.report_note, active: o.active });
   });
+}
+let editingPreset = null;
+function editPreset(p) {
+  editingPreset = p || null;
+  $("pzTitle").textContent = p ? "編輯快速範本" : "新增快速範本";
+  $("pzName").value = p ? p.name : "";
+  $("pzKind").innerHTML = '<option value="">不指定</option>' + Object.entries(KIND).map(([k, l]) => `<option value="${k}" ${p && p.kind === k ? "selected" : ""}>${l}</option>`).join("");
+  $("pzRows").innerHTML = "";
+  presetRows(p).forEach(r => addRow({ item_type: r.item_type, label: r.label, amount: r.amount || "", counted: r.counted, period_text: r.period_text }, $("pzRows")));
+  if (!p) addRow(null, $("pzRows"));
+  $("pzErr").classList.add("hidden");
+  $("pzDlg").showModal();
+  $("pzName").focus();
+}
+async function savePreset(e) {
+  e.preventDefault();
+  const err = m => { $("pzErr").textContent = m; $("pzErr").classList.remove("hidden"); };
+  const name = $("pzName").value.trim();
+  if (!name) return err("請輸入範本名稱");
+  const items = readRows($("pzRows")).filter(r => r.label || r.amount).map(r => ({ item_type: r.item_type, label: r.label || typeOf(r.item_type).name, amount: r.amount, counted: r.counted, period_text: r.period_text }));
+  if (!items.length) return err("請至少填一列明細");
+  const row = { name, kind: $("pzKind").value || null, items };
+  busy(true);
+  try {
+    if (editingPreset && !String(editingPreset.id).startsWith("d_")) await dbWrite("fee_presets", editingPreset.id, "id", row);
+    else await dbWrite("fee_presets", null, "id", Object.assign(row, { sort_order: PRESETS.length * 10 + 10 }));
+    $("pzDlg").close(); await load(); toast("已儲存");
+  } catch (ex) { err(friendly(ex)); } finally { busy(false); }
+}
+async function movePreset(id, dir) {
+  const ids = PRESETS.map(p => p.id), i = ids.indexOf(id), j = i + dir;
+  if (i < 0 || j < 0 || j >= ids.length || ids.some(x => String(x).startsWith("d_"))) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  busy(true);
+  try {
+    for (let k = 0; k < ids.length; k++) {
+      const so = (k + 1) * 10, cur = presetOf(ids[k]);
+      if (cur.sort_order !== so) { const { error } = await sb.from("fee_presets").update({ sort_order: so }).eq("id", ids[k]); if (error) throw error; }
+    }
+    await load();
+  } catch (ex) { toast(friendly(ex), true); await load(); } finally { busy(false); }
 }
 let editingTerm = null;
 function editTerm(t) {
@@ -1151,6 +1226,9 @@ async function delSetting(kind, id) {
     const n = BILLS.filter(b => b.term_id === id).length;
     table = "fee_terms"; key = "id"; name = `梯次「${t.name}」`;
     if (n) extra = `\n已有 ${n} 張學費單屬於這個梯次，刪除後它們會變成「未指定梯次」，學費單內容不受影響。`;
+  } else if (kind === "preset") {
+    const p = presetOf(id); if (!p) return;
+    table = "fee_presets"; key = "id"; name = `快速範本「${p.name}」`;
   } else {
     const t = TYPES.find(x => x.code === id); if (!t) return;
     const n = BILLS.filter(b => b.items.some(i => i.item_type === id)).length;
@@ -1285,7 +1363,6 @@ $("tplTerm").addEventListener("click", applyTermTemplate);
 $("lvRun").addEventListener("click", runLeave);
 $("lvAdd").addEventListener("click", addLeaveRow);
 $("addRow").addEventListener("click", () => { const r = addRow(); r.querySelector(".il").focus(); });
-document.querySelectorAll("[data-tpl]").forEach(b => b.addEventListener("click", () => applyTemplate(b.dataset.tpl)));
 function bindRows(box, after) {
   box.addEventListener("input", () => after && after());
   box.addEventListener("change", e => {
@@ -1301,20 +1378,41 @@ function bindRows(box, after) {
 }
 bindRows($("irows"), calcTotal);
 bindRows($("tmRows"), null);
+bindRows($("pzRows"), null);
 $("bSaveDraft").addEventListener("click", () => saveBill("draft"));
 $("bSaveIssue").addEventListener("click", () => saveBill("issued"));
 $("bForm").addEventListener("submit", e => e.preventDefault());
 $("fForm").addEventListener("submit", submitForm);
 $("tmForm").addEventListener("submit", saveTerm);
+$("pzForm").addEventListener("submit", savePreset);
+$("pzAddRow").addEventListener("click", () => { const r = addRow(null, $("pzRows")); r.querySelector(".il").focus(); });
 $("tmAddRow").addEventListener("click", () => { const r = addRow(null, $("tmRows")); r.querySelector(".il").focus(); });
-document.querySelectorAll("[data-tmtpl]").forEach(b => b.addEventListener("click", () => {
+$("tmTplBtns").addEventListener("click", e => {
+  const b = e.target.closest("[data-tmtpl]"); const p = b && presetOf(b.dataset.tmtpl); if (!p) return;
   if (readRows($("tmRows")).some(r => r.amount || r.label) && !confirm("套用會取代目前的範本明細，確定嗎？")) return;
   $("tmRows").innerHTML = "";
-  TEMPLATES[b.dataset.tmtpl].forEach(([t, l]) => addRow({ item_type: t, label: l, amount: "", counted: true, period_text: "" }, $("tmRows")));
-}));
+  presetRows(p).forEach(r => addRow({ item_type: r.item_type, label: r.label, amount: r.amount || "", counted: r.counted, period_text: r.period_text }, $("tmRows")));
+});
+$("tmSavePreset").addEventListener("click", async () => {
+  const items = readRows($("tmRows")).filter(r => r.label || r.amount).map(r => ({ item_type: r.item_type, label: r.label || typeOf(r.item_type).name, amount: r.amount, counted: r.counted, period_text: r.period_text }));
+  if (!items.length) return toast("範本裡還沒有明細", true);
+  const name = (prompt("這個快速範本要叫什麼名字？", $("tmName").value.trim()) || "").trim();
+  if (!name) return;
+  busy(true);
+  try {
+    const { error } = await sb.from("fee_presets").insert({ name, kind: $("tmKind").value, items, sort_order: PRESETS.length * 10 + 10 });
+    if (error) throw error;
+    const keep = $("tmDlg").open; await load(); if (keep) renderPresetButtons();
+    toast("已存成快速範本「" + name + "」");
+  } catch (ex) { toast(friendly(ex), true); } finally { busy(false); }
+});
+$("tplBtns").addEventListener("click", e => { const b = e.target.closest("[data-tpl]"); if (b) applyTemplate(b.dataset.tpl); });
 $("setBody").addEventListener("click", e => {
   if (e.target.id === "addAcct") return editAcct(null);
   if (e.target.id === "addTerm") return editTerm(null);
+  if (e.target.id === "addPreset") return editPreset(null);
+  const pm = e.target.closest("[data-pmv]");
+  if (pm) return movePreset(pm.dataset.id, +pm.dataset.pmv);
   if (e.target.id === "addType") return editType(null);
   const del = e.target.closest("[data-del]");
   if (del) return delSetting(del.dataset.del, del.dataset.id);
@@ -1323,6 +1421,7 @@ $("setBody").addEventListener("click", e => {
   const b = e.target.closest("[data-set]"); if (!b) return;
   if (b.dataset.set === "acct") editAcct(ACCOUNTS.find(x => x.id === b.dataset.id));
   if (b.dataset.set === "term") editTerm(TERMS.find(x => x.id === b.dataset.id));
+  if (b.dataset.set === "preset") editPreset(presetOf(b.dataset.id));
   if (b.dataset.set === "type") editType(TYPES.find(x => x.code === b.dataset.id));
 });
 function showTab(name) {
