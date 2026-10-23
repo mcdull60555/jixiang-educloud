@@ -706,13 +706,15 @@ const STATUS = { draft: "草稿", issued: "已發布", void: "已作廢" };
 function filtered() {
   const q = $("q").value.trim().toLowerCase();
   const term = $("fTerm").value, st = $("fStatus").value, dept = $("fDept").value;
+  const sch = {}; STUDENTS.forEach(x => { sch[x.id] = x.school; });
+  const schoolOf = b => (b.student_id && sch[b.student_id]) || "";
   return BILLS.filter(b => {
     if (term && b.term_id !== term) return false;
     if (st && b.status !== st) return false;
     if (dept && b.dept !== dept) return false;
     if (q && !(`${b.student_name} ${b.grade_text} ${b.title}`.toLowerCase().includes(q))) return false;
     return true;
-  });
+  }).sort((a, b) => gradeNo(a.grade_text) - gradeNo(b.grade_text) || zh(schoolOf(a), schoolOf(b)) || zh(a.student_name, b.student_name) || zh(a.title, b.title));
 }
 function render() {
   const list = filtered();
