@@ -637,9 +637,10 @@ function openEdit(s) {
   $("sFeeBox").classList.toggle("hidden", !ps.length);
   $("sFee").innerHTML = ps.map(p => {
     const e = s && ENROLLS.find(x => x.student_id === s.id && x.program_code === p.code), on = !!(e && e.active);
-    return `<div class="feerow" data-code="${esc(p.code)}" style="display:grid;grid-template-columns:1.2fr 100px 110px;gap:8px;align-items:center">
+    return `<div class="feerow" data-code="${esc(p.code)}" style="display:grid;grid-template-columns:1.2fr 90px 100px 100px;gap:8px;align-items:center">
       <label style="display:flex;align-items:center;gap:8px;font-weight:700"><input type="checkbox" class="fe-on" ${on ? "checked" : ""} style="width:18px;height:18px">${esc(p.name)}</label>
       <select class="fe-b" style="min-height:38px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px" aria-label="繳費方式"><option value="month">月繳</option><option value="period" ${e && e.billing === "period" ? "selected" : ""}>期繳</option></select>
+      <input type="text" class="fe-a" inputmode="numeric" placeholder="個別月費" value="${e && e.amount != null ? e.amount : ""}" title="個別月費：留空＝依價目表" style="min-height:38px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px" aria-label="個別月費">
       <input type="text" class="fe-d" inputmode="numeric" placeholder="每月優惠" value="${e && e.discount ? e.discount : ""}" style="min-height:38px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px" aria-label="每月優惠"></div>`;
   }).join("");
   $("sErr").classList.add("hidden");
@@ -687,7 +688,7 @@ async function saveStudent(e) {
         const code = r.dataset.code, on = r.querySelector(".fe-on").checked;
         const ex = ENROLLS.find(x => x.student_id === sid && x.program_code === code);
         if (!on && !(ex && ex.active)) return;
-        rows.push({ student_id: sid, program_code: code, billing: r.querySelector(".fe-b").value, discount: parseInt(r.querySelector(".fe-d").value.replace(/\D/g, ""), 10) || 0, active: on });
+        rows.push({ student_id: sid, program_code: code, billing: r.querySelector(".fe-b").value, amount: r.querySelector(".fe-a").value.trim() === "" ? null : parseInt(r.querySelector(".fe-a").value.replace(/\D/g, ""), 10) || 0, discount: parseInt(r.querySelector(".fe-d").value.replace(/\D/g, ""), 10) || 0, active: on });
       });
       if (rows.length) { const { error } = await sb.from("fee_enrollments").upsert(rows, { onConflict: "student_id,program_code" }); if (error) feeWarn = true; }
     }

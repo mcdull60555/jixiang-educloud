@@ -156,7 +156,7 @@
   .pm-grp { text-align: center; border-left: 1px solid var(--line); }
   .bulkbar { border: 1px dashed var(--line-2); border-radius: 12px; padding: 10px 12px; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; background: #FAFCFF; }
   .bulkbar .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .enrow { display: grid; grid-template-columns: 1.3fr 110px 110px; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .enrow { display: grid; grid-template-columns: 1.3fr 90px 100px 100px; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
   .enrow.on { border-color: var(--blue); background: #F5F9FF; }
   .enrow label.nm2 { display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; }
   .enrow select, .enrow input[type=text] { min-height: 38px; border: 1px solid #D5DEEA; border-radius: 9px; padding: 0 8px; font-size: 14px; width: 100%; background: #fff; }
@@ -511,7 +511,7 @@
   <form method="dialog" id="enForm" novalidate>
     <div class="dlg-head"><h3 id="enTitle">收費設定</h3><span class="help" id="enSub"></span></div>
     <div class="dlg-body">
-      <p class="help" style="margin:0">勾選這位學生上的班，並選月繳或期繳。「每月優惠」是每個月折抵的金額（期繳會乘以該期月數）。</p>
+      <p class="help" style="margin:0">勾選這位學生上的班，並選月繳或期繳。「個別月費」留空＝依價目表；填了就用這個每月金額（期繳＝每月金額 × 該期月數）。「每月優惠」是每個月折抵的金額。</p>
       <div id="enRows" style="display:flex;flex-direction:column;gap:8px"></div>
       <p class="err hidden" id="enErr"></p>
     </div>
@@ -1416,7 +1416,7 @@ const billingName = b => (b === "period" ? "期繳" : "月繳");
 const enrollsOf = sid => ENROLLS.filter(e => e.student_id === sid && e.active && PROGRAMS.some(p => p.code === e.program_code))
   .sort((a, b) => PROGRAMS.findIndex(p => p.code === a.program_code) - PROGRAMS.findIndex(p => p.code === b.program_code));
 function enrollSummary(sid) {
-  return enrollsOf(sid).map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `${p.name}（${billingName(e.billing)}${e.discount ? "，優惠 " + fmt(e.discount) + "/月" : ""}）`; }).join("、");
+  return enrollsOf(sid).map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `${p.name}（${e.amount != null ? fmt(e.amount) + "・" : ""}${billingName(e.billing)}${e.discount ? "，優惠 " + fmt(e.discount) + "/月" : ""}）`; }).join("、");
 }
 // 依學生的收費設定，算出某個月份要收的明細
 function enrollItems(stu, ym) {
@@ -1425,7 +1425,7 @@ function enrollItems(stu, ym) {
   const discType = TYPES.some(t => t.code === "discount") ? "discount" : "other";
   enrollsOf(stu.id).forEach(e => {
     const p = PROGRAMS.find(x => x.code === e.program_code && x.active); if (!p) return;
-    const mp = priceOf(stu.grade, p.code, "month"), pp = priceOf(stu.grade, p.code, "period");
+    const own = e.amount != null, mp = own ? e.amount : priceOf(stu.grade, p.code, "month"), pp = own ? null : priceOf(stu.grade, p.code, "period");
     const first = (p.period_rule || [])[0];
     if (p.item_type === "tuition") base += e.billing === "month" ? (mp || 0) : (mp != null ? mp : (pp != null && first ? Math.round(pp / monthsOf(first)) : 0));
     let amount, period, months = 1;
@@ -1434,7 +1434,7 @@ function enrollItems(stu, ym) {
       const r = ruleStarting(p, M); if (!r) return;
       months = monthsOf(r); period = periodText(Y, r);
       amount = pp != null ? pp : (mp != null ? mp * months : null);
-      if (pp == null && mp != null) warns.push(`${stu.name}　${p.name}：沒有期繳價，暫以月費 × ${months} 個月計算`);
+      if (pp == null && mp != null && !own) warns.push(`${stu.name}　${p.name}：沒有期繳價，暫以月費 × ${months} 個月計算`);
     }
     if (amount == null) { warns.push(`${stu.name}　${p.name}：價目表沒有「${stu.grade}」的${billingName(e.billing)}金額`); amount = 0; }
     items.push({ item_type: p.item_type, label: p.name, amount, counted: true, period_text: period, note: "" });
@@ -1550,6 +1550,7 @@ function openEnroll(sid) {
     return `<div class="enrow ${on ? "on" : ""}" data-code="${esc(p.code)}">
       <label class="nm2"><input type="checkbox" class="en-on" ${on ? "checked" : ""} style="width:18px;height:18px;accent-color:var(--blue)">${esc(p.name)}</label>
       <select class="en-b" aria-label="繳費方式"><option value="month" ${e && e.billing === "month" || !e ? "selected" : ""}>月繳</option><option value="period" ${e && e.billing === "period" ? "selected" : ""}>期繳</option></select>
+      <input type="text" class="en-a" inputmode="numeric" placeholder="個別月費" value="${e && e.amount != null ? e.amount : ""}" aria-label="個別月費（留空依價目表）" title="個別月費：留空＝依價目表">
       <input type="text" class="en-d" inputmode="numeric" placeholder="每月優惠" value="${e && e.discount ? e.discount : ""}" aria-label="每月優惠">
     </div>`;
   }).join("") || '<p class="empty">還沒有班別，請管理員先在下方新增</p>';
@@ -1564,7 +1565,7 @@ async function saveEnroll(e) {
     const code = r.dataset.code, on = r.querySelector(".en-on").checked;
     const ex = ENROLLS.find(x => x.student_id === enStudent.id && x.program_code === code);
     if (!on && !(ex && ex.active)) return;
-    rows.push({ student_id: enStudent.id, program_code: code, billing: r.querySelector(".en-b").value, discount: parseInt(r.querySelector(".en-d").value.replace(/[^\d]/g, ""), 10) || 0, active: on });
+    rows.push({ student_id: enStudent.id, program_code: code, billing: r.querySelector(".en-b").value, amount: r.querySelector(".en-a").value.trim() === "" ? null : parseInt(r.querySelector(".en-a").value.replace(/[^\d]/g, ""), 10) || 0, discount: parseInt(r.querySelector(".en-d").value.replace(/[^\d]/g, ""), 10) || 0, active: on });
   });
   busy(true);
   try { if (rows.length) await upsertRows("fee_enrollments", rows, "student_id,program_code"); $("enDlg").close(); await load(); toast("已儲存"); }
