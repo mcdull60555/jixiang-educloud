@@ -138,6 +138,16 @@
   #toast.bad { background: var(--rose); }
   .busy { position: fixed; inset: 0; background: rgba(15,23,42,.3); display: flex; align-items: center; justify-content: center; z-index: 9400; color: #fff; font-size: 16px; font-weight: 700; }
   .test-tag { position: fixed; left: 8px; bottom: 8px; z-index: 99; background: #7c3aed; color: #fff; font: 700 11px/1 sans-serif; padding: 6px 10px; border-radius: 999px; opacity: .9; pointer-events: none; }
+  dialog.wide { width: min(920px, calc(100vw - 24px)); }
+  .plist { border: 1px solid var(--line); border-radius: 12px; max-height: 300px; overflow: auto; }
+  .plist label { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 14px; }
+  .plist label:last-child { border-bottom: 0; }
+  .plist label:hover { background: #F8FAFF; }
+  .plist input { accent-color: var(--blue); width: 18px; height: 18px; margin: 0; flex: 0 0 18px; }
+  .pick-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .pick-tools .search { flex: 1 1 200px; min-height: 40px; }
+  .pick-tools .search input { height: 38px; }
+  .warn { font-size: 13.5px; color: #92400E; background: #FEF3C7; border-radius: 10px; padding: 10px 12px; margin: 0; }
   /* ===== 學費管理 ===== */
   .tabs { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
   .tab { border: 0; background: none; padding: 10px 16px; font-size: 15px; font-weight: 700; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
@@ -241,6 +251,8 @@
         </select>
         <select class="sel" id="fDept" aria-label="部別"></select>
         <button type="button" class="btn" id="printSel" disabled>列印選取的單</button>
+        <button type="button" class="btn hidden" id="issueSel" disabled>發布選取的草稿</button>
+        <button type="button" class="btn hidden" id="batchBtn" style="border-color:var(--blue);color:var(--blue);font-weight:700">批次建立</button>
         <button type="button" class="btn primary hidden" id="addBill">＋ 新增學費單</button>
       </div>
       <div class="sumbar" id="sumbar"></div>
@@ -319,8 +331,59 @@
     </div>
     <div class="dlg-foot">
       <button type="button" class="btn" data-close>取消</button>
+      <button type="button" class="btn hidden" id="bSaveNext">儲存並編輯下一張</button>
       <button type="button" class="btn" id="bSaveDraft">存成草稿</button>
       <button type="button" class="btn primary" id="bSaveIssue">儲存並發布</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 批次建立 -->
+<dialog id="batDlg" class="wide" aria-labelledby="batTitle">
+  <form method="dialog" id="batForm" novalidate>
+    <div class="dlg-head"><h3 id="batTitle">批次建立學費單</h3><span class="help">一次替很多位學生產生草稿，再逐張微調、一起發布</span></div>
+    <div class="dlg-body">
+      <div class="checks" role="radiogroup" aria-label="建立方式">
+        <label><input type="radio" name="batMode" value="copy" checked>複製上一期（推薦，每月最快）</label>
+        <label><input type="radio" name="batMode" value="tpl">用範本從名冊建立（新學期、新學生）</label>
+      </div>
+      <div class="grid2">
+        <label class="field">這一期（目標梯次）<select id="batTerm"></select></label>
+        <label class="field">單上標題<input type="text" id="batTitleIn" maxlength="30" placeholder="學費單"></label>
+      </div>
+      <div class="grid2">
+        <label class="field">繳費期限<input type="date" id="batDue"></label>
+        <label class="field">學費的期間文字<input type="text" id="batPeriod" maxlength="40" placeholder="例：115/11（不填＝沿用）"></label>
+      </div>
+      <div id="batCopyOpts">
+        <label class="field">複製哪一期的學費單<select id="batSrc"></select></label>
+        <div class="checks" style="margin-top:8px">
+          <label><input type="checkbox" id="batClear" checked>不帶入溢繳折抵、請假折抵、已繳訂金（每期不同）</label>
+          <label><input type="checkbox" id="batDrop" checked>不帶入「不計入」的項目（例如已繳的教材費）</label>
+        </div>
+        <p class="help" style="margin:6px 0 0">優惠折扣、餐費、車資、活動費會照上一期帶入；備註不帶入。</p>
+      </div>
+      <div id="batTplOpts" class="hidden">
+        <div class="grid3" style="grid-template-columns:1fr 1fr 1fr">
+          <label class="field">範本<select id="batTpl"><option value="regular">學期／月費單</option><option value="summer">暑期夏令營</option><option value="winter">寒假班</option></select></label>
+          <label class="field">學費名稱<input type="text" id="batTuiLabel" maxlength="20" placeholder="例：安親班"></label>
+          <label class="field">學費金額（全部相同，可留空）<input type="text" id="batTuiAmt" inputmode="numeric" placeholder="例：6000"></label>
+        </div>
+      </div>
+      <div>
+        <div class="pick-tools">
+          <label class="search"><input type="search" id="batQ" placeholder="搜尋姓名、年級" autocomplete="off" aria-label="搜尋學生"></label>
+          <select class="sel" id="batDept" aria-label="部別"></select>
+          <label class="tog"><input type="checkbox" id="batAll">全選</label>
+          <span class="count" id="batCount"></span>
+        </div>
+        <div class="plist" id="batList" style="max-height:320px"></div>
+      </div>
+      <p class="err hidden" id="batErr"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="submit" class="btn primary" id="batGo">建立草稿</button>
     </div>
   </form>
 </dialog>
@@ -473,6 +536,9 @@ function render() {
     </tr>`;
   }).join("") : `<tr><td colspan="7" class="empty">${BILLS.length ? "沒有符合條件的學費單" : "還沒有學費單" + (CAN_EDIT ? "，按右上「新增學費單」開始" : "")}</td></tr>`;
   $("printSel").disabled = !SELECTED.size;
+  const nDraft = BILLS.filter(b => SELECTED.has(b.id) && b.status === "draft").length;
+  $("issueSel").disabled = !nDraft;
+  $("issueSel").textContent = nDraft ? `發布選取的草稿（${nDraft}）` : "發布選取的草稿";
   $("printSel").textContent = SELECTED.size ? `列印選取的單（${SELECTED.size}）` : "列印選取的單";
   $("chkAll").checked = list.length > 0 && list.every(b => SELECTED.has(b.id));
 }
@@ -640,6 +706,7 @@ function openEdit(b) {
   if (b && b.items.length) b.items.forEach(addRow); else TEMPLATES.regular.forEach(([t, l]) => addRow({ item_type: t, label: l, amount: "", counted: true, period_text: "" }));
   $("bSaveIssue").textContent = b && b.status === "issued" ? "儲存（維持已發布）" : "儲存並發布";
   $("bSaveDraft").classList.toggle("hidden", !!(b && b.status === "issued"));
+  $("bSaveNext").classList.toggle("hidden", !(b && nextInQueue(b.id)));
   $("bErr").classList.add("hidden");
   calcTotal();
   $("bDlg").showModal();
@@ -656,7 +723,7 @@ function applyTemplate(key) {
   }
   calcTotal();
 }
-async function saveBill(status) {
+async function saveBill(status, next) {
   const err = m => { $("bErr").textContent = m; $("bErr").classList.remove("hidden"); };
   const name = (editStudentId && STUDENTS.find(s => s.id === editStudentId) ? STUDENTS.find(s => s.id === editStudentId).name : $("bStudent").value.trim());
   if (!name) return err("請輸入學生姓名");
@@ -673,24 +740,162 @@ async function saveBill(status) {
     const res = await rpc("fee_save_bill", { p: payload });
     $("bDlg").close();
     await load();
+    if (next) {
+      const nx = nextInQueue(res.id);
+      if (nx) { toast("已儲存，下一張"); return openEdit(nx); }
+      toast("這一批都處理完了");
+      return;
+    }
     toast(status === "issued" ? "已發布" : "已存成草稿");
     const b = BILLS.find(x => x.id === res.id);
     if (b) openPreview(b);
   } catch (ex) { err(friendly(ex)); } finally { busy(false); }
 }
+const billPayload = (b, status) => ({
+  id: b.id, student_id: b.student_id, student_name: b.student_name, grade_text: b.grade_text, dept: b.dept,
+  term_id: b.term_id, title: b.title, due_date: b.due_date, account_id: b.account_id, note: b.note, status,
+  items: b.items.map(i => ({ item_type: i.item_type, label: i.label, amount: Math.abs(i.amount), counted: i.counted, period_text: i.period_text, note: i.note }))
+});
 async function setStatus(b, status) {
   busy(true);
   try {
-    await rpc("fee_save_bill", { p: {
-      id: b.id, student_id: b.student_id, student_name: b.student_name, grade_text: b.grade_text, dept: b.dept,
-      term_id: b.term_id, title: b.title, due_date: b.due_date, account_id: b.account_id, note: b.note, status,
-      items: b.items.map(i => ({ item_type: i.item_type, label: i.label, amount: Math.abs(i.amount), counted: i.counted, period_text: i.period_text, note: i.note }))
-    } });
+    await rpc("fee_save_bill", { p: billPayload(b, status) });
     await load();
     const nb = BILLS.find(x => x.id === b.id);
     if (nb) openPreview(nb);
     toast(status === "issued" ? "已發布" : "已作廢");
   } catch (ex) { toast(friendly(ex), true); } finally { busy(false); }
+}
+
+/* ---------- 批次建立 ---------- */
+let QUEUE = [];                       // 剛批次建立的草稿 id，供「儲存並編輯下一張」
+function nextInQueue(id) {
+  const i = QUEUE.indexOf(id);
+  if (i < 0) return null;
+  for (let k = i + 1; k < QUEUE.length; k++) { const b = BILLS.find(x => x.id === QUEUE[k]); if (b) return b; }
+  return null;
+}
+const keyOf = b => b.student_id || ("n:" + b.student_name);
+let batCands = [];                    // 候選學生 [{key, name, grade, dept, sub, src(bill) | stu(student), exists}]
+function batMode() { return document.querySelector('input[name="batMode"]:checked').value; }
+function itemSummary(b) { return sortedItems(b).filter(i => !isBlank(i)).map(i => `${i.label}${i.amount ? " " + fmt(i.amount) : ""}`).join("、"); }
+function openBatch() {
+  $("batTerm").innerHTML = TERMS.filter(t => t.active).map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
+  const termsWithBills = TERMS.filter(t => BILLS.some(b => b.term_id === t.id && b.status !== "void"));
+  $("batSrc").innerHTML = termsWithBills.length ? termsWithBills.map(t => `<option value="${esc(t.id)}">${esc(t.name)}（${BILLS.filter(b => b.term_id === t.id && b.status !== "void").length} 張）</option>`).join("") : '<option value="">（還沒有任何梯次有學費單）</option>';
+  const depts = [...new Set(BILLS.map(b => b.dept).concat(ACCOUNTS.map(a => a.dept)).filter(Boolean))];
+  $("batDept").innerHTML = '<option value="">全部部別</option>' + depts.map(d => `<option>${esc(d)}</option>`).join("");
+  document.querySelector('input[name="batMode"][value="copy"]').checked = true;
+  $("batQ").value = ""; $("batPeriod").value = ""; $("batErr").classList.add("hidden");
+  batModeChanged();
+  $("batDlg").showModal();
+}
+function batTermChanged() {
+  const t = termOf($("batTerm").value);
+  $("batTitleIn").value = t ? (t.title || "學費單") : "學費單";
+  $("batDue").value = t && t.due_date ? t.due_date : "";
+}
+function batModeChanged() {
+  const copy = batMode() === "copy";
+  $("batCopyOpts").classList.toggle("hidden", !copy);
+  $("batTplOpts").classList.toggle("hidden", copy);
+  batTermChanged();
+  buildCands();
+}
+function buildCands() {
+  const target = $("batTerm").value;
+  const have = new Set(BILLS.filter(b => b.term_id === target && b.status !== "void").map(keyOf));
+  if (batMode() === "copy") {
+    const src = $("batSrc").value, seen = new Set();
+    batCands = BILLS.filter(b => b.term_id === src && b.status !== "void").filter(b => { const k = keyOf(b); if (seen.has(k)) return false; seen.add(k); return true; })
+      .map(b => ({ key: keyOf(b), name: b.student_name, grade: b.grade_text, dept: b.dept, sub: itemSummary(b) + `　合計 ${fmt(b.total)}`, src: b, exists: have.has(keyOf(b)) }));
+  } else {
+    batCands = STUDENTS.map(s => ({ key: s.id, name: s.name, grade: s.grade, dept: deptOfGrade(s.grade), sub: `${s.school || ""} ${s.grade}${s.school_class ? " " + s.school_class + " 班" : ""}`, stu: s, exists: have.has(s.id) }));
+  }
+  const pre = new Set(batCands.filter(c => !c.exists).map(c => c.key));
+  batChecked = pre;
+  renderBat();
+}
+let batChecked = new Set();
+function batVisible() {
+  const q = $("batQ").value.trim().toLowerCase(), d = $("batDept").value;
+  return batCands.filter(c => (!d || c.dept === d) && (!q || `${c.name} ${c.grade}`.toLowerCase().includes(q)));
+}
+function renderBat() {
+  const list = batVisible();
+  $("batList").innerHTML = list.length ? list.map(c => `<label style="${c.exists ? "opacity:.55" : ""}">
+    <input type="checkbox" data-k="${esc(c.key)}" ${batChecked.has(c.key) ? "checked" : ""} ${c.exists ? "disabled" : ""}>
+    <span><b>${esc(c.name)}</b>　<span class="sub">${esc(c.grade)}${c.dept ? "・" + esc(c.dept) : ""}</span><div class="sub">${c.exists ? "這一期已經有學費單，會略過" : esc(c.sub)}</div></span></label>`).join("")
+    : '<p class="empty">沒有符合的學生</p>';
+  const n = batCands.filter(c => batChecked.has(c.key)).length;
+  $("batCount").textContent = `已選 ${n} 位`;
+  $("batGo").textContent = n ? `建立 ${n} 張草稿` : "建立草稿";
+  $("batAll").checked = list.length > 0 && list.filter(c => !c.exists).every(c => batChecked.has(c.key));
+}
+function batPayload(c, o) {
+  const t = termOf(o.term);
+  const acct = ACCOUNTS.find(a => a.active && a.dept === (c.dept || "")) || null;
+  if (o.mode === "copy") {
+    const b = c.src;
+    let items = sortedItems(b).map(i => ({ item_type: i.item_type, label: i.label, amount: Math.abs(i.amount), counted: i.counted, period_text: i.period_text, note: "" }));
+    if (o.clear) items = items.filter(i => !["carry", "leave", "deposit"].includes(i.item_type));
+    if (o.drop) items = items.filter(i => i.counted);
+    if (o.period) items.forEach(i => { if (i.item_type === "tuition") i.period_text = o.period; });
+    return { student_id: b.student_id, student_name: b.student_name, grade_text: b.grade_text, dept: b.dept, term_id: o.term, title: o.title,
+             due_date: o.due || null, account_id: b.account_id, note: "", status: "draft", items };
+  }
+  const s = c.stu, tpl = TEMPLATES[o.tpl];
+  const items = tpl.map(([type, label]) => {
+    const isTui = type === "tuition";
+    return { item_type: type, label: isTui && o.tuiLabel ? o.tuiLabel : label, amount: isTui ? o.tuiAmt : 0, counted: true, period_text: isTui ? o.period : "", note: "" };
+  });
+  return { student_id: s.id, student_name: s.name, grade_text: s.grade, dept: c.dept, term_id: o.term, title: o.title,
+           due_date: o.due || null, account_id: acct ? acct.id : null, note: "", status: "draft", items };
+}
+async function runBatch(e) {
+  e.preventDefault();
+  const err = m => { $("batErr").textContent = m; $("batErr").classList.remove("hidden"); };
+  const o = { mode: batMode(), term: $("batTerm").value, title: $("batTitleIn").value.trim() || "學費單", due: $("batDue").value, period: $("batPeriod").value.trim(),
+              clear: $("batClear").checked, drop: $("batDrop").checked, tpl: $("batTpl").value, tuiLabel: $("batTuiLabel").value.trim(),
+              tuiAmt: parseInt($("batTuiAmt").value.replace(/[^\d]/g, ""), 10) || 0 };
+  if (!o.term) return err("請選擇這一期（目標梯次）");
+  const picked = batCands.filter(c => batChecked.has(c.key) && !c.exists);
+  if (!picked.length) return err("請至少選一位學生");
+  if (o.mode === "copy" && !$("batSrc").value) return err("請選擇要複製哪一期");
+  if (!confirm(`要建立 ${picked.length} 張草稿嗎？建立後可以逐張微調，確認沒問題再一起發布。`)) return;
+  busy(true);
+  const ok = [], fail = [];
+  for (let i = 0; i < picked.length; i++) {
+    $("busy").textContent = `建立中 ${i + 1} / ${picked.length}…`;
+    try { const r = await rpc("fee_save_bill", { p: batPayload(picked[i], o) }); ok.push(r.id); }
+    catch (ex) { fail.push(picked[i].name + "：" + friendly(ex)); }
+  }
+  $("busy").textContent = "處理中…";
+  try {
+    $("batDlg").close();
+    QUEUE = ok.slice();
+    await load();
+    $("fTerm").value = o.term; $("fStatus").value = "draft"; $("fDept").value = ""; $("q").value = "";
+    SELECTED.clear(); ok.forEach(id => SELECTED.add(id));
+    render();
+  } finally { busy(false); }
+  if (fail.length) alert(`成功 ${ok.length} 張，失敗 ${fail.length} 張：\n` + fail.join("\n"));
+  else toast(`已建立 ${ok.length} 張草稿，可逐張檢查後發布`);
+}
+async function issueSelected() {
+  const list = BILLS.filter(b => SELECTED.has(b.id) && b.status === "draft");
+  if (!list.length) return;
+  if (!confirm(`要發布 ${list.length} 張草稿嗎？發布後家長就看得到。`)) return;
+  busy(true);
+  let ok = 0; const fail = [];
+  for (let i = 0; i < list.length; i++) {
+    $("busy").textContent = `發布中 ${i + 1} / ${list.length}…`;
+    try { await rpc("fee_save_bill", { p: billPayload(list[i], "issued") }); ok++; }
+    catch (ex) { fail.push(list[i].student_name + "：" + friendly(ex)); }
+  }
+  $("busy").textContent = "處理中…";
+  try { SELECTED.clear(); await load(); } finally { busy(false); }
+  if (fail.length) alert(`成功 ${ok} 張，失敗 ${fail.length} 張：\n` + fail.join("\n")); else toast(`已發布 ${ok} 張`);
 }
 
 /* ---------- 設定（管理員） ---------- */
@@ -781,7 +986,18 @@ let qTimer;
 $("q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(render, 150); });
 ["fTerm", "fStatus", "fDept"].forEach(id => $(id).addEventListener("change", render));
 $("printSel").addEventListener("click", () => printBills(BILLS.filter(b => SELECTED.has(b.id))));
-$("addBill").addEventListener("click", () => openEdit(null));
+$("addBill").addEventListener("click", () => { QUEUE = []; openEdit(null); });
+$("batchBtn").addEventListener("click", openBatch);
+$("issueSel").addEventListener("click", issueSelected);
+document.querySelectorAll('input[name="batMode"]').forEach(r => r.addEventListener("change", batModeChanged));
+$("batTerm").addEventListener("change", () => { batTermChanged(); buildCands(); });
+$("batSrc").addEventListener("change", buildCands);
+$("batQ").addEventListener("input", renderBat);
+$("batDept").addEventListener("change", renderBat);
+$("batAll").addEventListener("change", e => { batVisible().filter(c => !c.exists).forEach(c => e.target.checked ? batChecked.add(c.key) : batChecked.delete(c.key)); renderBat(); });
+$("batList").addEventListener("change", e => { const k = e.target.dataset.k; if (k == null) return; e.target.checked ? batChecked.add(k) : batChecked.delete(k); renderBat(); });
+$("batForm").addEventListener("submit", runBatch);
+$("bSaveNext").addEventListener("click", () => saveBill("draft", true));
 $("pvEdit").addEventListener("click", () => { const b = pvBill; $("pvDlg").close(); openEdit(b); });
 $("pvIssue").addEventListener("click", () => setStatus(pvBill, "issued"));
 $("pvVoid").addEventListener("click", () => { if (confirm("確定要作廢這張學費單嗎？作廢後家長端看不到，列表仍會保留紀錄。")) setStatus(pvBill, "void"); });
@@ -845,6 +1061,8 @@ $("logoutBtn").addEventListener("click", () => goPortal(""));
     CAN_EDIT = IS_ADMIN || !!ME.fee_access;
     $("roleChip").textContent = IS_ADMIN ? "管理員" : (ME.title || "老師") + (CAN_EDIT ? "" : "（唯讀）");
     $("addBill").classList.toggle("hidden", !CAN_EDIT);
+    $("batchBtn").classList.toggle("hidden", !CAN_EDIT);
+    $("issueSel").classList.toggle("hidden", !CAN_EDIT);
     $("tabSet").classList.toggle("hidden", !IS_ADMIN);
     touch();
     await load();
