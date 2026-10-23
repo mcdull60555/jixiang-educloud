@@ -1495,6 +1495,10 @@ function periodText(Y, r) {
 const billingName = b => (b === "period" ? "期繳" : "月繳");
 const enrollsOf = sid => ENROLLS.filter(e => e.student_id === sid && e.active && PROGRAMS.some(p => p.code === e.program_code))
   .sort((a, b) => PROGRAMS.findIndex(p => p.code === a.program_code) - PROGRAMS.findIndex(p => p.code === b.program_code));
+function enrollChips(sid) {
+  const l = enrollsOf(sid).map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `<span class="chip">${esc(p.name)}（${e.amount != null ? fmt(e.amount) + "・" : ""}${billingName(e.billing)}${e.discount ? "，優惠 " + fmt(e.discount) + "/月" : ""}）</span>`; });
+  return l.length ? `<div class="chips" style="max-width:none">${l.join("")}</div>` : "";
+}
 function enrollSummary(sid) {
   return enrollsOf(sid).map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `${p.name}（${e.amount != null ? fmt(e.amount) + "・" : ""}${billingName(e.billing)}${e.discount ? "，優惠 " + fmt(e.discount) + "/月" : ""}）`; }).join("、");
 }
@@ -1548,12 +1552,12 @@ function renderPlan() {
   const list = planFiltered();
   $("pCount").textContent = `共 ${list.length} 位`;
   $("pTbody").innerHTML = list.length ? list.map(s => {
-    const sm = enrollSummary(s.id);
+    const sm = enrollChips(s.id);
     return `<tr data-sid="${esc(s.id)}" tabindex="0" class="g${gradeNo(s.grade)}">
       <td class="c-chk"><input type="checkbox" data-psel="${esc(s.id)}" ${PSEL.has(s.id) ? "checked" : ""} aria-label="選取 ${esc(s.name)}"></td>
       <td><div class="nm">${esc(s.name)}</div><div class="sub">${esc(s.account_code || "")}</div></td>
-      <td>${esc(s.grade)}</td>
-      <td>${sm ? esc(sm) : '<span class="help">還沒設定</span>'}</td>
+      <td style="white-space:nowrap">${esc(s.grade)}</td>
+      <td>${sm || '<span class="help">還沒設定</span>'}</td>
       <td><button type="button" class="btn sm" data-pedit="${esc(s.id)}">編輯</button></td></tr>`;
   }).join("") : '<tr><td colspan="5" class="empty">沒有符合的學生</td></tr>';
   $("pAll").checked = list.length > 0 && list.every(s => PSEL.has(s.id));
@@ -1575,7 +1579,7 @@ function renderPlanAdmin() {
       <h3 style="margin:0;font-size:17px">價目表（年級 × 班別 × 繳費方式）</h3>
       <button type="button" class="btn primary sm" id="pmSave">儲存價目表</button></div>
     <p class="help" style="margin:0 0 8px">月繳填「每月」金額；期繳填「一期」總金額。期繳留空時，開單會用月費 × 該期月數計算並提醒您。</p>
-    <div class="pm-wrap"><table><thead><tr><th rowspan="2">年級</th>${head1}</tr><tr>${head2}</tr></thead><tbody>${rows || ""}</tbody></table></div>
+    <div class="pm-wrap"><table><thead><tr><th></th>${head1}</tr><tr><th>年級</th>${head2}</tr></thead><tbody>${rows || ""}</tbody></table></div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:26px 0 6px;flex-wrap:wrap">
       <h3 style="margin:0;font-size:17px">班別與期繳期間</h3><button type="button" class="btn primary sm" id="pgAdd">＋ 新增班別</button></div>
     <div class="tbl-wrap" style="margin-top:0"><table><thead><tr><th>名稱</th><th>項目種類</th><th>期繳期間</th><th>狀態</th><th></th></tr></thead><tbody>
