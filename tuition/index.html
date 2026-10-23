@@ -291,7 +291,7 @@
     <section id="billsView">
       <div class="toolbar">
         <label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input type="search" id="q" placeholder="搜尋姓名、年級、標題" autocomplete="off" aria-label="搜尋"></label>
+          <input type="search" id="q" placeholder="搜尋姓名、年級、標題、收費項目" autocomplete="off" aria-label="搜尋"></label>
         <select class="sel" id="fTerm" aria-label="梯次"></select>
         <select class="sel" id="fStatus" aria-label="狀態">
           <option value="">全部狀態</option><option value="draft">草稿</option><option value="issued">已發布</option><option value="void">已作廢</option>
@@ -715,7 +715,7 @@ function filtered() {
     if (term && b.term_id !== term) return false;
     if (st && b.status !== st) return false;
     if (dept && b.dept !== dept) return false;
-    if (q && !(`${b.student_name} ${b.grade_text} ${b.title}`.toLowerCase().includes(q))) return false;
+    if (q && !(`${b.student_name} ${b.grade_text} ${b.title} ${sortedItems(b).filter(i => i.counted && i.amount !== 0).map(i => i.label).join(" ")}`.toLowerCase().includes(q))) return false;
     return true;
   }).sort((a, b) => gradeNo(a.grade_text) - gradeNo(b.grade_text) || zh(schoolOf(a), schoolOf(b)) || zh(a.student_name, b.student_name) || zh(a.title, b.title));
 }
