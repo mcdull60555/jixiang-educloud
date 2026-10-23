@@ -205,7 +205,7 @@
   .paper .phd .lg { width: 84px; height: 92px; background: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
   .paper .phd .lg img { width: 84px; height: 92px; object-fit: contain; display: block; }
   .paper .phd .tt { flex: 1; text-align: center; }
-  .paper .phd .tt b { display: block; font-size: 27px; letter-spacing: 3px; line-height: 1.25; }
+  .paper .phd .tt b { display: block; font-size: 52px; letter-spacing: 2px; line-height: 1.1; white-space: nowrap; }
   .paper .ph2 { display: flex; justify-content: center; gap: 22px; font-size: 19px; font-weight: 700; padding: 8px 8px 8px; border-bottom: 1px solid var(--ln); }
   .paper .ph3 { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; font-size: 14px; border-bottom: 1px solid var(--ln); }
   .paper .ph3 small { font-size: 11px; font-weight: 700; }
@@ -746,7 +746,7 @@ function paperHtml(b) {
       <div style="margin-top:4px"><b>匯款銀行 : ${esc(acc.bank_name)}${acc.bank_code ? " " + esc(acc.bank_code) : ""}</b></div>
       <div><b>匯款帳號 : ${esc(acc.account_no)}</b></div>` : `<div>（尚未選擇收款帳戶）</div>`;
   return `<div class="paper">
-    <div class="phd"><div class="lg"><img src="../logo-full.jpg" alt=""></div><div class="tt"><b>基翔文理<br>補習班</b></div></div>
+    <div class="phd"><div class="lg"><img src="../logo-full.jpg" alt=""></div><div class="tt"><b>基翔文理</b></div></div>
     <div class="ph2"><span>${esc(b.grade_text)}</span><span>${esc(b.student_name)}</span></div>
     <div class="ph3"><small>繳費期限</small><span>${esc(fmtDue(b.due_date))}</span><small>請勿逾期，謝謝。</small></div>
     <div class="band">${esc(b.title || "學費單")}</div>
