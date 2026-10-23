@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <style>
   :root {
     --bg: #F1F5F9; --card: #FFFFFF; --line: #E2E8F0; --line-2: #CBD5E1;
@@ -691,7 +692,7 @@ async function saveReset(e) {
 }
 
 /* ---------- 帳密小卡：做成圖片，可直接傳給家長 ---------- */
-const CARD_W = 1000, CARD_H = 604;
+const CARD_W = 1000, CARD_H = 640;
 const CARD_FONT = '"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif';
 const CARD_MONO = 'ui-monospace,Menlo,Consolas,"Courier New",monospace';
 let cardItems = [], cardSel = new Set(), cardGrades = new Set(), cardTimer = null, logoPromise = null;
@@ -754,14 +755,14 @@ function openCards(preId, auto) {
 }
 
 /* 畫一張小卡（PNG） */
-const loadLogo = () => logoPromise || (logoPromise = new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = "../logo.png"; }));
+const loadLogo = () => logoPromise || (logoPromise = new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = "../logo-full.jpg"; }));
 function rrPath(x, a, b, w, h, r) {
   x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r);
   x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath();
 }
 async function drawCard(s, pin) {
-  const url = loginUrl().replace(/^https?:\/\//, "");
-  try { await document.fonts.load('700 60px "Noto Sans TC"', s.name + "基翔學務雲帳號密碼同學登入資料網址請妥善保管勿將轉給他人"); } catch (_) { /* 用備用字型 */ }
+  const loginU = loginUrl(), url = loginU.replace(/^https?:\/\//, "");
+  try { await document.fonts.load('700 60px "Noto Sans TC"', s.name + "基翔學務雲帳號密碼同學登入資料網址請妥善保管勿將轉給他人掃描"); } catch (_) { /* 用備用字型 */ }
   const logo = await loadLogo();
   const c = document.createElement("canvas"); c.width = CARD_W; c.height = CARD_H;
   const x = c.getContext("2d");
@@ -769,30 +770,45 @@ async function drawCard(s, pin) {
   x.fillStyle = "#fff"; x.fillRect(0, 0, CARD_W, CARD_H);
   // 上方藍色標題列
   const g = x.createLinearGradient(0, 0, CARD_W, 0); g.addColorStop(0, "#0F4FB8"); g.addColorStop(1, "#1D8CF0");
-  x.fillStyle = g; x.fillRect(0, 0, CARD_W, 150);
-  x.fillStyle = "#fff"; rrPath(x, 40, 35, 80, 80, 18); x.fill();
-  if (logo) { x.save(); rrPath(x, 40, 35, 80, 80, 18); x.clip(); x.drawImage(logo, 40, 35, 80, 80); x.restore(); }
-  x.fillStyle = "#fff"; x.font = `700 44px ${CARD_FONT}`; x.fillText("基翔學務雲", 140, 82);
-  x.fillStyle = "#DBEAFE"; x.font = `500 20px ${CARD_FONT}`; x.fillText("JX EduCloud", 142, 112);
-  x.fillStyle = "#F5B301"; rrPath(x, 790, 56, 170, 46, 23); x.fill();
-  x.fillStyle = "#1E293B"; x.font = `700 24px ${CARD_FONT}`; x.textAlign = "center"; x.fillText("登入資料", 875, 88); x.textAlign = "left";
+  x.fillStyle = g; x.fillRect(0, 0, CARD_W, 200);
+  // logo（基翔文理補習班）
+  x.fillStyle = "#fff"; rrPath(x, 36, 20, 152, 160, 22); x.fill();
+  if (logo) {
+    const lh = 144, lw = lh * logo.width / logo.height;
+    x.drawImage(logo, 36 + (152 - lw) / 2, 28, lw, lh);
+  }
+  x.fillStyle = "#fff"; x.font = `700 52px ${CARD_FONT}`; x.fillText("基翔學務雲", 216, 106);
+  x.fillStyle = "#DBEAFE"; x.font = `500 24px ${CARD_FONT}`; x.fillText("JX EduCloud", 219, 146);
+  x.fillStyle = "#F5B301"; rrPath(x, 790, 76, 170, 48, 24); x.fill();
+  x.fillStyle = "#1E293B"; x.font = `700 24px ${CARD_FONT}`; x.textAlign = "center"; x.fillText("登入資料", 875, 109); x.textAlign = "left";
   // 姓名
   let fs = 64; x.font = `700 ${fs}px ${CARD_FONT}`;
   while (x.measureText(s.name).width > 640 && fs > 36) { fs -= 4; x.font = `700 ${fs}px ${CARD_FONT}`; }
-  x.fillStyle = "#1E293B"; x.fillText(s.name, 50, 240);
+  x.fillStyle = "#1E293B"; x.fillText(s.name, 50, 280);
   const nw = x.measureText(s.name).width;
-  x.fillStyle = "#64748B"; x.font = `500 32px ${CARD_FONT}`; x.fillText("同學", 50 + nw + 14, 240);
-  // 帳號、密碼
-  [["帳號", 270], ["密碼", 390]].forEach(([label, top]) => {
-    x.fillStyle = "#F1F5F9"; rrPath(x, 40, top, 920, 100, 20); x.fill();
+  x.fillStyle = "#64748B"; x.font = `500 32px ${CARD_FONT}`; x.fillText("同學", 50 + nw + 14, 280);
+  // 帳號、密碼（左側）
+  [["帳號", 310], ["密碼", 430]].forEach(([label, top]) => {
+    x.fillStyle = "#F1F5F9"; rrPath(x, 40, top, 650, 100, 20); x.fill();
     x.fillStyle = "#64748B"; x.font = `500 30px ${CARD_FONT}`; x.fillText(label, 72, top + 63);
   });
-  x.fillStyle = "#0F4FB8"; x.font = `600 56px ${CARD_MONO}`; x.fillText(s.account_code || "", 240, 340);
+  x.fillStyle = "#0F4FB8"; x.font = `600 56px ${CARD_MONO}`; x.fillText(s.account_code || "", 240, 380);
   x.fillStyle = "#1E293B"; x.font = `700 70px ${CARD_MONO}`;
-  let px = 240; for (const ch of String(pin)) { x.fillText(ch, px, 465); px += x.measureText(ch).width + 20; }
+  let px = 240; for (const ch of String(pin)) { x.fillText(ch, px, 505); px += x.measureText(ch).width + 20; }
+  // 右下角：登入網址 QR Code
+  const QS = 220, QX = 730, QY = 310;
+  x.fillStyle = "#fff"; rrPath(x, QX, QY, QS, QS, 16); x.fill();
+  x.strokeStyle = "#CBD5E1"; x.lineWidth = 2; rrPath(x, QX, QY, QS, QS, 16); x.stroke();
+  if (typeof qrcode === "function") {
+    const qr = qrcode(0, "M"); qr.addData(loginU); qr.make();
+    const n = qr.getModuleCount(), cell = Math.floor((QS - 28) / n), off = Math.floor((QS - cell * n) / 2);
+    x.fillStyle = "#1E293B";
+    for (let r = 0; r < n; r++) for (let q = 0; q < n; q++) if (qr.isDark(r, q)) x.fillRect(QX + off + q * cell, QY + off + r * cell, cell, cell);
+  }
+  x.fillStyle = "#1660D6"; x.font = `700 24px ${CARD_FONT}`; x.textAlign = "center"; x.fillText("掃描 QR Code 登入", QX + QS / 2, QY + QS + 36); x.textAlign = "left";
   // 下方說明
-  x.fillStyle = "#475569"; x.font = `500 24px ${CARD_FONT}`; x.fillText("登入網址　" + url, 40, 543);
-  x.fillStyle = "#94A3B8"; x.font = `400 22px ${CARD_FONT}`; x.fillText("請妥善保管，勿將密碼轉給他人", 40, 578);
+  x.fillStyle = "#475569"; x.font = `500 24px ${CARD_FONT}`; x.fillText("登入網址　" + url, 40, 579);
+  x.fillStyle = "#94A3B8"; x.font = `400 22px ${CARD_FONT}`; x.fillText("請妥善保管，勿將密碼轉給他人", 40, 614);
   x.strokeStyle = "#CBD5E1"; x.lineWidth = 2; x.strokeRect(1, 1, CARD_W - 2, CARD_H - 2);
   return new Promise(res => c.toBlob(res, "image/png"));
 }
