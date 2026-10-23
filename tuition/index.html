@@ -237,6 +237,26 @@
   #pTbody tr.g8 td { background: #F6EAF8; }
   #pTbody tr.g9 td { background: #F1F3F5; }
   #pTbody tr:hover td { filter: brightness(.97); }
+  .becols-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .becols-add input[type=text] { min-height: 38px; border: 1px solid #D5DEEA; border-radius: 9px; padding: 0 10px; width: 200px; }
+  .be-wrap { overflow: auto; max-height: calc(100vh - 260px); border: 1px solid var(--line); border-radius: 12px; }
+  table.be { border-collapse: separate; border-spacing: 0; min-width: 100%; }
+  table.be th, table.be td { padding: 6px 8px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); background: #fff; vertical-align: middle; white-space: nowrap; }
+  table.be thead th { position: sticky; top: 0; z-index: 3; background: #F8FAFC; vertical-align: top; }
+  table.be .be-st { position: sticky; left: 0; z-index: 2; min-width: 120px; background: #fff; box-shadow: 2px 0 0 var(--line); }
+  table.be thead .be-st { z-index: 4; background: #F8FAFC; }
+  table.be tr.chg td.be-st { background: #FFF8E1; }
+  table.be .bec-h { display: flex; flex-direction: column; gap: 4px; min-width: 250px; }
+  table.be .bec-h b { font-size: 14px; }
+  table.be .bec-h .row { display: flex; gap: 4px; align-items: center; }
+  table.be input { min-height: 36px; border: 1px solid #D5DEEA; border-radius: 8px; padding: 0 8px; font-size: 14px; background: #fff; }
+  table.be input.ba { width: 84px; text-align: right; font-variant-numeric: tabular-nums; }
+  table.be input.bp { width: 140px; }
+  table.be input.bn { width: 200px; }
+  table.be .mini { width: 76px; min-height: 30px; }
+  table.be .minip { width: 110px; min-height: 30px; }
+  table.be .be-tot { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 80px; }
+  table.be .be-x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 16px; }
   .chips { display: flex; flex-wrap: wrap; gap: 4px; max-width: 320px; }
   .chip { font-size: 12.5px; padding: 2px 8px; border-radius: 999px; background: #EAF2FF; color: #0F4FB8; white-space: nowrap; }
   .chip.neg { background: #FEF3F2; color: #B42318; }
@@ -310,6 +330,7 @@
         <select class="sel" id="fDept" aria-label="部別"></select>
         <button type="button" class="btn" id="printSel" disabled title="列印勾選的學費單">列印</button>
         <button type="button" class="btn hidden" id="issueSel" disabled title="發布勾選的草稿">發布草稿</button>
+        <button type="button" class="btn hidden" id="editSel" disabled title="把勾選的學費單放在同一張表裡，一次修改收費項目、金額與期間">批次修改</button>
         <button type="button" class="btn hidden" id="delSel" disabled title="刪除勾選的草稿或已作廢的學費單" style="color:var(--rose)">刪除</button>
         <button type="button" class="btn hidden" id="batchBtn" style="border-color:var(--blue);color:var(--blue);font-weight:700">批次建立</button>
         <button type="button" class="btn primary hidden" id="addBill">＋ 新增學費單</button>
@@ -521,6 +542,29 @@
     <div class="dlg-foot">
       <button type="button" class="btn" data-close>取消</button>
       <button type="submit" class="btn primary">儲存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 批次修改（一位學生一橫列） -->
+<dialog id="beDlg" aria-labelledby="beTitle" style="width:min(1500px,calc(100vw - 16px))">
+  <form method="dialog" id="beForm" novalidate>
+    <div class="dlg-head"><h3 id="beTitle">批次修改</h3><span class="help" id="beSub"></span></div>
+    <div class="dlg-body" style="padding-top:8px">
+      <div class="becols-add">
+        <span class="help">新增一欄收費項目：</span>
+        <select id="beType" class="sel" aria-label="項目種類"></select>
+        <input type="text" id="beLabel" maxlength="30" placeholder="名稱（可留空＝種類名稱）" aria-label="名稱">
+        <button type="button" class="btn sm" id="beAddCol">＋ 加一欄</button>
+        <span class="help">每欄上方可「全部套用」金額或期間（期間只套用在這個項目已有金額的學生）；左右滑動查看所有項目</span>
+      </div>
+      <div class="be-wrap" id="beWrap"></div>
+      <p class="err hidden" id="beErr"></p>
+    </div>
+    <div class="dlg-foot">
+      <span class="help" id="beCount" style="margin-right:auto"></span>
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="submit" class="btn primary" id="beSave">儲存全部修改</button>
     </div>
   </form>
 </dialog>
@@ -761,6 +805,9 @@ function render() {
   $("issueSel").disabled = !nDraft;
   const nDel = BILLS.filter(b => SELECTED.has(b.id) && b.status !== "issued").length;
   $("delSel").disabled = !nDel;
+  const nEd = BILLS.filter(b => SELECTED.has(b.id) && b.status !== "void").length;
+  $("editSel").disabled = !nEd;
+  $("editSel").textContent = nEd ? `批次修改（${nEd}）` : "批次修改";
   $("delSel").textContent = nDel ? `刪除（${nDel}）` : "刪除";
   $("issueSel").textContent = nDraft ? `發布草稿（${nDraft}）` : "發布草稿";
   $("printSel").textContent = SELECTED.size ? `列印（${SELECTED.size}）` : "列印";
@@ -1715,6 +1762,113 @@ document.addEventListener("pointerdown", e => {
   document.addEventListener("pointermove", move); document.addEventListener("pointerup", up); document.addEventListener("pointercancel", up);
 });
 
+
+/* ---------- 批次修改：一位學生一橫列 ---------- */
+let beBills = [], beCols = [], beNew = 0;
+function openBatchEdit() {
+  const order = filtered().map(b => b.id);
+  beBills = BILLS.filter(b => SELECTED.has(b.id) && b.status !== "void").sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  if (!beBills.length) return toast("請先勾選要修改的學費單（已作廢的不能改）", true);
+  const cols = [], seen = {};
+  beBills.forEach(b => {
+    const occ = {};
+    sortedItems(b).filter(i => !isBlank(i)).forEach(i => {
+      const base = `${i.item_type}|${i.label}`; occ[base] = (occ[base] || 0) + 1;
+      const key = `${base}|${occ[base]}`;
+      if (!seen[key]) { seen[key] = 1; cols.push({ key, type: i.item_type, label: i.label }); }
+    });
+  });
+  const ti = t => TYPES.findIndex(x => x.code === t);
+  beCols = cols.map((c, i) => Object.assign(c, { i })).sort((a, b) => ti(a.type) - ti(b.type) || a.i - b.i);
+  $("beType").innerHTML = typeOptions("tuition");
+  const nIssued = beBills.filter(b => b.status === "issued").length;
+  $("beSub").textContent = `${beBills.length} 張${nIssued ? `（其中 ${nIssued} 張已發布，修改後家長端也會變）` : ""}`;
+  $("beErr").classList.add("hidden");
+  renderBE();
+  $("beDlg").showModal();
+}
+function beCell(b, c) {
+  const occ = {}; let hit = null;
+  sortedItems(b).filter(i => !isBlank(i)).forEach(i => { const base = `${i.item_type}|${i.label}`; occ[base] = (occ[base] || 0) + 1; if (`${base}|${occ[base]}` === c.key) hit = i; });
+  return hit;
+}
+function beHead(c, ci) {
+  return `<th data-hci="${ci}"><div class="bec-h"><div style="display:flex;justify-content:space-between;gap:6px"><b>${esc(c.label)}</b><button type="button" class="be-x" data-bedel="${ci}" title="移除這一欄（這些學費單會拿掉這個項目）" aria-label="移除這一欄">✕</button></div>
+      <span class="help">${esc(typeOf(c.type).name)}</span>
+      <div class="row"><input class="mini" inputmode="numeric" placeholder="全部金額" data-fa="${ci}"><input class="minip" placeholder="全部期間" data-fp="${ci}"><button type="button" class="btn sm" data-fill="${ci}">套用</button></div></div></th>`;
+}
+function beTd(b, c, ci) {
+  const it = c.key.startsWith("new|") ? null : beCell(b, c);
+  return `<td data-ci="${ci}" data-counted="${it && !it.counted ? 0 : 1}" data-note="${esc(it ? it.note || "" : "")}"><input class="ba" inputmode="numeric" value="${it && it.amount ? esc(Math.abs(it.amount)) : ""}" aria-label="金額"> <input class="bp" value="${it ? esc(it.period_text || "") : ""}" placeholder="期間" aria-label="期間"></td>`;
+}
+function renderBE() {
+  const rows = beBills.map(b => `<tr data-bid="${esc(b.id)}"><td class="be-st"><div class="nm">${esc(b.student_name)}</div><div class="sub">${esc(b.grade_text)}${b.status === "issued" ? "・已發布" : ""}</div></td>${beCols.map((c, ci) => beTd(b, c, ci)).join("")}<td class="be-tot">0</td><td><input class="bn" value="${esc(b.note || "")}" placeholder="備註" aria-label="備註"></td></tr>`).join("");
+  $("beWrap").innerHTML = `<table class="be"><thead><tr><th class="be-st">學生</th>${beCols.map(beHead).join("")}<th>總計</th><th>備註</th></tr></thead><tbody>${rows}</tbody></table>`;
+  beRecalc();
+}
+function beReadRow(tr) {
+  const items = [];
+  tr.querySelectorAll("td[data-ci]").forEach(td => {
+    const c = beCols[+td.dataset.ci];
+    const amount = parseInt(td.querySelector(".ba").value.replace(/[^\d]/g, ""), 10) || 0;
+    const period = td.querySelector(".bp").value.trim();
+    const counted = td.dataset.counted !== "0";
+    if (amount === 0 && counted && !period) return;
+    items.push({ item_type: c.type, label: c.label, amount, counted, period_text: period, note: td.dataset.note || "" });
+  });
+  return { items, note: tr.querySelector(".bn").value.trim() };
+}
+const beSig = (items, note) => JSON.stringify([items.map(i => JSON.stringify([i.item_type, i.label, Math.abs(i.amount), !!i.counted, i.period_text || "", i.note || ""])).sort(), note || ""]);
+function beRecalc() {
+  let changed = 0;
+  $("beWrap").querySelectorAll("tbody tr").forEach(tr => {
+    const b = beBills.find(x => x.id === tr.dataset.bid), r = beReadRow(tr);
+    tr.querySelector(".be-tot").textContent = fmt(r.items.reduce((a, i) => a + (i.counted ? i.amount * typeOf(i.item_type).sign : 0), 0));
+    const same = beSig(r.items, r.note) === beSig(sortedItems(b).filter(i => !isBlank(i)), b.note);
+    tr.classList.toggle("chg", !same); if (!same) changed++;
+  });
+  $("beCount").textContent = changed ? `已修改 ${changed} 張（黃底）` : "還沒有修改";
+}
+function beAddCol() {
+  const type = $("beType").value, label = $("beLabel").value.trim() || typeOf(type).name;
+  const ci = beCols.length, c = { key: `new|${type}|${label}|${++beNew}`, type, label };
+  beCols.push(c);
+  const t = $("beWrap").querySelector("table.be");
+  t.querySelector("thead tr").lastElementChild.previousElementSibling.insertAdjacentHTML("afterend", beHead(c, ci));
+  t.querySelectorAll("tbody tr").forEach(tr => tr.querySelector(".be-tot").insertAdjacentHTML("beforebegin", beTd(beBills.find(x => x.id === tr.dataset.bid), c, ci)));
+  $("beLabel").value = "";
+  beRecalc();
+  $("beWrap").scrollLeft = $("beWrap").scrollWidth;
+}
+function beDelCol(ci) {
+  $("beWrap").querySelectorAll(`th[data-hci="${ci}"], td[data-ci="${ci}"]`).forEach(x => x.remove());
+  beRecalc();
+}
+async function saveBE(e) {
+  e.preventDefault();
+  const rows = [...$("beWrap").querySelectorAll("tbody tr")], todo = [];
+  rows.forEach(tr => {
+    const b = beBills.find(x => x.id === tr.dataset.bid), r = beReadRow(tr);
+    if (beSig(r.items, r.note) !== beSig(sortedItems(b).filter(i => !isBlank(i)), b.note)) todo.push({ b, r });
+  });
+  if (!todo.length) return $("beDlg").close();
+  const bad = todo.find(t => !t.r.items.length);
+  if (bad && !confirm(`「${bad.b.student_name}」的收費項目都被清空了，確定要儲存嗎？`)) return;
+  if (!confirm(`要儲存 ${todo.length} 張學費單的修改嗎？`)) return;
+  busy(true);
+  const fail = []; let ok = 0;
+  for (let i = 0; i < todo.length; i++) {
+    $("busy").textContent = `正在儲存修改… ${i + 1} / ${todo.length}，請稍候`;
+    const { b, r } = todo[i];
+    try { await rpc("fee_save_bill", { p: Object.assign(billPayload(b, b.status), { items: r.items.map(it => Object.assign({}, it, { amount: Math.abs(it.amount) })), note: r.note }) }); ok++; }
+    catch (ex) { fail.push(`${b.student_name}：${friendly(ex)}`); }
+  }
+  $("busy").textContent = "處理中…";
+  try { $("beDlg").close(); await load(); } finally { busy(false); }
+  if (fail.length) alert(`成功 ${ok} 張，失敗 ${fail.length} 張：\n` + fail.join("\n"));
+  else toast(`已儲存 ${ok} 張`);
+}
+
 /* ---------- 事件 ---------- */
 $("tbody").addEventListener("click", e => {
   const chk = e.target.closest("[data-sel]");
@@ -1738,6 +1892,25 @@ $("printSel").addEventListener("click", () => printBills(BILLS.filter(b => SELEC
 $("addBill").addEventListener("click", () => { QUEUE = []; openEdit(null); });
 $("batchBtn").addEventListener("click", openBatch);
 $("issueSel").addEventListener("click", issueSelected);
+$("editSel").addEventListener("click", openBatchEdit);
+$("beForm").addEventListener("submit", saveBE);
+$("beAddCol").addEventListener("click", beAddCol);
+$("beWrap").addEventListener("input", beRecalc);
+$("beWrap").addEventListener("click", e => {
+  const f = e.target.closest("[data-fill]");
+  if (f) {
+    const ci = f.dataset.fill, a = $("beWrap").querySelector(`[data-fa="${ci}"]`).value.trim(), pe = $("beWrap").querySelector(`[data-fp="${ci}"]`).value.trim();
+    if (a === "" && pe === "") return toast("請先在「全部金額」或「全部期間」輸入內容", true);
+    $("beWrap").querySelectorAll(`td[data-ci="${ci}"]`).forEach(td => { if (a !== "") td.querySelector(".ba").value = a.replace(/[^\d]/g, ""); if (pe !== "") { const has = td.querySelector(".ba").value.trim() !== "" || td.querySelector(".bp").value.trim() !== ""; if (has) td.querySelector(".bp").value = pe; } });
+    beRecalc(); return;
+  }
+  const d = e.target.closest("[data-bedel]");
+  if (d) {
+    const ci = +d.dataset.bedel;
+    if (!confirm(`要移除「${beCols[ci].label}」這一欄嗎？所有列的這個項目都會被拿掉（儲存後才生效）。`)) return;
+    beDelCol(ci); return;
+  }
+});
 $("delSel").addEventListener("click", () => { const l = BILLS.filter(b => SELECTED.has(b.id) && b.status !== "issued"); deleteBills(l.map(b => b.id), `勾選的 ${l.length} 張學費單（草稿／已作廢）`); });
 $("pvDel").addEventListener("click", () => { if (pvBill) deleteBills([pvBill.id], `「${pvBill.student_name}　${pvBill.title || "學費單"}」`); });
 document.querySelectorAll('input[name="batMode"]').forEach(r => r.addEventListener("change", batModeChanged));
@@ -1885,6 +2058,7 @@ $("logoutBtn").addEventListener("click", () => goPortal(""));
     $("batchBtn").classList.toggle("hidden", !CAN_EDIT);
     $("issueSel").classList.toggle("hidden", !CAN_EDIT);
     $("delSel").classList.toggle("hidden", !CAN_EDIT);
+    $("editSel").classList.toggle("hidden", !CAN_EDIT);
     $("tabSet").classList.toggle("hidden", !IS_ADMIN);
     $("tabPlan").classList.toggle("hidden", !CAN_EDIT);
     touch();
