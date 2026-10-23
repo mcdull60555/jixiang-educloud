@@ -136,7 +136,7 @@
 
   #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: #1E293B; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 14px; z-index: 9000; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); }
   #toast.bad { background: var(--rose); }
-  .busy { position: fixed; inset: 0; background: rgba(15,23,42,.3); display: flex; align-items: center; justify-content: center; z-index: 9400; color: #fff; font-size: 16px; font-weight: 700; }
+  .busy { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgba(15,23,42,.45); display: flex; align-items: center; justify-content: center; z-index: 9400; color: #fff; font-size: 20px; text-shadow: 0 1px 6px rgba(0,0,0,.5); text-align: center; font-weight: 700; }
   .test-tag { position: fixed; left: 8px; bottom: 8px; z-index: 99; background: #7c3aed; color: #fff; font: 700 11px/1 sans-serif; padding: 6px 10px; border-radius: 999px; opacity: .9; pointer-events: none; }
   dialog.wide { width: min(920px, calc(100vw - 24px)); }
   .plist { border: 1px solid var(--line); border-radius: 12px; max-height: 300px; overflow: auto; }
@@ -465,7 +465,7 @@
       </div>
       <div id="batLeaveOpts" class="checks">
         <label><input type="checkbox" id="batLeave">自動計入請假折抵（依雲點名請假紀錄）</label>
-        <label class="field" style="flex-direction:row;align-items:center;gap:8px;font-weight:400">計算月份<input type="month" id="batLeaveMonth" style="min-height:36px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px"></label>
+        <label class="field" style="flex-direction:row;align-items:center;gap:8px;font-weight:400">計算月份<input type="month" id="batLeaveMonth" style="width:160px;min-height:36px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px"></label>
       </div>
       <div id="batTplOpts" class="hidden">
         <div class="grid3" style="grid-template-columns:1fr 1fr 1fr">
@@ -600,7 +600,7 @@
 
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status"></div>
-<div id="busy" class="busy hidden">處理中…</div>
+<div id="busy" class="busy hidden" popover="manual">處理中…</div>
 <div class="test-tag">學務雲 測試版・整合版</div>
 
 <script>
@@ -624,7 +624,11 @@ let pvBill = null;
 const SELECTED = new Set();
 
 /* ---------- 共用 ---------- */
-function busy(on) { $("busy").classList.toggle("hidden", !on); }
+function busy(on) {
+  const el = $("busy");
+  el.classList.toggle("hidden", !on);
+  try { if (on) { if (!el.matches(":popover-open")) el.showPopover(); } else if (el.matches(":popover-open")) el.hidePopover(); } catch (_) { /* 舊瀏覽器 */ }
+}
 let toastTimer;
 function toast(msg, bad) {
   const t = $("toast"); t.textContent = msg; t.className = bad ? "bad" : "";
@@ -1205,10 +1209,12 @@ async function runBatch(e) {
   batWarns = [];
   if (!confirm(`要建立 ${picked.length} 張草稿嗎？建立後可以逐張微調，確認沒問題再一起發布。`)) return;
   busy(true);
+  $("batGo").disabled = true;
   const ok = [], fail = [];
   let rebated = 0, incomplete = false;
   for (let i = 0; i < picked.length; i++) {
-    $("busy").textContent = `建立中 ${i + 1} / ${picked.length}…`;
+    $("busy").textContent = `正在建立草稿中… ${i + 1} / ${picked.length}，請稍候，先不要關閉視窗`;
+    $("batGo").textContent = `建立中 ${i + 1} / ${picked.length}…`;
     try {
       const payload = batPayload(picked[i], o);
       if (o.leave && payload.student_id) {
@@ -1233,7 +1239,7 @@ async function runBatch(e) {
     $("fTerm").value = o.term; $("fStatus").value = "draft"; $("fDept").value = ""; $("q").value = "";
     SELECTED.clear(); ok.forEach(id => SELECTED.add(id));
     render();
-  } finally { busy(false); }
+  } finally { busy(false); $("batGo").disabled = false; $("batGo").textContent = "建立草稿"; }
   if (fail.length) alert(`成功 ${ok.length} 張，失敗 ${fail.length} 張：\n` + fail.join("\n"));
   else toast(`已建立 ${ok.length} 張草稿` + (o.leave ? `，其中 ${rebated} 張有請假折抵` : "") + "，可逐張檢查後發布");
   if (batWarns.length) alert("價目表提醒（這些金額請檢查）：\n" + [...new Set(batWarns)].slice(0, 30).join("\n"));
