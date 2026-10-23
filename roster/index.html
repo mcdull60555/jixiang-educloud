@@ -163,7 +163,7 @@
     dialog { display: none !important; }
     body { background: #fff; }
     #printArea { display: grid; grid-template-columns: 92mm 92mm; gap: 5mm; }
-    #printArea img { width: 92mm; height: auto; border: 1px dashed #1660D6; break-inside: avoid; }
+    #printArea img { width: 92mm; height: auto; border: 1px dashed #94A3B8; break-inside: avoid; }
   }
 
   /* 手機：表格改成卡片 */
@@ -779,21 +779,21 @@ async function drawCard(s, pin) {
   // 姓名
   let fs = 64; x.font = `700 ${fs}px ${CARD_FONT}`;
   while (x.measureText(s.name).width > 640 && fs > 36) { fs -= 4; x.font = `700 ${fs}px ${CARD_FONT}`; }
-  x.fillStyle = "#0F4FB8"; x.fillText(s.name, 50, 240);
+  x.fillStyle = "#1E293B"; x.fillText(s.name, 50, 240);
   const nw = x.measureText(s.name).width;
-  x.fillStyle = "#1660D6"; x.font = `500 32px ${CARD_FONT}`; x.fillText("同學", 50 + nw + 14, 240);
+  x.fillStyle = "#64748B"; x.font = `500 32px ${CARD_FONT}`; x.fillText("同學", 50 + nw + 14, 240);
   // 帳號、密碼
   [["帳號", 270], ["密碼", 390]].forEach(([label, top]) => {
-    x.fillStyle = "#EAF2FF"; rrPath(x, 40, top, 920, 100, 20); x.fill();
-    x.fillStyle = "#1660D6"; x.font = `500 30px ${CARD_FONT}`; x.fillText(label, 72, top + 63);
+    x.fillStyle = "#F1F5F9"; rrPath(x, 40, top, 920, 100, 20); x.fill();
+    x.fillStyle = "#64748B"; x.font = `500 30px ${CARD_FONT}`; x.fillText(label, 72, top + 63);
   });
   x.fillStyle = "#0F4FB8"; x.font = `600 56px ${CARD_MONO}`; x.fillText(s.account_code || "", 240, 340);
-  x.fillStyle = "#0F4FB8"; x.font = `700 70px ${CARD_MONO}`;
+  x.fillStyle = "#1E293B"; x.font = `700 70px ${CARD_MONO}`;
   let px = 240; for (const ch of String(pin)) { x.fillText(ch, px, 465); px += x.measureText(ch).width + 20; }
   // 下方說明
-  x.fillStyle = "#1660D6"; x.font = `500 24px ${CARD_FONT}`; x.fillText("登入網址　" + url, 40, 543);
-  x.fillStyle = "#3B82F6"; x.font = `400 22px ${CARD_FONT}`; x.fillText("請妥善保管，勿將密碼轉給他人", 40, 578);
-  x.strokeStyle = "#1660D6"; x.lineWidth = 12; x.strokeRect(6, 6, CARD_W - 12, CARD_H - 12);
+  x.fillStyle = "#475569"; x.font = `500 24px ${CARD_FONT}`; x.fillText("登入網址　" + url, 40, 543);
+  x.fillStyle = "#94A3B8"; x.font = `400 22px ${CARD_FONT}`; x.fillText("請妥善保管，勿將密碼轉給他人", 40, 578);
+  x.strokeStyle = "#CBD5E1"; x.lineWidth = 2; x.strokeRect(1, 1, CARD_W - 2, CARD_H - 2);
   return new Promise(res => c.toBlob(res, "image/png"));
 }
 
