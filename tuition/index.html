@@ -202,7 +202,7 @@
   /* 學費單（紙本樣式）：固定 350px，列印兩欄剛好一頁 */
   .paper { --ln: #A9BEDD; --ac: #0F4FB8; width: 350px; background: #fff; color: #1E293B; border: 1.5px solid var(--ac); font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif; font-size: 14px; line-height: 1.35; }
   .paper .phd { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #fff; color: #1E293B; border-bottom: 3px solid var(--ac); }
-  .paper .phd .lg { width: 56px; height: 60px; background: #fff; border-radius: 10px; border: 1px solid var(--ln); display: flex; align-items: center; justify-content: center; flex: none; }
+  .paper .phd .lg { width: 56px; height: 60px; background: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
   .paper .phd .lg img { width: 52px; height: 56px; object-fit: contain; display: block; }
   .paper .phd .tt { flex: 1; text-align: center; }
   .paper .phd .tt b { display: block; font-size: 21px; letter-spacing: 6px; }
@@ -235,7 +235,6 @@
     /* 黑白影印：全部改成白底黑字黑線，不靠顏色辨識 */
     #printArea .paper { --ln: #000; --ac: #000; border: 1.5px solid #000; color: #000; -webkit-print-color-adjust: economy; print-color-adjust: economy; }
     #printArea .paper .phd { background: #fff !important; color: #000 !important; border-bottom: 2px solid #000; }
-    #printArea .paper .phd .lg { background: #fff; border: 1px solid #000; }
     #printArea .paper .phd .lg img { filter: grayscale(1) contrast(1.5); }
     #printArea .paper .band { background: #fff !important; color: #000 !important; border-top: 2px solid #000; border-bottom: 2px solid #000; }
     #printArea .paper .tot { background: #fff !important; border-top: 2px solid #000; border-bottom: 2px solid #000; }
