@@ -149,6 +149,10 @@
   .pick-tools .search input { height: 38px; }
   .warn { font-size: 13.5px; color: #92400E; background: #FEF3C7; border-radius: 10px; padding: 10px 12px; margin: 0; }
   /* ===== 學費管理 ===== */
+  td.grip { width: 30px; color: var(--muted); cursor: grab; user-select: none; text-align: center; letter-spacing: -2px; font-weight: 700; }
+  tr.trow.dragging { opacity: .4; }
+  tr.trow.over.above td { box-shadow: inset 0 3px 0 var(--blue); }
+  tr.trow.over.below td { box-shadow: inset 0 -3px 0 var(--blue); }
   #billsView .toolbar { flex-wrap: nowrap; }
   #billsView .toolbar .search { flex: 1 1 100px; min-width: 100px; }
   #billsView .toolbar .sel { padding: 0 6px; font-size: 13.5px; min-width: 0; flex: 0 1 auto; max-width: 160px; }
@@ -998,7 +1002,7 @@ function renderSettings() {
   $("setBody").innerHTML =
     sec("收款帳戶", "addAcct", ["部別", "銀行", "帳號", "狀態"], ACCOUNTS.map(a => `<tr><td class="nm">${esc(a.dept)}</td><td>${esc(a.bank_name)} ${esc(a.bank_code)}</td><td class="acct">${esc(a.account_no)}</td><td>${onoff(a.active)}</td><td><button type="button" class="btn sm" data-set="acct" data-id="${esc(a.id)}">編輯</button></td></tr>`).join("")) +
     sec("梯次", "addTerm", ["名稱", "類型", "單上標題", "預設期限", "狀態"], TERMS.map(t => `<tr><td class="nm">${esc(t.name)}</td><td>${esc(KIND[t.kind] || t.kind)}</td><td>${esc(t.title)}</td><td>${esc(fmtDate(t.due_date))}</td><td>${onoff(t.active)}</td><td><button type="button" class="btn sm" data-set="term" data-id="${esc(t.id)}">編輯</button></td></tr>`).join("")) +
-    sec("項目種類", "addType", ["名稱", "性質", "狀態"], TYPES.map(t => `<tr><td class="nm">${esc(t.name)}</td><td>${t.sign < 0 ? "折抵（扣除）" : "收費"}</td><td>${onoff(t.active)}</td><td><button type="button" class="btn sm" data-set="type" data-id="${esc(t.code)}">編輯</button></td></tr>`).join(""));
+    sec("項目種類　<span class=\"help\" style=\"font-weight:400\">拖曳左邊的 ⋮⋮ 可以調整順序（開單時的下拉選單照這個順序）</span>", "addType", ["", "名稱", "性質", "狀態"], TYPES.map((t, i) => `<tr class="trow" draggable="true" data-code="${esc(t.code)}"><td class="grip" title="拖曳排序" aria-label="拖曳排序">⋮⋮</td><td class="nm">${esc(t.name)}</td><td>${t.sign < 0 ? "折抵（扣除）" : "收費"}</td><td>${onoff(t.active)}</td><td style="white-space:nowrap"><button type="button" class="btn sm" data-mv="-1" data-id="${esc(t.code)}" aria-label="上移" ${i === 0 ? "disabled" : ""}>▲</button> <button type="button" class="btn sm" data-mv="1" data-id="${esc(t.code)}" aria-label="下移" ${i === TYPES.length - 1 ? "disabled" : ""}>▼</button> <button type="button" class="btn sm" data-set="type" data-id="${esc(t.code)}">編輯</button></td></tr>`).join(""));
 }
 let formSave = null;
 function openForm(title, fields, vals, save) {
@@ -1054,6 +1058,66 @@ function editType(t) {
     if (t) await dbWrite("fee_item_types", t.code, "code", { name: o.name, sign: +o.sign, active: o.active });
     else await dbWrite("fee_item_types", null, "code", { code: "c" + Date.now().toString(36), name: o.name, sign: +o.sign, active: o.active, sort_order: TYPES.length * 10 + 10 });
   });
+}
+
+/* ---------- 項目種類：拖曳排序 ---------- */
+async function saveTypeOrder(codes) {
+  const byCode = Object.fromEntries(TYPES.map(t => [t.code, t]));
+  busy(true);
+  try {
+    for (let i = 0; i < codes.length; i++) {
+      const so = (i + 1) * 10;
+      if (byCode[codes[i]].sort_order !== so) {
+        const { error } = await sb.from("fee_item_types").update({ sort_order: so }).eq("code", codes[i]);
+        if (error) throw error;
+      }
+    }
+    await load();
+    toast("順序已儲存");
+  } catch (ex) { toast(friendly(ex), true); await load(); } finally { busy(false); }
+}
+let dragCode = null;
+document.addEventListener("dragstart", e => {
+  const tr = e.target.closest && e.target.closest("tr.trow");
+  if (!tr) return;
+  dragCode = tr.dataset.code;
+  e.dataTransfer.effectAllowed = "move";
+  try { e.dataTransfer.setData("text/plain", dragCode); } catch (_) { /* 忽略 */ }
+  setTimeout(() => tr.classList.add("dragging"), 0);
+});
+document.addEventListener("dragover", e => {
+  const tr = e.target.closest && e.target.closest("tr.trow");
+  if (!tr || !dragCode) return;
+  e.preventDefault();
+  document.querySelectorAll("tr.trow.over").forEach(x => x.classList.remove("over", "above", "below"));
+  if (tr.dataset.code === dragCode) return;
+  const r = tr.getBoundingClientRect();
+  tr.classList.add("over", e.clientY < r.top + r.height / 2 ? "above" : "below");
+});
+document.addEventListener("dragend", () => {
+  dragCode = null;
+  document.querySelectorAll("tr.trow").forEach(x => x.classList.remove("dragging", "over", "above", "below"));
+});
+document.addEventListener("drop", e => {
+  const tr = e.target.closest && e.target.closest("tr.trow");
+  if (!tr || !dragCode) return;
+  e.preventDefault();
+  const from = dragCode, to = tr.dataset.code;
+  const above = tr.classList.contains("above");
+  dragCode = null;
+  document.querySelectorAll("tr.trow").forEach(x => x.classList.remove("dragging", "over", "above", "below"));
+  if (from === to) return;
+  const codes = TYPES.map(t => t.code).filter(c => c !== from);
+  let idx = codes.indexOf(to);
+  if (!above) idx++;
+  codes.splice(idx, 0, from);
+  saveTypeOrder(codes);
+});
+function moveType(code, dir) {
+  const codes = TYPES.map(t => t.code), i = codes.indexOf(code), j = i + dir;
+  if (i < 0 || j < 0 || j >= codes.length) return;
+  [codes[i], codes[j]] = [codes[j], codes[i]];
+  saveTypeOrder(codes);
 }
 
 /* ---------- 事件 ---------- */
@@ -1122,6 +1186,8 @@ $("setBody").addEventListener("click", e => {
   if (e.target.id === "addAcct") return editAcct(null);
   if (e.target.id === "addTerm") return editTerm(null);
   if (e.target.id === "addType") return editType(null);
+  const mv = e.target.closest("[data-mv]");
+  if (mv) return moveType(mv.dataset.id, +mv.dataset.mv);
   const b = e.target.closest("[data-set]"); if (!b) return;
   if (b.dataset.set === "acct") editAcct(ACCOUNTS.find(x => x.id === b.dataset.id));
   if (b.dataset.set === "term") editTerm(TERMS.find(x => x.id === b.dataset.id));
