@@ -1384,7 +1384,8 @@ function periodText(Y, r) {
   return y2 === Y ? `${Y - 1911}/${r.from}~${r.to}` : `${Y - 1911}/${r.from}~${y2 - 1911}/${r.to}`;
 }
 const billingName = b => (b === "period" ? "期繳" : "月繳");
-const enrollsOf = sid => ENROLLS.filter(e => e.student_id === sid && e.active && PROGRAMS.some(p => p.code === e.program_code));
+const enrollsOf = sid => ENROLLS.filter(e => e.student_id === sid && e.active && PROGRAMS.some(p => p.code === e.program_code))
+  .sort((a, b) => PROGRAMS.findIndex(p => p.code === a.program_code) - PROGRAMS.findIndex(p => p.code === b.program_code));
 function enrollSummary(sid) {
   return enrollsOf(sid).map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `${p.name}（${billingName(e.billing)}${e.discount ? "，優惠 " + fmt(e.discount) + "/月" : ""}）`; }).join("、");
 }
@@ -1433,6 +1434,7 @@ function renderPlan() {
       <label class="field" style="flex-direction:row;align-items:center;gap:6px;font-weight:400">每月優惠<input type="text" id="pbDisc" inputmode="numeric" placeholder="不改" style="width:90px;min-height:40px;border:1px solid #D5DEEA;border-radius:10px;padding:0 8px"></label>
       <button type="button" class="btn primary sm" id="pbApply">加入／更新這些班</button>
       <button type="button" class="btn sm del" id="pbRemove">從選取的學生移除這些班</button>
+      <button type="button" class="btn sm" id="pbClear">取消全部勾選</button>
       <span class="help" id="pbCount"></span></div>`;
   const list = planFiltered();
   $("pCount").textContent = `共 ${list.length} 位`;
@@ -1780,7 +1782,8 @@ $("pTbody").addEventListener("click", e => {
   if (e.target.closest(".c-chk")) return;
   const tr = e.target.closest("tr[data-sid]"); if (tr) openEnroll(tr.dataset.sid);
 });
-$("pBulk").addEventListener("click", e => { if (e.target.id === "pbApply") bulkEnroll(false); if (e.target.id === "pbRemove") bulkEnroll(true); });
+$("pBulk").addEventListener("click", e => { if (e.target.id === "pbApply") bulkEnroll(false); if (e.target.id === "pbRemove") bulkEnroll(true);
+  if (e.target.id === "pbClear") { PSEL.clear(); $("pBulk").querySelectorAll("[data-bp]").forEach(x => x.checked = false); renderPlan(); } });
 $("pAdmin").addEventListener("click", e => {
   if (e.target.id === "pmSave") return savePrices();
   if (e.target.id === "pgAdd") return editProgram(null);
