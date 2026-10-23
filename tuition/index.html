@@ -149,6 +149,11 @@
   .pick-tools .search input { height: 38px; }
   .warn { font-size: 13.5px; color: #92400E; background: #FEF3C7; border-radius: 10px; padding: 10px 12px; margin: 0; }
   /* ===== 學費管理 ===== */
+  #billsView .toolbar { flex-wrap: nowrap; }
+  #billsView .toolbar .search { flex: 1 1 100px; min-width: 100px; }
+  #billsView .toolbar .sel { padding: 0 6px; font-size: 13.5px; min-width: 0; flex: 0 1 auto; max-width: 160px; }
+  #billsView .toolbar .btn { padding: 0 12px; flex: 0 0 auto; }
+  @media (max-width: 900px) { #billsView .toolbar { flex-wrap: wrap; } #billsView .toolbar .search { flex-basis: 100%; } }
   .tabs { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
   .tab { border: 0; background: none; padding: 10px 16px; font-size: 15px; font-weight: 700; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
   .tab[aria-selected="true"] { color: var(--blue-d); border-bottom-color: var(--blue); }
@@ -250,8 +255,8 @@
           <option value="">全部狀態</option><option value="draft">草稿</option><option value="issued">已發布</option><option value="void">已作廢</option>
         </select>
         <select class="sel" id="fDept" aria-label="部別"></select>
-        <button type="button" class="btn" id="printSel" disabled>列印選取的單</button>
-        <button type="button" class="btn hidden" id="issueSel" disabled>發布選取的草稿</button>
+        <button type="button" class="btn" id="printSel" disabled title="列印勾選的學費單">列印</button>
+        <button type="button" class="btn hidden" id="issueSel" disabled title="發布勾選的草稿">發布草稿</button>
         <button type="button" class="btn hidden" id="batchBtn" style="border-color:var(--blue);color:var(--blue);font-weight:700">批次建立</button>
         <button type="button" class="btn primary hidden" id="addBill">＋ 新增學費單</button>
       </div>
@@ -559,8 +564,8 @@ function render() {
   $("printSel").disabled = !SELECTED.size;
   const nDraft = BILLS.filter(b => SELECTED.has(b.id) && b.status === "draft").length;
   $("issueSel").disabled = !nDraft;
-  $("issueSel").textContent = nDraft ? `發布選取的草稿（${nDraft}）` : "發布選取的草稿";
-  $("printSel").textContent = SELECTED.size ? `列印選取的單（${SELECTED.size}）` : "列印選取的單";
+  $("issueSel").textContent = nDraft ? `發布草稿（${nDraft}）` : "發布草稿";
+  $("printSel").textContent = SELECTED.size ? `列印（${SELECTED.size}）` : "列印";
   $("chkAll").checked = list.length > 0 && list.every(b => SELECTED.has(b.id));
 }
 
