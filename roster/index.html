@@ -434,7 +434,8 @@ async function goPortal(msg) {
   try { sessionStorage.setItem("jx-notice", msg || ""); } catch (_) { /* 忽略 */ }
   location.replace(PORTAL_URL);
 }
-const gradeNo = g => GRADES.indexOf(g) + 1;
+const GRADE_ORDER = ["大班", "一年級", "二年級", "三年級", "四年級", "五年級", "六年級", "國一", "國二", "國三", "高一", "高二", "高三"];
+const gradeNo = g => { const i = GRADE_ORDER.indexOf(g); return i < 0 ? 99 : i; };
 const gradeText = s => (s.grade || "") + (s.school_class ? ` ${s.school_class} 班` : "");
 const primaryContact = s => { const c = Array.isArray(s.contacts) ? s.contacts : []; return c.find(x => x.primary) || c[0] || null; };
 const fmtBday = d => d ? d.replace(/-/g, "/") : "";
@@ -495,7 +496,7 @@ function filtered() {
   }).sort(cmpStudent);
 }
 function cmpStudent(a, b) {
-  return gradeNo(a.grade) - gradeNo(b.grade) || (a.school_class || 0) - (b.school_class || 0)
+  return gradeNo(a.grade) - gradeNo(b.grade)
     || String(a.school).localeCompare(String(b.school), "zh-Hant") || String(a.name).localeCompare(String(b.name), "zh-Hant");
 }
 

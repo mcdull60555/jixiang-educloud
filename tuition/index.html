@@ -671,7 +671,7 @@ async function load() {
   PRICES = !r[6].error ? (r[6].data || []) : [];
   ENROLLS = !r[7].error ? (r[7].data || []) : [];
   PRICE_MAP = {}; PRICES.forEach(x => { if (x.amount != null) PRICE_MAP[priceKey(x.grade, x.program_code, x.billing)] = x.amount; });
-  STUDENTS = CAN_EDIT ? (r[8].data || []) : [];
+  STUDENTS = CAN_EDIT ? (r[8].data || []).slice().sort(cmpStu) : [];
   const curT = $("fTerm").value, curD = $("fDept").value;
   $("fTerm").innerHTML = '<option value="">全部梯次</option>' + TERMS.map(t => `<option value="${esc(t.id)}">${esc(t.name)}${t.active ? "" : "（停用）"}</option>`).join("");
   const depts = [...new Set(ACCOUNTS.map(a => a.dept).concat(BILLS.map(b => b.dept)).filter(Boolean))];
@@ -1087,6 +1087,8 @@ function buildCands() {
   } else {
     batCands = STUDENTS.map(s => ({ key: s.id, name: s.name, grade: s.grade, dept: deptOfGrade(s.grade), sub: `${s.school || ""} ${s.grade}${s.school_class ? " " + s.school_class + " 班" : ""}`, stu: s, exists: have.has(s.id) }));
   }
+  const schoolOf = c => (c.stu || STUDENTS.find(x => x.id === (c.src && c.src.student_id)) || {}).school || "";
+  batCands.sort((a, b) => gradeNo(a.grade) - gradeNo(b.grade) || zh(schoolOf(a), schoolOf(b)) || zh(a.name, b.name));
   const pre = new Set(batCands.filter(c => !c.exists && !c.none).map(c => c.key));
   batChecked = pre;
   renderBat();
@@ -1368,6 +1370,9 @@ function editType(t) {
 }
 
 /* ---------- 價目表、班別、學生收費設定 ---------- */
+const gradeNo = g => { const i = GRADE_LIST.indexOf(g); return i < 0 ? 99 : i; };
+const zh = (a, b) => String(a || "").localeCompare(String(b || ""), "zh-Hant");
+const cmpStu = (a, b) => gradeNo(a.grade) - gradeNo(b.grade) || zh(a.school, b.school) || zh(a.name, b.name);
 const GRADE_LIST = ["大班", "一年級", "二年級", "三年級", "四年級", "五年級", "六年級", "國一", "國二", "國三"];
 const priceKey = (g, p, b) => `${g}|${p}|${b}`;
 const priceOf = (g, p, b) => PRICE_MAP[priceKey(g, p, b)];
