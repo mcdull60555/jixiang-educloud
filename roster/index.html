@@ -692,7 +692,7 @@ async function saveReset(e) {
 }
 
 /* ---------- 帳密小卡：做成圖片，可直接傳給家長 ---------- */
-const CARD_W = 1000, CARD_H = 640;
+const CARD_W = 1000, CARD_H = 620;
 const CARD_FONT = '"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif';
 const CARD_MONO = 'ui-monospace,Menlo,Consolas,"Courier New",monospace';
 let cardItems = [], cardSel = new Set(), cardGrades = new Set(), cardTimer = null, logoPromise = null;
@@ -761,8 +761,8 @@ function rrPath(x, a, b, w, h, r) {
   x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath();
 }
 async function drawCard(s, pin) {
-  const loginU = loginUrl(), url = loginU.replace(/^https?:\/\//, "");
-  try { await document.fonts.load('700 60px "Noto Sans TC"', s.name + "基翔學務雲帳號密碼同學登入資料網址請妥善保管勿將轉給他人掃描"); } catch (_) { /* 用備用字型 */ }
+  const loginU = loginUrl();
+  try { await document.fonts.load('700 60px "Noto Sans TC"', s.name + "基翔學務雲帳號密碼同學登入資料請妥善保管勿將轉給他人掃描"); } catch (_) { /* 用備用字型 */ }
   const logo = await loadLogo();
   const c = document.createElement("canvas"); c.width = CARD_W; c.height = CARD_H;
   const x = c.getContext("2d");
@@ -807,8 +807,7 @@ async function drawCard(s, pin) {
   }
   x.fillStyle = "#1660D6"; x.font = `700 24px ${CARD_FONT}`; x.textAlign = "center"; x.fillText("掃描 QR Code 登入", QX + QS / 2, QY + QS + 36); x.textAlign = "left";
   // 下方說明
-  x.fillStyle = "#475569"; x.font = `500 24px ${CARD_FONT}`; x.fillText("登入網址　" + url, 40, 579);
-  x.fillStyle = "#94A3B8"; x.font = `400 22px ${CARD_FONT}`; x.fillText("請妥善保管，勿將密碼轉給他人", 40, 614);
+  x.fillStyle = "#94A3B8"; x.font = `400 22px ${CARD_FONT}`; x.fillText("請妥善保管，勿將密碼轉給他人", 40, 582);
   x.strokeStyle = "#CBD5E1"; x.lineWidth = 2; x.strokeRect(1, 1, CARD_W - 2, CARD_H - 2);
   return new Promise(res => c.toBlob(res, "image/png"));
 }
