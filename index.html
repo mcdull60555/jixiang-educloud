@@ -376,9 +376,14 @@ async function doLogin(e) {
 async function loadMe() {
   const { data: s } = await sb.auth.getSession();
   if (!s || !s.session) return null;
-  const p = await sb.from("profiles").select("role,student_id,display_name,login_id,title,fee_access").eq("id", s.session.user.id).maybeSingle();
+  const p = await sb.from("profiles").select("role,student_id,display_name,login_id,title").eq("id", s.session.user.id).maybeSingle();
   if (p.error || !p.data) return null;
   const me = Object.assign({}, p.data);
+  // 學費權限欄位（07_tuition.sql 才有）；讀不到就當作沒有，不影響登入
+  try {
+    const f = await sb.from("profiles").select("fee_access").eq("id", s.session.user.id).maybeSingle();
+    me.fee_access = !!(f.data && f.data.fee_access);
+  } catch (_) { me.fee_access = false; }
   if (me.role === "student") {
     const st = await sb.from("students").select("name,grade,school,account_code").eq("id", me.student_id).maybeSingle();
     if (st.data) Object.assign(me, { name: st.data.name, grade: st.data.grade, school: st.data.school, account: st.data.account_code });
