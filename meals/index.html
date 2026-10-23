@@ -173,6 +173,9 @@
   .mt td.c.hol, .mt th.hol { background: #FFF1E0; }
   .mt td.c.on { background: var(--blue); color: #fff; }
   .mt td.c.on.q2 { background: #0B3C91; }
+  .mt td.c.cx { background: #FFE4E6; color: var(--rose); box-shadow: inset 0 0 0 2px #FDA4AF; }
+  .mt td.c.cx::after { content: "✕"; font-size: 12px; }
+  .mt td.c.ad { box-shadow: inset 0 0 0 3px #F59E0B; }
   .mt td.c:focus-visible { outline: 3px solid rgba(22,96,214,.5); outline-offset: -3px; }
   .mt.ro td.c { cursor: default; }
   .mt td.n { padding: 0 8px; white-space: nowrap; font-variant-numeric: tabular-nums; min-width: 54px; }
@@ -216,6 +219,8 @@
   .mc .cal i.d { border: 1px solid #E2E8F0; color: #94A3B8; }
   .mc .cal i.d.on { background: var(--ac); border-color: var(--ac); color: #fff; font-weight: 700; }
   .mc .cal i.d.on.q2 { background: #0B3C91; }
+  .mc .cal i.d.cx { background: #FFE4E6; border-color: #FDA4AF; color: #BE123C; text-decoration: line-through; }
+  .mc .cal i.d.ad { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #F59E0B; }
   .mc .cal i.d.off { background: #F1F5F9; color: #CBD5E1; }
   .mc .lgd { display: flex; justify-content: center; gap: 14px; font-size: 11.5px; color: #64748B; padding: 0 10px 8px; }
   .mc .lgd i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 3px; }
@@ -311,6 +316,8 @@
       <span><i style="background:var(--blue)"></i>已訂（深色＝2 份）</span>
       <span><i style="background:#F4F6FA"></i>週末</span>
       <span><i style="background:#FFF1E0"></i>放假／停課（雲點名設定）</span>
+      <span><i style="background:#FFE4E6;border-color:#FDA4AF"></i>✕ 原本固定要訂、後來取消</span>
+      <span><i style="background:#fff;border:3px solid #F59E0B"></i>原本不訂、後來加訂</span>
       <span>點日期格可切換 空白 → 1 份 → 2 份；點姓名可改用餐星期與備註</span>
     </div>
   </div>
@@ -322,7 +329,11 @@
     <div class="dlg-head"><h3 id="stTitle">學生</h3><span id="stSub" class="help"></span></div>
     <div class="dlg-body">
       <fieldset><legend>固定用餐星期（自動填入時使用）</legend>
-        <div class="wdchecks" id="stWd"></div></fieldset>
+        <div class="wdchecks" id="stWd"></div>
+        <div id="stEffBox" class="hidden" style="margin-top:10px">
+          <label class="field">從哪一天開始用新的星期<input type="date" id="stEff"></label>
+          <p class="help">只從這天起（含）改變，這天以前的訂餐一律不動；之後已手動加訂或取消的日子也會保留。</p>
+        </div></fieldset>
       <label class="sw" style="max-width:260px"><span>目前有訂晚餐</span><input type="checkbox" id="stActive"></label>
       <label class="field">學生備註<textarea id="stNote" rows="2" placeholder="例如：週三不訂、對海鮮過敏…"></textarea></label>
       <hr style="border:0;border-top:1px solid var(--line);width:100%;margin:0">
@@ -476,6 +487,7 @@ const WD = "日一二三四五六";
 let ME = null, IS_ADMIN = false, CAN_EDIT = false;
 let Y = 2026, M = new Date().getMonth() + 1;
 let ROSTER = [], RMAP = new Map();
+let SCHED = new Map();         // student_id -> [{effective_from, weekdays}] 由早到晚
 let MS = new Map();            // student_id -> meal_students
 let MONTHS = new Map();        // ym -> {price}
 let ORD = new Map();           // `${sid}|${date}` -> qty（只載入上月與本月）
@@ -499,6 +511,7 @@ function toast(msg, bad) {
 }
 function friendly(err) {
   const m = (err && err.message) || String(err || "");
+  if (/past date not allowed/.test(m)) return "生效日期不能早於今天（之前的訂餐不能動）";
   if (/meal_|Could not find the function|does not exist/i.test(m) && !/permission|row-level/i.test(m)) return "資料庫還沒安裝晚餐管理的資料表（14_meals.sql），請先在 SQL Editor 執行";
   if (/no fee (edit|view) permission|admin only|42501|row-level|permission denied|JWT|not authenticated/i.test(m)) return "沒有權限或登入已過期，請重新登入";
   if (/Failed to fetch|NetworkError/i.test(m)) return "無法連線，請檢查網路後再試一次";
@@ -552,6 +565,18 @@ const gradeNo = g => {
 const zh = (a, b) => String(a || "").localeCompare(String(b || ""), "zh-Hant");
 const cmpStu = (a, b) => gradeNo(b.grade) - gradeNo(a.grade) || zh(a.name, b.name);
 
+// 某天的固定訂餐星期；該天之前還沒有任何設定就回傳 null（不做取消／加訂標記）
+function patternOf(sid, dk) {
+  const a = SCHED.get(sid) || []; let w = null;
+  for (const r of a) { if (r.effective_from <= dk) w = r.weekdays; else break; }
+  return w;
+}
+// 'cx' = 原本固定要訂但被取消；'ad' = 原本不訂但加訂；'' = 一般
+function markOf(sid, dk, q) {
+  const w = patternOf(sid, dk); if (!w || HOL.has(dk)) return "";
+  const [y, m, d] = dk.split("-").map(Number), dow = new Date(y, m - 1, d).getDay() || 7, want = w.includes(dow);
+  return want && q === 0 ? "cx" : (!want && q > 0 ? "ad" : "");
+}
 function priceOf(y, m) {
   const k = ymOf(y, m);
   if (MONTHS.has(k)) return MONTHS.get(k).price;
@@ -577,11 +602,12 @@ function monthRows() {
 
 /* ---------- 讀資料 ---------- */
 async function loadBase() {
-  const [stu, ms, mo, st] = await Promise.all([
+  const [stu, ms, mo, st, sc] = await Promise.all([
     rpc("meal_list_students"),
     sb.from("meal_students").select("*"),
     sb.from("meal_months").select("*"),
-    sb.from("meal_settings").select("*")
+    sb.from("meal_settings").select("*"),
+    sb.from("meal_schedules").select("*")
   ]);
   if (ms.error) throw ms.error;
   if (mo.error) throw mo.error;
@@ -589,6 +615,9 @@ async function loadBase() {
   MS = new Map((ms.data || []).map(r => [r.student_id, r]));
   MONTHS = new Map((mo.data || []).map(r => [r.ym, r]));
   (st.data || []).forEach(r => { SETTINGS[r.key] = r.value; });
+  SCHED = new Map();
+  (sc.data || []).forEach(r => { if (!SCHED.has(r.student_id)) SCHED.set(r.student_id, []); SCHED.get(r.student_id).push({ effective_from: r.effective_from, weekdays: (r.weekdays || []).map(Number) }); });
+  SCHED.forEach(a => a.sort((x, y) => x.effective_from < y.effective_from ? -1 : 1));
 }
 async function loadMonth() {
   const [py, pm] = prevYM(Y, M);
@@ -632,7 +661,7 @@ function rowHtml(s) {
   const n = dim(Y, M); let cells = "";
   for (let d = 1; d <= n; d++) {
     const dk = dateKey(Y, M, d), q = ORD.get(s.id + "|" + dk) || 0, dow = new Date(Y, M - 1, d).getDay();
-    const cls = ["c", (dow === 0 || dow === 6) ? "we" : "", HOL.has(dk) ? "hol" : "", q > 0 ? "on" : "", q > 1 ? "q2" : ""].filter(Boolean).join(" ");
+    const cls = ["c", (dow === 0 || dow === 6) ? "we" : "", HOL.has(dk) ? "hol" : "", q > 0 ? "on" : "", q > 1 ? "q2" : "", markOf(s.id, dk, q)].filter(Boolean).join(" ");
     cells += `<td class="${cls}" data-sid="${esc(s.id)}" data-d="${d}" tabindex="0" role="button" aria-label="${esc(s.name)} ${M}/${d}">${q > 0 ? q : ""}</td>`;
   }
   const L = LEDGER.get(s.id + "|" + ymOf(Y, M)) || {};
@@ -674,7 +703,9 @@ function updateRow(tr) {
   b.textContent = !has ? "" : c.bal > 0 ? "溢 " + fmt(c.bal) : c.bal < 0 ? "補 " + fmt(-c.bal) : "0";
   tr.querySelectorAll("td.c").forEach(td => {
     const q = ORD.get(sid + "|" + dateKey(Y, M, +td.dataset.d)) || 0;
+    const dk = dateKey(Y, M, +td.dataset.d), mk = markOf(sid, dk, q);
     td.textContent = q > 0 ? q : ""; td.classList.toggle("on", q > 0); td.classList.toggle("q2", q > 1);
+    td.classList.toggle("cx", mk === "cx"); td.classList.toggle("ad", mk === "ad");
   });
 }
 function updateFoot() {
@@ -752,17 +783,32 @@ function openStudent(sid) {
   $("stMonthTitle").textContent = `${rocLabel(Y, M)} 對帳資料`;
   $("stExtra").value = L.extra || ""; $("stCarry").value = L.carry || ""; $("stExtraNote").value = L.extra_note || ""; $("stLNote").value = L.note || "";
   $("stErr").classList.add("hidden");
+  const t = new Date(), today = dateKey(t.getFullYear(), t.getMonth() + 1, t.getDate());
+  $("stEff").min = today; $("stEff").value = today; $("stEffBox").classList.add("hidden");
   document.querySelectorAll("#stDlg input, #stDlg textarea").forEach(e => e.disabled = !CAN_EDIT);
   $("stDlg").showModal();
 }
+$("stWd").addEventListener("change", () => {
+  const cur = ((MS.get(stuId) || {}).weekdays || []).map(Number).sort().join(), now = wdValue($("stWd")).sort().join();
+  $("stEffBox").classList.toggle("hidden", cur === now);
+});
 $("stForm").addEventListener("submit", async e => {
   e.preventDefault(); if (!CAN_EDIT) return;
   busy(true);
   try {
-    await rpc("meal_save_student", { p: { student_id: stuId, weekdays: wdValue($("stWd")), active: $("stActive").checked, note: $("stNote").value.trim() } });
-    MS.set(stuId, { student_id: stuId, weekdays: wdValue($("stWd")), active: $("stActive").checked, note: $("stNote").value.trim() });
+    const oldW = ((MS.get(stuId) || {}).weekdays || [1, 2, 3, 4, 5]).map(Number), newW = wdValue($("stWd"));
+    const changed = oldW.slice().sort().join() !== newW.slice().sort().join();
+    if (changed && !newW.length) throw new Error("請至少選一個用餐星期");
+    if (changed && !$("stEff").value) throw new Error("請選擇從哪一天開始生效");
+    await rpc("meal_save_student", { p: { student_id: stuId, weekdays: oldW, active: $("stActive").checked, note: $("stNote").value.trim() } });
+    MS.set(stuId, Object.assign({}, MS.get(stuId), { student_id: stuId, weekdays: oldW, active: $("stActive").checked, note: $("stNote").value.trim() }));
+    if (changed) {
+      const n = await rpc("meal_set_schedule", { p_student: stuId, p_from: $("stEff").value, p_weekdays: newW });
+      await loadBase(); await loadMonth();
+      toast(`已從 ${$("stEff").value} 起改用新的星期，調整了 ${n} 格`);
+    }
     await saveLedger(stuId, { extra: num($("stExtra").value), carry: num($("stCarry").value), extra_note: $("stExtraNote").value.trim(), note: $("stLNote").value.trim() });
-    $("stDlg").close(); render(); toast("已儲存");
+    $("stDlg").close(); render(); if (!$("toast").textContent.startsWith("已從")) toast("已儲存");
   } catch (ex) { $("stErr").textContent = friendly(ex); $("stErr").classList.remove("hidden"); }
   finally { busy(false); }
 });
@@ -810,10 +856,10 @@ $("fillForm").addEventListener("submit", async e => {
   if (!ids.length) { $("fillErr").textContent = "請先勾選學生"; $("fillErr").classList.remove("hidden"); return; }
   const list = [];
   ids.forEach(sid => {
-    const wk = (MS.get(sid).weekdays || []).map(Number);
+    const wk0 = (MS.get(sid).weekdays || []).map(Number);
     for (let d = 1, n = dim(Y, M); d <= n; d++) {
       const dk = dateKey(Y, M, d), dow = new Date(Y, M - 1, d).getDay() || 7, key = sid + "|" + dk;
-      const want = wk.includes(dow) && !HOL.has(dk);
+      const want = (patternOf(sid, dk) || wk0).includes(dow) && !HOL.has(dk);
       if (mode === "blank") { if (want && !ORD.has(key)) list.push({ student_id: sid, day: dk, qty: 1 }); }
       else if ((want ? 1 : 0) !== (ORD.get(key) || 0) && (want || ORD.get(key))) list.push({ student_id: sid, day: dk, qty: want ? 1 : 0 });
     }
@@ -854,7 +900,8 @@ function monthCardHtml(sid) {
   for (let i = 0; i < first; i++) cal += "<i></i>";
   for (let d = 1; d <= n; d++) {
     const dk = dateKey(Y, M, d), q = ORD.get(sid + "|" + dk) || 0;
-    cal += `<i class="d${q > 0 ? " on" : ""}${q > 1 ? " q2" : ""}${HOL.has(dk) && !q ? " off" : ""}">${d}${q > 1 ? "×" + q : ""}</i>`;
+    const mk = markOf(sid, dk, q);
+    cal += `<i class="d${q > 0 ? " on" : ""}${q > 1 ? " q2" : ""}${HOL.has(dk) && !q ? " off" : ""}${mk ? " " + mk : ""}">${d}${q > 1 ? "×" + q : ""}</i>`;
   }
   const row = (l, v, sm) => `<div class="r"><span>${l}${sm ? ` <small>${esc(sm)}</small>` : ""}</span><b>${v}</b></div>`;
   let rows = row(`訂餐 ${c.cnt} 次 × ${fmt(c.price)}`, "$" + fmt(c.amount));
@@ -867,7 +914,7 @@ function monthCardHtml(sid) {
   return `<div class="mc">${cardHead(`${SETTINGS.card_title || "晚餐訂購單"}　${rocLabel(Y, M)}`)}
     <div class="who"><span>${esc(s.name)}</span><small>${esc(s.grade || "")}</small></div>
     <div class="cal">${cal}</div>
-    <div class="lgd"><span><i style="background:#0F4FB8"></i>有訂餐</span><span><i style="background:#F1F5F9;border:1px solid #CBD5E1"></i>放假／停課</span></div>
+    <div class="lgd"><span><i style="background:#0F4FB8"></i>有訂餐</span><span><i style="background:#F1F5F9;border:1px solid #CBD5E1"></i>放假／停課</span><span><i style="background:#FFE4E6;border:1px solid #FDA4AF"></i>取消</span><span><i style="background:#0F4FB8;box-shadow:0 0 0 2px #fff,0 0 0 3px #F59E0B"></i>加訂</span></div>
     ${rows}<div class="res ${cls}">${res}</div>${note ? `<div class="nt">${note}</div>` : ""}</div>`;
 }
 function dayCardHtml(dk) {
