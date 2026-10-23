@@ -376,7 +376,7 @@ async function doLogin(e) {
 async function loadMe() {
   const { data: s } = await sb.auth.getSession();
   if (!s || !s.session) return null;
-  const p = await sb.from("profiles").select("role,student_id,display_name,login_id,title").eq("id", s.session.user.id).maybeSingle();
+  const p = await sb.from("profiles").select("role,student_id,display_name,login_id,title,fee_access").eq("id", s.session.user.id).maybeSingle();
   if (p.error || !p.data) return null;
   const me = Object.assign({}, p.data);
   if (me.role === "student") {
@@ -394,7 +394,7 @@ function shareWithLearning(session, me) {
     if (me.role === "student") sessionStorage.setItem("loggedInStudentId", me.student_id);
     else sessionStorage.removeItem("loggedInStudentId");
     sessionStorage.setItem("lastActivityTime", String(Date.now()));
-    sessionStorage.setItem("jx-me", JSON.stringify({ role: me.role, name: me.role === "student" ? (me.name || "") : (me.display_name || me.login_id) }));
+    sessionStorage.setItem("jx-me", JSON.stringify({ role: me.role, name: me.role === "student" ? (me.name || "") : (me.display_name || me.login_id), fee: me.role === "admin" || (me.role === "teacher" && (me.title === "主任" || !!me.fee_access)) }));
   } catch (_) { /* 忽略 */ }
 }
 
@@ -411,7 +411,8 @@ const NEXT = (() => { try { return new URLSearchParams(location.search).get("nex
 const NEXT_TARGET = {
   learning: { url: LEARNING_URL, roles: ["admin", "teacher", "student"], name: "學習通" },
   rollcall: { url: ROLLCALL_URL, roles: ["admin", "teacher"], name: "雲點名" },
-  accounts: { url: "accounts/", roles: ["admin"], name: "帳號管理" }
+  accounts: { url: "accounts/", roles: ["admin"], name: "帳號管理" },
+  tuition: { url: "tuition/", roles: ["admin", "teacher"], name: "學費管理" }
 };
 function clearNext() { try { if (NEXT) history.replaceState(null, "", location.pathname); } catch (_) { /* 忽略 */ } }
 // 有權限就直接進去，回傳 true；沒有權限就留在入口
@@ -435,7 +436,7 @@ const CARDS = {
   learning: { title: "學習通", en: "JX Learning", desc: "進度管理、作業派發、送出審核、學習成長、電子聯絡簿", href: LEARNING_URL, cta: "進入學習通", bg: "#E0EAFF", fg: "#1D4ED8" },
   learningFamily: { title: "學習通", en: "JX Learning", desc: "今日作業、送出審核、電子聯絡簿", href: LEARNING_URL, cta: "進入學習通", bg: "#E0EAFF", fg: "#1D4ED8" },
   roster: { title: "學生名冊", en: "Student Roster", desc: "學生資料、學生帳號與密碼、聯絡電話、進點名與學習通開關", href: "roster/", cta: "進入學生名冊", bg: "#FEF3C7", fg: "#92400E" },
-  tuition: { title: "學費管理", en: "Tuition", desc: "產生每月學費單、登記繳費、追蹤未繳", tag: "規劃中", bg: "#D1FAE5", fg: "#047857" },
+  tuition: { title: "學費管理", en: "Tuition", desc: "開立學費單、預覽、列印或轉圖片傳 LINE", href: "tuition/", cta: "進入學費管理", bg: "#D1FAE5", fg: "#047857" },
   tuitionFamily: { title: "學費單", en: "Tuition", desc: "每月學費明細與繳費紀錄", tag: "規劃中", bg: "#D1FAE5", fg: "#047857" },
   accounts: { title: "帳號管理", en: "Accounts", desc: "新增老師、指定負責班級與年級、重設密碼、刪除、排序", href: "accounts/", cta: "進入帳號管理", bg: "#E2E8F0", fg: "#334155" }
 };
@@ -471,7 +472,9 @@ function showPortal(me) {
     $("greetTitle").textContent = `您好，${me.role === "admin" ? "管理員" : (me.display_name || "老師")}`;
     $("greetSub").textContent = "選擇要進入的系統";
   }
-  $("cards").innerHTML = (BY_ROLE[me.role] || []).map(cardHtml).join("");
+  const keys = (BY_ROLE[me.role] || []).slice();
+  if (me.role === "teacher" && (me.title === "主任" || me.fee_access)) keys.push("tuition");   // 主任、被開通的老師可進學費管理
+  $("cards").innerHTML = keys.map(cardHtml).join("");
   $("loginView").classList.add("hidden");
   $("portalView").classList.remove("hidden");
   document.title = "基翔學務雲｜基翔文理補習班";

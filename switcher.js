@@ -22,7 +22,7 @@
     rollcall: { title: '雲點名', en: 'JX CloudCheck', url: BASE + '/jixiang2017-test/rollcall/', bg: '#DBEAFE', fg: '#0F4FB8' },
     learning: { title: '學習通', en: 'JX Learning', url: BASE + '/jixiang2017-test/', bg: '#E0EAFF', fg: '#1D4ED8' },
     roster:   { title: '學生名冊', en: 'Student Roster', url: BASE + '/jixiang-educloud/roster/', bg: '#FEF3C7', fg: '#92400E' },
-    tuition:  { title: '學費管理', en: 'Tuition', tag: '規劃中', bg: '#D1FAE5', fg: '#047857' },
+    tuition:  { title: '學費管理', en: 'Tuition', url: BASE + '/jixiang-educloud/tuition/', bg: '#D1FAE5', fg: '#047857' },
     tuitionFamily: { title: '學費單', en: 'Tuition', tag: '規劃中', bg: '#D1FAE5', fg: '#047857', icon: 'tuition' },
     accounts: { title: '帳號管理', en: 'Accounts', url: BASE + '/jixiang-educloud/accounts/', bg: '#E2E8F0', fg: '#334155' }
   };
@@ -152,7 +152,8 @@
   function open() {
     var me = readMe();
     if (!me) return refresh();
-    var keys = BY_ROLE[me.role];
+    var keys = BY_ROLE[me.role].slice();
+    if (me.role === 'teacher' && me.fee) keys.push('tuition');   // 主任、被開通學費權限的老師
     var who = (me.name && me.role !== 'admin' ? me.name + '・' : '') + (ROLE_NAME[me.role] || '');
     bg.innerHTML =
       '<div id="jxsw-panel" role="dialog" aria-modal="true" aria-labelledby="jxsw-title">' +

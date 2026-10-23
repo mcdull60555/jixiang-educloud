@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>學費管理｜基翔學務雲</title>
+<script>
+  // 沒有從學務雲登入就回登入頁
+  try { if (!sessionStorage.getItem("jx-auth")) location.replace("../"); } catch (e) { /* 忽略 */ }
+</script>
+<link rel="icon" href="../favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="../favicon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+
+  :root {
+    --bg: #F1F5F9; --card: #FFFFFF; --line: #E2E8F0; --line-2: #CBD5E1;
+    --text: #1E293B; --muted: #64748B; --muted-2: #475569;
+    --blue: #1660D6; --blue-d: #0F4FB8; --blue-l: #DBEAFE;
+    --gold: #F5B301; --green: #047857; --green-l: #D1FAE5; --rose: #BE123C; --rose-l: #FFE4E6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', system-ui, sans-serif; min-height: 100vh; }
+  button, input, select, textarea { font: inherit; }
+  .hidden { display: none !important; }
+
+  .hero { background: linear-gradient(90deg, #0F4FB8, #1D8CF0); color: #fff; padding: 0 20px 96px; }
+  .hero-inner { max-width: 1200px; margin: 0 auto; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; }
+  .logo { width: 44px; height: 44px; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 2px 8px rgba(15,23,42,.18); }
+  .logo img { width: 100%; height: 100%; display: block; }
+  .brand-name { font-size: 19px; font-weight: 700; letter-spacing: .5px; }
+  .brand-sub { font-size: 11px; color: #DBEAFE; letter-spacing: .5px; }
+  .chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--gold); color: var(--text); }
+  .ghost-btn { min-height: 40px; padding: 0 16px; border-radius: 10px; border: 0; background: rgba(255,255,255,.18); color: #fff; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .ghost-btn:hover { background: rgba(255,255,255,.28); }
+  .page-title { padding: 10px 0 0; }
+  .page-title h1 { margin: 0; font-size: 28px; }
+  .page-title p { margin: 8px 0 0; color: #EAF2FF; font-size: 15px; }
+
+  main { max-width: 1200px; margin: -72px auto 0; padding: 0 20px 96px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px 20px; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .search { flex: 1 1 260px; display: flex; align-items: center; gap: 8px; min-height: 44px; border: 1px solid #D5DEEA; border-radius: 11px; padding: 0 12px; background: #fff; }
+  .search:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(22,96,214,.15); }
+  .search input { border: 0; outline: none; flex: 1; min-width: 0; font-size: 15px; height: 42px; }
+  .sel { min-height: 44px; border: 1px solid #D5DEEA; border-radius: 11px; padding: 0 10px; background: #fff; font-size: 14px; color: var(--text); }
+  .filters2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .tog { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 999px; cursor: pointer; font-size: 13px; user-select: none; background: #fff; }
+  .tog:has(input:checked) { border-color: var(--blue); background: var(--blue-l); color: var(--blue-d); font-weight: 700; }
+  .tog input { margin: 0; accent-color: var(--blue); }
+  .count { margin-left: auto; font-size: 13px; color: var(--muted); }
+
+  .btn { min-height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line-2); background: #fff; color: var(--text); cursor: pointer; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+  .btn:hover { background: #F8FAFC; }
+  .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 700; }
+  .btn.primary:hover { background: var(--blue-d); }
+  .btn.sm { min-height: 32px; padding: 0 10px; font-size: 13px; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(22,96,214,.35); outline-offset: 1px; }
+
+  .tbl-wrap { margin-top: 14px; border: 1px solid var(--line); border-radius: 14px; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-weight: 700; font-size: 12.5px; color: var(--muted-2); background: #F8FAFC; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; position: sticky; top: 0; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  tr.off td { color: var(--muted); background: #FAFAFB; }
+  .acct { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 600; letter-spacing: .5px; white-space: nowrap; }
+  .nm { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .ph { white-space: nowrap; }
+  .ph .rel { color: var(--muted); margin-right: 4px; }
+  .pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; font-weight: 700; white-space: nowrap; }
+  .pill.on { background: var(--green-l); color: var(--green); }
+  .pill.offp { background: #F1F5F9; color: var(--muted); }
+  .pill.left { background: var(--rose-l); color: var(--rose); }
+  .pin { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .pin code { font-size: 16px; font-weight: 700; letter-spacing: 3px; min-width: 52px; display: inline-block; }
+  .pin .na { font-size: 12px; color: var(--muted); }
+  .empty { text-align: center; color: var(--muted); padding: 36px 0; }
+  tbody tr[data-id] { cursor: pointer; }
+  tbody tr[data-id]:hover td { background: #F8FAFF; }
+  tbody tr[data-id]:focus-visible { outline: 3px solid rgba(22,96,214,.35); outline-offset: -3px; }
+  .dsec { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  .dsec h4 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: .5px; }
+  .dl { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; margin: 0; font-size: 15px; }
+  .dl dt { color: var(--muted); }
+  .dl dd { margin: 0; font-weight: 500; }
+  .clist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .clist li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 15px; }
+  .clist .rel { color: var(--muted); min-width: 48px; }
+  .clist a { color: var(--blue-d); font-weight: 700; text-decoration: none; letter-spacing: .5px; }
+  .clist a:hover { text-decoration: underline; }
+  .prim { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #FEF3C7; color: #92400E; }
+  .dpin { display: flex; align-items: center; gap: 10px; }
+  .dpin code { font-size: 22px; font-weight: 700; letter-spacing: 6px; min-width: 80px; }
+
+  dialog { border: 0; border-radius: 18px; padding: 0; width: min(640px, calc(100vw - 24px)); box-shadow: 0 24px 60px rgba(15,23,42,.3); color: var(--text); }
+  dialog.narrow { width: min(440px, calc(100vw - 24px)); }
+  dialog::backdrop { background: rgba(15,23,42,.45); }
+  .dlg-head { padding: 18px 20px 0; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .dlg-head h3 { margin: 0; font-size: 19px; }
+  .dlg-body { padding: 14px 20px; display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 170px); overflow: auto; }
+  .dlg-foot { padding: 12px 20px 18px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1.3fr 1fr .7fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500; color: #334155; }
+  .field input, .field select, .field textarea { min-height: 44px; border: 1px solid #D5DEEA; border-radius: 10px; padding: 0 12px; font-size: 15px; background: #fff; width: 100%; }
+  .field textarea { padding: 10px 12px; min-height: 64px; resize: vertical; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--blue); outline: none; box-shadow: 0 0 0 3px rgba(22,96,214,.15); }
+  .help { font-size: 12.5px; color: var(--muted); font-weight: 400; }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  legend { font-size: 14px; font-weight: 500; color: #334155; padding: 0; margin-bottom: 8px; }
+  .crow { display: grid; grid-template-columns: 1fr 1.6fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .crow input[type=text], .crow input[type=tel] { min-height: 42px; border: 1px solid #D5DEEA; border-radius: 10px; padding: 0 10px; font-size: 15px; width: 100%; }
+  .crow label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; white-space: nowrap; cursor: pointer; }
+  .checks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .checks label { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 10px; cursor: pointer; font-size: 14px; user-select: none; }
+  .checks label:has(input:checked) { border-color: var(--blue); background: var(--blue-l); color: var(--blue-d); font-weight: 700; }
+  .checks input { accent-color: var(--blue); width: 16px; height: 16px; margin: 0; }
+  .switches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .sw { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 500; }
+  .sw input { appearance: none; width: 40px; height: 24px; border-radius: 999px; background: #CBD5E1; position: relative; cursor: pointer; transition: background .15s; flex: 0 0 40px; margin: 0; }
+  .sw input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .sw input:checked { background: var(--blue); }
+  .sw input:checked::after { left: 19px; }
+  .err { font-size: 14px; color: var(--rose); background: var(--rose-l); border-radius: 10px; padding: 10px 12px; margin: 0; }
+  .acct-box { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; color: var(--blue-d); background: var(--blue-l); padding: 2px 10px; border-radius: 8px; }
+
+  #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: #1E293B; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 14px; z-index: 9000; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); }
+  #toast.bad { background: var(--rose); }
+  .busy { position: fixed; inset: 0; background: rgba(15,23,42,.3); display: flex; align-items: center; justify-content: center; z-index: 9400; color: #fff; font-size: 16px; font-weight: 700; }
+  .test-tag { position: fixed; left: 8px; bottom: 8px; z-index: 99; background: #7c3aed; color: #fff; font: 700 11px/1 sans-serif; padding: 6px 10px; border-radius: 999px; opacity: .9; pointer-events: none; }
+  /* ===== 學費管理 ===== */
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .tab { border: 0; background: none; padding: 10px 16px; font-size: 15px; font-weight: 700; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+  .tab[aria-selected="true"] { color: var(--blue-d); border-bottom-color: var(--blue); }
+  .sumbar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline; margin-top: 12px; font-size: 13.5px; color: var(--muted); }
+  .sumbar b { color: var(--text); font-size: 16px; }
+  .money { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; text-align: right; }
+  .pill.draft { background: #F1F5F9; color: var(--muted-2); }
+  .pill.issued { background: var(--green-l); color: var(--green); }
+  .pill.void { background: var(--rose-l); color: var(--rose); text-decoration: line-through; }
+  td.c-chk, th.c-chk { width: 36px; padding-right: 0; }
+  td.c-chk input { width: 18px; height: 18px; accent-color: var(--blue); }
+
+  /* 項目編輯列 */
+  .irows { display: flex; flex-direction: column; gap: 8px; }
+  .irow { display: grid; grid-template-columns: 110px 1.4fr 110px 1fr auto auto; gap: 6px; align-items: center; }
+  .irow select, .irow input[type=text], .irow input[inputmode] { min-height: 40px; border: 1px solid #D5DEEA; border-radius: 9px; padding: 0 8px; font-size: 14px; width: 100%; background: #fff; }
+  .irow .cnt { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; white-space: nowrap; cursor: pointer; }
+  .irow .x { border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; min-width: 32px; min-height: 36px; }
+  .irow .x:hover { color: var(--rose); }
+  .tpls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .totalbar { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 14px; background: #F8FAFC; border: 1px solid var(--line); border-radius: 12px; font-weight: 700; }
+  .totalbar span:last-child { font-size: 22px; color: var(--blue-d); }
+  .suggest { font-size: 12.5px; color: var(--muted); }
+
+  /* 學費單（紙本樣式）：固定 350px，列印兩欄剛好一頁 */
+  .paper { width: 350px; background: #fff; color: #000; border: 1.5px solid #000; font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif; font-size: 14px; line-height: 1.35; }
+  .paper .ph1 { text-align: center; font-size: 21px; font-weight: 700; letter-spacing: 6px; padding: 12px 4px 6px; }
+  .paper .ph2 { display: flex; justify-content: center; gap: 22px; font-size: 19px; padding: 2px 8px 8px; border-bottom: 1px solid #000; }
+  .paper .ph3 { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; font-size: 14px; border-bottom: 1px solid #000; }
+  .paper .ph3 small { font-size: 11px; font-weight: 700; }
+  .paper .band { text-align: center; font-size: 17px; font-weight: 700; letter-spacing: 3px; padding: 4px 0; border-bottom: 1px solid #000; }
+  .paper .pr { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #000; min-height: 44px; }
+  .paper .pl { padding: 4px 10px; font-size: 16px; display: flex; flex-direction: column; justify-content: space-between; }
+  .paper .pl small, .paper .pv small { font-size: 10.5px; color: #333; }
+  .paper .pv { padding: 4px 10px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; }
+  .paper .pv .amt { font-size: 18px; font-variant-numeric: tabular-nums; }
+  .paper .pv .amt.neg { color: #000; }
+  .paper .tot { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #000; align-items: center; min-height: 40px; }
+  .paper .tot .pl { font-size: 17px; font-weight: 700; }
+  .paper .tot .pv { font-size: 20px; font-weight: 700; align-items: center; justify-content: center; }
+  .paper .foot { padding: 6px 10px; font-size: 11.5px; border-bottom: 1px solid #000; }
+  .paper .foot b { font-weight: 700; }
+  .paper .nt { padding: 6px 10px 18px; font-size: 12px; min-height: 52px; white-space: pre-wrap; }
+  .paper-wrap { display: flex; justify-content: center; padding: 6px 0; overflow: auto; }
+  dialog.paperdlg { width: min(460px, calc(100vw - 16px)); }
+
+  #printArea { display: none; }
+  @media print {
+    @page { size: A4; margin: 10mm; }
+    body > *:not(#printArea) { display: none !important; }
+    dialog { display: none !important; }
+    body { background: #fff; }
+    #printArea { display: grid; grid-template-columns: 350px 350px; gap: 4mm; justify-content: center; }
+    #printArea .paper { break-inside: avoid; }
+  }
+  @media (max-width: 760px) {
+    .irow { grid-template-columns: 1fr 1fr; }
+    .irow .il, .irow .ip { grid-column: 1 / -1; }
+    .tabs { overflow: auto; }
+    .tbl-wrap { overflow: auto; border: 1px solid var(--line); }
+    table { min-width: 640px; }
+  }
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="hero-inner">
+    <div class="topbar">
+      <a class="brand" href="../">
+        <div class="logo"><img src="../logo.png" alt="基翔 logo"></div>
+        <div><div class="brand-name">基翔學務雲</div><div class="brand-sub">JX EduCloud</div></div>
+      </a>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="chip" id="roleChip">管理員</span>
+        <a class="ghost-btn" href="../">回首頁</a>
+        <button type="button" class="ghost-btn" id="logoutBtn">登出</button>
+      </div>
+    </div>
+    <div class="page-title">
+      <h1>學費管理</h1>
+      <p>開立學費單、預覽、列印或轉成圖片傳 LINE</p>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="panel">
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab" role="tab" id="tabBills" aria-selected="true">學費單</button>
+      <button type="button" class="tab hidden" role="tab" id="tabSet" aria-selected="false">設定</button>
+    </div>
+
+    <section id="billsView">
+      <div class="toolbar">
+        <label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input type="search" id="q" placeholder="搜尋姓名、年級、標題" autocomplete="off" aria-label="搜尋"></label>
+        <select class="sel" id="fTerm" aria-label="梯次"></select>
+        <select class="sel" id="fStatus" aria-label="狀態">
+          <option value="">全部狀態</option><option value="draft">草稿</option><option value="issued">已發布</option><option value="void">已作廢</option>
+        </select>
+        <select class="sel" id="fDept" aria-label="部別"></select>
+        <button type="button" class="btn" id="printSel" disabled>列印選取的單</button>
+        <button type="button" class="btn primary hidden" id="addBill">＋ 新增學費單</button>
+      </div>
+      <div class="sumbar" id="sumbar"></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th class="c-chk"><input type="checkbox" id="chkAll" aria-label="全選" style="width:18px;height:18px;accent-color:#1660D6"></th><th>學生</th><th>梯次／標題</th><th>繳費期限</th><th style="text-align:right">總計</th><th>狀態</th><th></th></tr></thead>
+          <tbody id="tbody"><tr><td colspan="7" class="empty">載入中…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="setView" class="hidden">
+      <p class="help" style="margin:0 0 14px">這些設定只有管理員能修改。收款帳戶、梯次、項目種類都不會刪除，停用後就不會出現在開單選單。</p>
+      <div id="setBody"></div>
+    </section>
+  </div>
+</main>
+
+<!-- 預覽 -->
+<dialog id="pvDlg" class="paperdlg" aria-labelledby="pvTitle">
+  <div class="dlg-head"><h3 id="pvTitle">學費單預覽</h3><span id="pvPill"></span></div>
+  <div class="dlg-body">
+    <div class="paper-wrap"><div id="pvPaper"></div></div>
+    <p class="warn hidden" id="pvWarn"></p>
+  </div>
+  <div class="dlg-foot" style="flex-wrap:wrap;justify-content:flex-end">
+    <button type="button" class="btn" data-close>關閉</button>
+    <button type="button" class="btn" id="pvPrint">列印</button>
+    <button type="button" class="btn" id="pvDown">下載圖片</button>
+    <button type="button" class="btn" id="pvCopy">複製圖片</button>
+    <button type="button" class="btn" id="pvShare">傳送</button>
+    <button type="button" class="btn hidden" id="pvVoid" style="color:var(--rose)">作廢</button>
+    <button type="button" class="btn hidden" id="pvIssue">發布</button>
+    <button type="button" class="btn primary hidden" id="pvEdit">編輯</button>
+  </div>
+</dialog>
+
+<!-- 新增／編輯學費單 -->
+<dialog id="bDlg" class="wide" aria-labelledby="bDlgTitle">
+  <form method="dialog" id="bForm" novalidate>
+    <div class="dlg-head"><h3 id="bDlgTitle">新增學費單</h3><span id="bPill"></span></div>
+    <div class="dlg-body">
+      <div class="grid2">
+        <label class="field">學生（可從名冊選，也可直接輸入姓名）
+          <input type="text" id="bStudent" list="studentList" autocomplete="off" placeholder="輸入姓名或帳號">
+          <datalist id="studentList"></datalist>
+          <span class="help" id="bStudentHelp"></span>
+        </label>
+        <div class="grid2">
+          <label class="field">年級<input type="text" id="bGrade" maxlength="12" placeholder="例：六年級、國三"></label>
+          <label class="field">部別<select id="bDept"></select></label>
+        </div>
+      </div>
+      <div class="grid2">
+        <label class="field">梯次<select id="bTerm"></select></label>
+        <label class="field">標題（印在單上）<input type="text" id="bTitle" maxlength="30" placeholder="學費單"></label>
+      </div>
+      <div class="grid2">
+        <label class="field">繳費期限<input type="date" id="bDue"></label>
+        <label class="field">收款帳戶<select id="bAcct"></select></label>
+      </div>
+      <fieldset>
+        <legend>收費明細　<span class="help">折抵類（溢繳折抵、優惠折扣…）金額請輸入正數，系統會自動當成扣除；不勾「計入」＝只顯示、不算進總計（例如教材費已繳）</span></legend>
+        <div class="tpls" style="margin-bottom:8px">
+          <span class="help">套用範本：</span>
+          <button type="button" class="btn sm" data-tpl="regular">學期／月費單</button>
+          <button type="button" class="btn sm" data-tpl="summer">暑期夏令營</button>
+          <button type="button" class="btn sm" data-tpl="winter">寒假班</button>
+          <button type="button" class="btn sm" id="addRow">＋ 加一列</button>
+        </div>
+        <div class="irows" id="irows"></div>
+      </fieldset>
+      <div class="totalbar"><span>總計</span><span id="bTotal">0</span></div>
+      <label class="field">備註（印在單上）<textarea id="bNote" maxlength="300" placeholder="例：7/27進班，8/3~8/7請假"></textarea></label>
+      <p class="err hidden" id="bErr"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="button" class="btn" id="bSaveDraft">存成草稿</button>
+      <button type="button" class="btn primary" id="bSaveIssue">儲存並發布</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 設定用的通用表單 -->
+<dialog id="fDlg" class="narrow" aria-labelledby="fDlgTitle">
+  <form method="dialog" id="fForm" novalidate>
+    <div class="dlg-head"><h3 id="fDlgTitle"></h3></div>
+    <div class="dlg-body" id="fBody"></div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" data-close>取消</button>
+      <button type="submit" class="btn primary">儲存</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="printArea"></div>
+<div id="toast" class="hidden" role="status"></div>
+<div id="busy" class="busy hidden">處理中…</div>
+<div class="test-tag">學務雲 測試版・整合版</div>
+
+<script>
+const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
+const SUPABASE_KEY = "sb_publishable_ZVT08ujYz6NmsowKmqBNng_JxBJaVmb";
+const PORTAL_URL = "../";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: window.sessionStorage, storageKey: "jx-auth" }
+});
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = n => (n < 0 ? "-" : "") + Math.abs(Number(n) || 0).toLocaleString("en-US");
+
+let ME = null, IS_ADMIN = false, CAN_EDIT = false;
+let BILLS = [], ACCOUNTS = [], TYPES = [], TERMS = [], STUDENTS = [];
+let editing = null;      // 正在編輯的學費單（null = 新增）
+let editStudentId = null;
+let pvBill = null;
+const SELECTED = new Set();
+
+/* ---------- 共用 ---------- */
+function busy(on) { $("busy").classList.toggle("hidden", !on); }
+let toastTimer;
+function toast(msg, bad) {
+  const t = $("toast"); t.textContent = msg; t.className = bad ? "bad" : "";
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add("hidden"), 3200);
+}
+function friendly(err) {
+  const m = (err && err.message) || String(err || "");
+  if (/fee_save_bill|fee_list_students|fee_bills|fee_accounts|fee_terms|fee_item_types|Could not find the function|does not exist/i.test(m) && !/permission|row-level/i.test(m)) return "資料庫還沒安裝學費管理的資料表（07_tuition.sql），請先在 SQL Editor 執行";
+  if (/no fee edit permission|admin only|42501|row-level|permission denied|JWT|not authenticated/i.test(m)) return "沒有權限或登入已過期，請重新登入";
+  if (/name required/.test(m)) return "請輸入學生姓名";
+  if (/unknown item type/.test(m)) return "有一列的項目種類不存在，請重新選擇";
+  if (/bill not found/.test(m)) return "找不到這張學費單，請重新整理";
+  if (/Failed to fetch|NetworkError/i.test(m)) return "無法連線，請檢查網路後再試一次";
+  return "發生錯誤：" + m;
+}
+async function rpc(name, args) {
+  const { data, error } = await sb.rpc(name, args);
+  if (error) throw error;
+  return data;
+}
+async function goPortal(msg) {
+  try { await sb.auth.signOut({ scope: "local" }); } catch (_) { /* 忽略 */ }
+  ["authToken", "isTeacherLoggedIn", "loggedInStudentId", "lastActivityTime", "jx-me"].forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });
+  try { sessionStorage.setItem("jx-notice", msg || ""); } catch (_) { /* 忽略 */ }
+  location.replace(PORTAL_URL);
+}
+
+/* ---------- 閒置 60 分鐘自動登出 ---------- */
+const IDLE_MS = 60 * 60 * 1000;
+function touch() { try { sessionStorage.setItem("lastActivityTime", String(Date.now())); } catch (_) {} }
+let lastTouch = 0;
+["mousedown", "keydown", "touchstart", "scroll"].forEach(ev => window.addEventListener(ev, () => {
+  if (Date.now() - lastTouch > 15000) { lastTouch = Date.now(); touch(); }
+}, { passive: true, capture: true }));
+setInterval(() => {
+  const last = parseInt(sessionStorage.getItem("lastActivityTime") || "0", 10);
+  if (last && Date.now() - last > IDLE_MS) goPortal("閒置超過 60 分鐘，已自動登出");
+}, 15000);
+
+/* ---------- 工具 ---------- */
+const typeOf = code => TYPES.find(t => t.code === code) || { code, name: code, sign: 1 };
+const termOf = id => TERMS.find(t => t.id === id);
+const acctOf = id => ACCOUNTS.find(a => a.id === id);
+function deptOfGrade(g) {
+  g = String(g || "").trim();
+  if (/^[一二三四五六1-6]/.test(g) && !/^(國|高)/.test(g)) return "國小部";
+  if (/^(國|七|八|九|7|8|9)/.test(g)) return "國中部";
+  return "";
+}
+function fmtDue(d) { if (!d) return ""; const [, m, dd] = d.split("-"); return `${+m} 月 ${+dd} 日止`; }
+function fmtDate(d) { return d ? d.replace(/-/g, "/") : ""; }
+const sortedItems = b => (b.items || b.fee_bill_items || []).slice().sort((a, c) => (a.sort_order || 0) - (c.sort_order || 0));
+const isBlank = it => it.amount === 0 && it.counted && !it.period_text && !it.note;
+
+/* ---------- 讀資料 ---------- */
+async function load() {
+  const q = [
+    sb.from("fee_bills").select("*, fee_bill_items(*)").order("created_at", { ascending: false }),
+    sb.from("fee_accounts").select("*").order("sort_order"),
+    sb.from("fee_item_types").select("*").order("sort_order"),
+    sb.from("fee_terms").select("*").order("sort_order")
+  ];
+  if (CAN_EDIT) q.push(sb.rpc("fee_list_students"));
+  const r = await Promise.all(q);
+  for (const x of r) if (x.error) throw x.error;
+  BILLS = (r[0].data || []).map(b => Object.assign(b, { items: sortedItems(b) }));
+  ACCOUNTS = r[1].data || [];
+  TYPES = r[2].data || [];
+  TERMS = r[3].data || [];
+  STUDENTS = CAN_EDIT ? (r[4].data || []) : [];
+  const curT = $("fTerm").value, curD = $("fDept").value;
+  $("fTerm").innerHTML = '<option value="">全部梯次</option>' + TERMS.map(t => `<option value="${esc(t.id)}">${esc(t.name)}${t.active ? "" : "（停用）"}</option>`).join("");
+  const depts = [...new Set(ACCOUNTS.map(a => a.dept).concat(BILLS.map(b => b.dept)).filter(Boolean))];
+  $("fDept").innerHTML = '<option value="">全部部別</option>' + depts.map(d => `<option>${esc(d)}</option>`).join("");
+  $("fTerm").value = curT; $("fDept").value = curD;
+  render();
+  if (IS_ADMIN) renderSettings();
+}
+
+/* ---------- 列表 ---------- */
+const STATUS = { draft: "草稿", issued: "已發布", void: "已作廢" };
+function filtered() {
+  const q = $("q").value.trim().toLowerCase();
+  const term = $("fTerm").value, st = $("fStatus").value, dept = $("fDept").value;
+  return BILLS.filter(b => {
+    if (term && b.term_id !== term) return false;
+    if (st && b.status !== st) return false;
+    if (dept && b.dept !== dept) return false;
+    if (q && !(`${b.student_name} ${b.grade_text} ${b.title}`.toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+function render() {
+  const list = filtered();
+  const live = list.filter(b => b.status !== "void");
+  const sum = live.reduce((a, b) => a + (b.total || 0), 0);
+  $("sumbar").innerHTML = `<span>共 <b>${list.length}</b> 張</span><span>草稿 <b>${list.filter(b => b.status === "draft").length}</b></span><span>已發布 <b>${list.filter(b => b.status === "issued").length}</b></span><span>應收合計（不含作廢）<b>${fmt(sum)}</b> 元</span>`;
+  $("tbody").innerHTML = list.length ? list.map(b => {
+    const term = termOf(b.term_id);
+    return `<tr data-id="${esc(b.id)}" tabindex="0" class="${b.status === "void" ? "off" : ""}">
+      <td class="c-chk"><input type="checkbox" data-sel="${esc(b.id)}" ${SELECTED.has(b.id) ? "checked" : ""} aria-label="選取 ${esc(b.student_name)}"></td>
+      <td><div class="nm">${esc(b.student_name)}</div><div class="sub">${esc(b.grade_text)}${b.dept ? "・" + esc(b.dept) : ""}</div></td>
+      <td>${esc(b.title)}<div class="sub">${esc(term ? term.name : "")}</div></td>
+      <td>${esc(fmtDate(b.due_date))}</td>
+      <td class="money">${fmt(b.total)}</td>
+      <td><span class="pill ${b.status}">${STATUS[b.status]}</span></td>
+      <td><button type="button" class="btn sm" data-act="view" data-id="${esc(b.id)}">預覽</button></td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="7" class="empty">${BILLS.length ? "沒有符合條件的學費單" : "還沒有學費單" + (CAN_EDIT ? "，按右上「新增學費單」開始" : "")}</td></tr>`;
+  $("printSel").disabled = !SELECTED.size;
+  $("printSel").textContent = SELECTED.size ? `列印選取的單（${SELECTED.size}）` : "列印選取的單";
+  $("chkAll").checked = list.length > 0 && list.every(b => SELECTED.has(b.id));
+}
+
+/* ---------- 學費單（紙本樣式） ---------- */
+function amtText(it) {
+  if (!it.counted) return it.amount === 0 ? "已繳" : fmt(it.amount) + "（已繳）";
+  return fmt(it.amount);
+}
+function paperHtml(b) {
+  const acc = acctOf(b.account_id);
+  const rows = sortedItems(b).filter(it => !isBlank(it)).map(it => `
+    <div class="pr"><div class="pl">${esc(it.label)}<small>期間</small></div>
+    <div class="pv"><span class="amt">${esc(amtText(it))}</span><small>${esc(it.period_text)}${it.note ? " " + esc(it.note) : ""}</small></div></div>`).join("");
+  const foot = acc ? `${acc.report_note ? `<div>${esc(acc.report_note)}</div>` : ""}
+      <div style="margin-top:4px"><b>匯款銀行 : ${esc(acc.bank_name)}${acc.bank_code ? " " + esc(acc.bank_code) : ""}</b></div>
+      <div><b>匯款帳號 : ${esc(acc.account_no)}</b></div>` : `<div>（尚未選擇收款帳戶）</div>`;
+  return `<div class="paper">
+    <div class="ph1">基 翔 文 教 機 構</div>
+    <div class="ph2"><span>${esc(b.grade_text)}</span><span>${esc(b.student_name)}</span></div>
+    <div class="ph3"><small>繳費期限</small><span>${esc(fmtDue(b.due_date))}</span><small>請勿逾期，謝謝。</small></div>
+    <div class="band">${esc(b.title || "學費單")}</div>
+    ${rows}
+    <div class="tot"><div class="pl">總計</div><div class="pv">${fmt(b.total)}</div></div>
+    <div class="foot">${foot}</div>
+    <div class="nt">備註：${esc(b.note || "")}</div>
+  </div>`;
+}
+function openPreview(b) {
+  pvBill = b;
+  $("pvTitle").textContent = `${b.student_name}　${b.title || "學費單"}`;
+  $("pvPill").innerHTML = `<span class="pill ${b.status}">${STATUS[b.status]}</span>`;
+  $("pvPaper").innerHTML = paperHtml(b);
+  const w = $("pvWarn");
+  w.classList.toggle("hidden", b.status !== "draft");
+  w.textContent = "這是草稿，家長還看不到；發布後才會出現在家長端。";
+  $("pvEdit").classList.toggle("hidden", !CAN_EDIT);
+  $("pvIssue").classList.toggle("hidden", !(CAN_EDIT && b.status === "draft"));
+  $("pvVoid").classList.toggle("hidden", !(CAN_EDIT && b.status !== "void"));
+  $("pvDlg").showModal();
+}
+async function paperCanvas() {
+  const el = $("pvPaper").querySelector(".paper");
+  return html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+}
+const blobOf = c => new Promise(r => c.toBlob(r, "image/png"));
+const fileName = b => `${b.student_name}_${b.title || "學費單"}.png`.replace(/[\\/:*?"<>|]/g, "_");
+async function imgAct(kind) {
+  if (!pvBill) return;
+  busy(true);
+  try {
+    const blob = await blobOf(await paperCanvas());
+    const name = fileName(pvBill);
+    if (kind === "down") {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } else if (kind === "copy") {
+      if (!(navigator.clipboard && window.ClipboardItem)) throw new Error("這個瀏覽器不支援複製圖片，請改用下載");
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      toast("已複製，可貼到 LINE");
+    } else {
+      const file = new File([blob], name, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: name });
+      else throw new Error("這個裝置不支援直接傳送，請改用下載或複製");
+    }
+  } catch (ex) {
+    if (ex && ex.name === "AbortError") return;
+    toast(ex.message || "操作失敗", true);
+  } finally { busy(false); }
+}
+function printBills(list) {
+  if (!list.length) return;
+  $("printArea").innerHTML = list.map(paperHtml).join("");
+  setTimeout(() => window.print(), 60);
+}
+
+/* ---------- 新增／編輯 ---------- */
+const TEMPLATES = {
+  regular: [["tuition", "學費"], ["material", "教材費"], ["meal", "餐費"], ["transport", "車資"], ["carry", "溢繳折抵"], ["discount", "優惠折扣"]],
+  summer: [["tuition", "安親"], ["activity", "活動"], ["material", "預習教材費"], ["deposit", "已繳訂金"], ["carry", "溢繳折抵"], ["discount", "優惠折抵"]],
+  winter: [["tuition", "寒假班"], ["activity", "活動"]]
+};
+function typeOptions(sel) {
+  return TYPES.filter(t => t.active || t.code === sel).map(t => `<option value="${esc(t.code)}" ${t.code === sel ? "selected" : ""}>${esc(t.name)}${t.sign < 0 ? "（折抵）" : ""}</option>`).join("");
+}
+function addRow(it) {
+  it = it || { item_type: "tuition", label: "", amount: "", counted: true, period_text: "" };
+  const d = document.createElement("div");
+  d.className = "irow";
+  d.innerHTML = `<select class="it" aria-label="種類">${typeOptions(it.item_type)}</select>
+    <input type="text" class="il" maxlength="30" placeholder="項目名稱" aria-label="項目名稱" value="${esc(it.label)}">
+    <input type="text" class="ia" inputmode="numeric" placeholder="金額" aria-label="金額" value="${it.amount === "" ? "" : esc(Math.abs(it.amount))}">
+    <input type="text" class="ip" maxlength="40" placeholder="期間（例：115/10）" aria-label="期間" value="${esc(it.period_text || "")}">
+    <label class="cnt"><input type="checkbox" class="ic" ${it.counted === false ? "" : "checked"}>計入</label>
+    <button type="button" class="x" aria-label="刪除這一列">✕</button>`;
+  d.dataset.prev = typeOf(it.item_type).name;
+  $("irows").appendChild(d);
+  return d;
+}
+function readRows() {
+  return [...$("irows").querySelectorAll(".irow")].map(r => ({
+    item_type: r.querySelector(".it").value,
+    label: r.querySelector(".il").value.trim(),
+    amount: parseInt(r.querySelector(".ia").value.replace(/[^\d]/g, ""), 10) || 0,
+    counted: r.querySelector(".ic").checked,
+    period_text: r.querySelector(".ip").value.trim(),
+    note: ""
+  }));
+}
+function calcTotal() {
+  const t = readRows().reduce((a, it) => a + (it.counted ? it.amount * typeOf(it.item_type).sign : 0), 0);
+  $("bTotal").textContent = fmt(t);
+  return t;
+}
+function fillSelects() {
+  const depts = [...new Set(ACCOUNTS.filter(a => a.active).map(a => a.dept))];
+  $("bDept").innerHTML = '<option value="">（未指定）</option>' + depts.map(d => `<option>${esc(d)}</option>`).join("");
+  $("bTerm").innerHTML = '<option value="">（不指定梯次）</option>' + TERMS.filter(t => t.active).map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
+  $("bAcct").innerHTML = '<option value="">（未指定）</option>' + ACCOUNTS.filter(a => a.active).map(a => `<option value="${esc(a.id)}">${esc(a.dept)}・${esc(a.account_no)}</option>`).join("");
+  $("studentList").innerHTML = STUDENTS.map(s => `<option value="${esc(stuLabel(s))}"></option>`).join("");
+}
+const stuLabel = s => `${s.name}（${s.account_code || s.grade}）`;
+function applyDept(dept) {
+  if (!dept) return;
+  if ([...$("bDept").options].some(o => o.value === dept)) $("bDept").value = dept;
+  const a = ACCOUNTS.find(x => x.active && x.dept === dept);
+  if (a) $("bAcct").value = a.id;
+}
+function onStudentInput() {
+  const v = $("bStudent").value.trim();
+  const s = STUDENTS.find(x => stuLabel(x) === v) || STUDENTS.filter(x => x.name === v).length === 1 && STUDENTS.find(x => x.name === v);
+  if (s) {
+    editStudentId = s.id;
+    $("bGrade").value = s.grade;
+    applyDept(deptOfGrade(s.grade));
+    $("bStudentHelp").textContent = `名冊：${s.school || ""} ${s.grade}${s.school_class ? " " + s.school_class + " 班" : ""}・${s.account_code || ""}`;
+  } else {
+    editStudentId = null;
+    $("bStudentHelp").textContent = v ? "不在名冊裡的學生，單上直接使用輸入的姓名" : "";
+  }
+}
+function onTermChange() {
+  const t = termOf($("bTerm").value);
+  if (!t) return;
+  $("bTitle").value = t.title || "學費單";
+  if (t.due_date) $("bDue").value = t.due_date;
+}
+function openEdit(b) {
+  editing = b || null;
+  fillSelects();
+  $("bDlgTitle").textContent = b ? "編輯學費單" : "新增學費單";
+  $("bPill").innerHTML = b ? `<span class="pill ${b.status}">${STATUS[b.status]}</span>` : "";
+  editStudentId = b ? b.student_id : null;
+  const st = b && b.student_id && STUDENTS.find(s => s.id === b.student_id);
+  $("bStudent").value = b ? (st ? stuLabel(st) : b.student_name) : "";
+  $("bStudentHelp").textContent = "";
+  $("bGrade").value = b ? b.grade_text : "";
+  $("bDept").value = b ? b.dept : "";
+  $("bTerm").value = b && b.term_id && termOf(b.term_id) && termOf(b.term_id).active ? b.term_id : "";
+  $("bTitle").value = b ? b.title : "學費單";
+  $("bDue").value = b ? (b.due_date || "") : "";
+  $("bAcct").value = b ? (b.account_id || "") : "";
+  $("bNote").value = b ? b.note : "";
+  $("irows").innerHTML = "";
+  if (b && b.items.length) b.items.forEach(addRow); else TEMPLATES.regular.forEach(([t, l]) => addRow({ item_type: t, label: l, amount: "", counted: true, period_text: "" }));
+  $("bSaveIssue").textContent = b && b.status === "issued" ? "儲存（維持已發布）" : "儲存並發布";
+  $("bSaveDraft").classList.toggle("hidden", !!(b && b.status === "issued"));
+  $("bErr").classList.add("hidden");
+  calcTotal();
+  $("bDlg").showModal();
+  $("bStudent").focus();
+}
+function applyTemplate(key) {
+  const has = readRows().some(r => r.amount || r.label);
+  if (has && !confirm("套用範本會取代目前的明細，確定嗎？")) return;
+  $("irows").innerHTML = "";
+  TEMPLATES[key].forEach(([t, l]) => addRow({ item_type: t, label: l, amount: "", counted: true, period_text: "" }));
+  if (key === "summer" || key === "winter") {
+    const t = TERMS.find(x => x.active && x.kind === key);
+    if (t && !$("bTerm").value) { $("bTerm").value = t.id; onTermChange(); }
+  }
+  calcTotal();
+}
+async function saveBill(status) {
+  const err = m => { $("bErr").textContent = m; $("bErr").classList.remove("hidden"); };
+  const name = (editStudentId && STUDENTS.find(s => s.id === editStudentId) ? STUDENTS.find(s => s.id === editStudentId).name : $("bStudent").value.trim());
+  if (!name) return err("請輸入學生姓名");
+  const items = readRows().filter(r => !(r.amount === 0 && r.counted && !r.period_text));
+  if (!items.length) return err("請至少填一列收費明細");
+  const payload = {
+    id: editing ? editing.id : null, student_id: editStudentId, student_name: name,
+    grade_text: $("bGrade").value.trim(), dept: $("bDept").value, term_id: $("bTerm").value || null,
+    title: $("bTitle").value.trim() || "學費單", due_date: $("bDue").value || null,
+    account_id: $("bAcct").value || null, note: $("bNote").value.trim(), status, items
+  };
+  busy(true);
+  try {
+    const res = await rpc("fee_save_bill", { p: payload });
+    $("bDlg").close();
+    await load();
+    toast(status === "issued" ? "已發布" : "已存成草稿");
+    const b = BILLS.find(x => x.id === res.id);
+    if (b) openPreview(b);
+  } catch (ex) { err(friendly(ex)); } finally { busy(false); }
+}
+async function setStatus(b, status) {
+  busy(true);
+  try {
+    await rpc("fee_save_bill", { p: {
+      id: b.id, student_id: b.student_id, student_name: b.student_name, grade_text: b.grade_text, dept: b.dept,
+      term_id: b.term_id, title: b.title, due_date: b.due_date, account_id: b.account_id, note: b.note, status,
+      items: b.items.map(i => ({ item_type: i.item_type, label: i.label, amount: Math.abs(i.amount), counted: i.counted, period_text: i.period_text, note: i.note }))
+    } });
+    await load();
+    const nb = BILLS.find(x => x.id === b.id);
+    if (nb) openPreview(nb);
+    toast(status === "issued" ? "已發布" : "已作廢");
+  } catch (ex) { toast(friendly(ex), true); } finally { busy(false); }
+}
+
+/* ---------- 設定（管理員） ---------- */
+const KIND = { regular: "學期／月費", summer: "暑期", winter: "寒假", activity: "活動", other: "其他" };
+function renderSettings() {
+  const sec = (title, addId, head, rows) => `<div style="margin-bottom:22px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px"><h3 style="margin:0;font-size:17px">${title}</h3><button type="button" class="btn sm primary" id="${addId}">＋ 新增</button></div>
+    <div class="tbl-wrap" style="margin-top:0"><table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}<th></th></tr></thead><tbody>${rows || `<tr><td colspan="${head.length + 1}" class="empty">尚未設定</td></tr>`}</tbody></table></div></div>`;
+  const onoff = a => `<span class="pill ${a ? "on" : "offp"}">${a ? "使用中" : "停用"}</span>`;
+  $("setBody").innerHTML =
+    sec("收款帳戶", "addAcct", ["部別", "銀行", "帳號", "狀態"], ACCOUNTS.map(a => `<tr><td class="nm">${esc(a.dept)}</td><td>${esc(a.bank_name)} ${esc(a.bank_code)}</td><td class="acct">${esc(a.account_no)}</td><td>${onoff(a.active)}</td><td><button type="button" class="btn sm" data-set="acct" data-id="${esc(a.id)}">編輯</button></td></tr>`).join("")) +
+    sec("梯次", "addTerm", ["名稱", "類型", "單上標題", "預設期限", "狀態"], TERMS.map(t => `<tr><td class="nm">${esc(t.name)}</td><td>${esc(KIND[t.kind] || t.kind)}</td><td>${esc(t.title)}</td><td>${esc(fmtDate(t.due_date))}</td><td>${onoff(t.active)}</td><td><button type="button" class="btn sm" data-set="term" data-id="${esc(t.id)}">編輯</button></td></tr>`).join("")) +
+    sec("項目種類", "addType", ["名稱", "性質", "狀態"], TYPES.map(t => `<tr><td class="nm">${esc(t.name)}</td><td>${t.sign < 0 ? "折抵（扣除）" : "收費"}</td><td>${onoff(t.active)}</td><td><button type="button" class="btn sm" data-set="type" data-id="${esc(t.code)}">編輯</button></td></tr>`).join(""));
+}
+let formSave = null;
+function openForm(title, fields, vals, save) {
+  $("fDlgTitle").textContent = title;
+  $("fBody").innerHTML = fields.map(f => {
+    const v = vals[f.k];
+    if (f.type === "select") return `<label class="field">${f.label}<select data-k="${f.k}">${f.options.map(([o, l]) => `<option value="${esc(o)}" ${String(v) === String(o) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+    if (f.type === "check") return `<label class="sw"><span>${f.label}</span><input type="checkbox" data-k="${f.k}" ${v ? "checked" : ""}></label>`;
+    if (f.type === "area") return `<label class="field">${f.label}<textarea data-k="${f.k}">${esc(v || "")}</textarea></label>`;
+    return `<label class="field">${f.label}<input type="${f.type || "text"}" data-k="${f.k}" value="${esc(v || "")}" ${f.ph ? `placeholder="${esc(f.ph)}"` : ""}></label>`;
+  }).join("") + '<p class="err hidden" id="fErr"></p>';
+  formSave = save;
+  $("fDlg").showModal();
+}
+async function submitForm(e) {
+  e.preventDefault();
+  const o = {};
+  $("fBody").querySelectorAll("[data-k]").forEach(el => { o[el.dataset.k] = el.type === "checkbox" ? el.checked : el.value.trim(); });
+  busy(true);
+  try { await formSave(o); $("fDlg").close(); await load(); toast("已儲存"); }
+  catch (ex) { const e2 = $("fErr"); e2.textContent = ex && ex.message === "missing" ? "請填寫必填欄位" : friendly(ex); e2.classList.remove("hidden"); }
+  finally { busy(false); }
+}
+async function dbWrite(table, id, key, row) {
+  const q = id ? sb.from(table).update(row).eq(key, id) : sb.from(table).insert(row);
+  const { error } = await q; if (error) throw error;
+}
+function editAcct(a) {
+  openForm(a ? "編輯收款帳戶" : "新增收款帳戶", [
+    { k: "dept", label: "部別（例：國小部、國中部）" }, { k: "bank_name", label: "銀行名稱" }, { k: "bank_code", label: "銀行代號" },
+    { k: "account_no", label: "匯款帳號" }, { k: "report_note", label: "繳款回報說明（印在單上）", type: "area" }, { k: "active", label: "使用中", type: "check" }
+  ], a || { active: true }, async o => {
+    if (!o.dept || !o.account_no) throw new Error("missing");
+    await dbWrite("fee_accounts", a && a.id, "id", { dept: o.dept, bank_name: o.bank_name, bank_code: o.bank_code, account_no: o.account_no, report_note: o.report_note, active: o.active });
+  });
+}
+function editTerm(t) {
+  openForm(t ? "編輯梯次" : "新增梯次", [
+    { k: "name", label: "名稱（例：115 下學期 3 月）" },
+    { k: "kind", label: "類型", type: "select", options: Object.entries(KIND) },
+    { k: "title", label: "單上標題（例：學費單）" }, { k: "due_date", label: "預設繳費期限", type: "date" }, { k: "active", label: "使用中", type: "check" }
+  ], t || { kind: "regular", title: "學費單", active: true }, async o => {
+    if (!o.name) throw new Error("missing");
+    await dbWrite("fee_terms", t && t.id, "id", { name: o.name, kind: o.kind, title: o.title || "學費單", due_date: o.due_date || null, active: o.active });
+  });
+}
+function editType(t) {
+  openForm(t ? "編輯項目種類" : "新增項目種類", [
+    { k: "name", label: "名稱（例：學費、營隊費）" },
+    { k: "sign", label: "性質", type: "select", options: [["1", "收費"], ["-1", "折抵（扣除）"]] }, { k: "active", label: "使用中", type: "check" }
+  ], t ? Object.assign({}, t, { sign: String(t.sign) }) : { sign: "1", active: true }, async o => {
+    if (!o.name) throw new Error("missing");
+    if (t) await dbWrite("fee_item_types", t.code, "code", { name: o.name, sign: +o.sign, active: o.active });
+    else await dbWrite("fee_item_types", null, "code", { code: "c" + Date.now().toString(36), name: o.name, sign: +o.sign, active: o.active, sort_order: TYPES.length * 10 + 10 });
+  });
+}
+
+/* ---------- 事件 ---------- */
+$("tbody").addEventListener("click", e => {
+  const chk = e.target.closest("[data-sel]");
+  if (chk) { chk.checked ? SELECTED.add(chk.dataset.sel) : SELECTED.delete(chk.dataset.sel); render(); return; }
+  if (e.target.closest(".c-chk")) return;
+  const tr = e.target.closest("tr[data-id]");
+  const b = tr && BILLS.find(x => x.id === tr.dataset.id);
+  if (b) openPreview(b);
+});
+$("tbody").addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches("tr[data-id]")) {
+    e.preventDefault();
+    const b = BILLS.find(x => x.id === e.target.dataset.id); if (b) openPreview(b);
+  }
+});
+$("chkAll").addEventListener("change", e => { filtered().forEach(b => e.target.checked ? SELECTED.add(b.id) : SELECTED.delete(b.id)); render(); });
+let qTimer;
+$("q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(render, 150); });
+["fTerm", "fStatus", "fDept"].forEach(id => $(id).addEventListener("change", render));
+$("printSel").addEventListener("click", () => printBills(BILLS.filter(b => SELECTED.has(b.id))));
+$("addBill").addEventListener("click", () => openEdit(null));
+$("pvEdit").addEventListener("click", () => { const b = pvBill; $("pvDlg").close(); openEdit(b); });
+$("pvIssue").addEventListener("click", () => setStatus(pvBill, "issued"));
+$("pvVoid").addEventListener("click", () => { if (confirm("確定要作廢這張學費單嗎？作廢後家長端看不到，列表仍會保留紀錄。")) setStatus(pvBill, "void"); });
+$("pvPrint").addEventListener("click", () => printBills([pvBill]));
+$("pvDown").addEventListener("click", () => imgAct("down"));
+$("pvCopy").addEventListener("click", () => imgAct("copy"));
+$("pvShare").addEventListener("click", () => imgAct("share"));
+$("bStudent").addEventListener("input", onStudentInput);
+$("bGrade").addEventListener("change", () => applyDept(deptOfGrade($("bGrade").value)));
+$("bTerm").addEventListener("change", onTermChange);
+$("addRow").addEventListener("click", () => { const r = addRow(); r.querySelector(".il").focus(); });
+document.querySelectorAll("[data-tpl]").forEach(b => b.addEventListener("click", () => applyTemplate(b.dataset.tpl)));
+$("irows").addEventListener("input", calcTotal);
+$("irows").addEventListener("change", e => {
+  const r = e.target.closest(".irow");
+  if (r && e.target.matches(".it")) {
+    const l = r.querySelector(".il");
+    if (!l.value.trim() || l.value.trim() === r.dataset.prev) l.value = typeOf(e.target.value).name;
+    r.dataset.prev = typeOf(e.target.value).name;
+  }
+  calcTotal();
+});
+$("irows").addEventListener("click", e => { if (e.target.closest(".x")) { e.target.closest(".irow").remove(); calcTotal(); } });
+$("bSaveDraft").addEventListener("click", () => saveBill("draft"));
+$("bSaveIssue").addEventListener("click", () => saveBill("issued"));
+$("bForm").addEventListener("submit", e => e.preventDefault());
+$("fForm").addEventListener("submit", submitForm);
+$("setBody").addEventListener("click", e => {
+  if (e.target.id === "addAcct") return editAcct(null);
+  if (e.target.id === "addTerm") return editTerm(null);
+  if (e.target.id === "addType") return editType(null);
+  const b = e.target.closest("[data-set]"); if (!b) return;
+  if (b.dataset.set === "acct") editAcct(ACCOUNTS.find(x => x.id === b.dataset.id));
+  if (b.dataset.set === "term") editTerm(TERMS.find(x => x.id === b.dataset.id));
+  if (b.dataset.set === "type") editType(TYPES.find(x => x.code === b.dataset.id));
+});
+function showTab(name) {
+  $("tabBills").setAttribute("aria-selected", String(name === "bills"));
+  $("tabSet").setAttribute("aria-selected", String(name === "set"));
+  $("billsView").classList.toggle("hidden", name !== "bills");
+  $("setView").classList.toggle("hidden", name !== "set");
+}
+$("tabBills").addEventListener("click", () => showTab("bills"));
+$("tabSet").addEventListener("click", () => showTab("set"));
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
+$("logoutBtn").addEventListener("click", () => goPortal(""));
+
+/* ---------- 啟動：管理員、主任、被開通的老師 ---------- */
+(async () => {
+  busy(true);
+  try {
+    const last = parseInt(sessionStorage.getItem("lastActivityTime") || "0", 10);
+    if (last && Date.now() - last > IDLE_MS) return goPortal("閒置超過 60 分鐘，已自動登出");
+    const { data: s } = await sb.auth.getSession();
+    if (!s || !s.session) return location.replace(PORTAL_URL);
+    const me = await sb.from("profiles").select("role,title,fee_access").eq("id", s.session.user.id).maybeSingle();
+    ME = me.data;
+    const ok = ME && (ME.role === "admin" || (ME.role === "teacher" && (ME.title === "主任" || ME.fee_access)));
+    if (!ok) return goPortal("沒有學費管理的權限");
+    IS_ADMIN = ME.role === "admin";
+    CAN_EDIT = IS_ADMIN || !!ME.fee_access;
+    $("roleChip").textContent = IS_ADMIN ? "管理員" : (ME.title || "老師") + (CAN_EDIT ? "" : "（唯讀）");
+    $("addBill").classList.toggle("hidden", !CAN_EDIT);
+    $("tabSet").classList.toggle("hidden", !IS_ADMIN);
+    touch();
+    await load();
+  } catch (ex) {
+    $("tbody").innerHTML = `<tr><td colspan="7" class="empty">${esc(friendly(ex))}</td></tr>`;
+  } finally { busy(false); }
+})();
+</script>
+<script src="../switcher.js" data-app="tuition" defer></script>
+</body>
+</html>

@@ -198,6 +198,10 @@
         <legend>可管理年級 <span class="help" style="font-weight:400;color:var(--muted)">（不勾＝全部）</span></legend>
         <div class="checks" id="fGrades"></div>
       </fieldset>
+      <fieldset>
+        <legend>學費權限 <span class="help" style="font-weight:400;color:var(--muted)">（主任固定可以看學費；老師開通後可看、可開單與修改）</span></legend>
+        <div class="checks"><label><input type="checkbox" id="fFee">可使用學費管理</label></div>
+      </fieldset>
       <p class="err hidden" id="tErr" role="alert"></p>
     </div>
     <div class="dlg-foot">
@@ -310,7 +314,7 @@ setInterval(() => {
 /* ---------- 讀資料 ---------- */
 async function load() {
   const [p, tc, c, g] = await Promise.all([
-    sb.from("profiles").select("id,login_id,display_name,sort_order,allowed_grades,created_at,title").eq("role", "teacher"),
+    sb.from("profiles").select("id,login_id,display_name,sort_order,allowed_grades,created_at,title,fee_access").eq("role", "teacher"),
     sb.from("teacher_classes").select("teacher_id,class_id"),
     sb.from("classes").select("id,name,sort_order"),
     sb.from("grades").select("name")
@@ -340,7 +344,7 @@ function render() {
         <button type="button" class="btn icon" data-act="down" data-id="${t.id}" aria-label="把 ${esc(t.display_name)} 往下移" ${i === TEACHERS.length - 1 ? "disabled" : ""}>▼</button>
       </div>
       <div>
-        <div class="tname">${esc(t.display_name || t.login_id)} <span class="ttl${t.title === "主任" ? " dir" : ""}">${esc(t.title || "老師")}</span> <span class="tid">${esc(t.login_id)}</span></div>
+        <div class="tname">${esc(t.display_name || t.login_id)} <span class="ttl${t.title === "主任" ? " dir" : ""}">${esc(t.title || "老師")}</span> ${t.fee_access ? ' <span class="ttl dir" style="background:#D1FAE5;color:#047857">學費</span>' : ""} <span class="tid">${esc(t.login_id)}</span></div>
         <div class="tmeta">
           <span class="lbl">負責班級</span>${t.classIds.length ? t.classIds.map(id => `<span class="pill">${esc(cname(id))}</span>`).join("") : '<span class="pill none">未指定</span>'}
           <span class="lbl" style="margin-left:8px">可管理年級</span>${t.allowed_grades && t.allowed_grades.length ? t.allowed_grades.map(g => `<span class="pill g">${esc(g)}</span>`).join("") : '<span class="pill none">全部</span>'}
@@ -381,6 +385,7 @@ function openEdit(t) {
   $("fPwd").value = "";
   checks("fClasses", CLASSES.map(c => ({ value: c.id, label: c.name })), t ? t.classIds : []);
   checks("fGrades", GRADES.map(g => ({ value: g, label: g })), t ? (t.allowed_grades || []) : []);
+  $("fFee").checked = !!(t && t.fee_access);
   $("tErr").classList.add("hidden");
   $("tDlg").showModal();
   $("fName").focus();
@@ -398,6 +403,7 @@ async function saveTeacher(e) {
       await rpc("admin_save_teacher", { p_id: editing.id, p_name: name, p_classes: classIds });
       await rpc("admin_set_teacher_grades", { p_id: editing.id, p_grades: grades });
       if ((editing.title || "老師") !== title) await rpc("admin_set_teacher_title", { p_id: editing.id, p_title: title });
+      if (!!editing.fee_access !== $("fFee").checked) await rpc("admin_set_fee_access", { p_id: editing.id, p_on: $("fFee").checked });
     } else {
       const login = "t_" + $("fId").value.trim().toLowerCase().replace(/^t_/, "");
       const pwd = $("fPwd").value;
@@ -409,6 +415,7 @@ async function saveTeacher(e) {
       if (id && classIds.length > 1) await rpc("admin_save_teacher", { p_id: id, p_name: name, p_classes: classIds });
       if (id && grades.length) await rpc("admin_set_teacher_grades", { p_id: id, p_grades: grades });
       if (id && title !== "老師") await rpc("admin_set_teacher_title", { p_id: id, p_title: title });
+      if (id && $("fFee").checked) await rpc("admin_set_fee_access", { p_id: id, p_on: true });
       if (id) await rpc("admin_reorder_teachers", { p_ids: TEACHERS.map(t => t.id).concat(id) });
     }
     $("tDlg").close();
