@@ -653,7 +653,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1024-1345</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -971,10 +971,30 @@ function onStudentInput() {
     $("bGrade").value = s.grade;
     applyDept(deptOfGrade(s.grade));
     $("bStudentHelp").textContent = `名冊：${s.school || ""} ${s.grade}${s.school_class ? " " + s.school_class + " 班" : ""}・${s.account_code || ""}`;
+    autoFillForStudent();
   } else {
     editStudentId = null;
     $("bStudentHelp").textContent = v ? "不在名冊裡的學生，單上直接使用輸入的姓名" : "";
   }
+}
+/* 新增單張學費單：選好學生（和繳費期限）後，自動帶入該生當月應收（收費設定＋晚餐預收餐費） */
+let autoFilled = false, autoSeq = 0;
+async function autoFillForStudent() {
+  if (editing || !editStudentId) return;
+  const s = STUDENTS.find(x => x.id === editStudentId); if (!s) return;
+  if (!autoFilled && readRows().some(r => r.amount || r.period_text)) return;   // 已經手動填過就不蓋掉
+  const ym = ($("bDue").value || new Date().toISOString().slice(0, 10)).slice(0, 7), seq = ++autoSeq;
+  const r = enrollItems(s, ym);
+  let mealAmt = 0;
+  try { const e = (await mealEstimate(ym)).get(s.id); if (e && e.amount > 0) mealAmt = e.amount; } catch (_) { /* 沒晚餐權限或讀不到就略過 */ }
+  if (seq !== autoSeq || editing || editStudentId !== s.id) return;
+  const items = r.items.slice();
+  if (mealAmt) setMealRow(items, mealAmt);
+  if (!items.length) { $("bStudentHelp").textContent += "（這位學生還沒有收費設定，請手動填或套用範本）"; return; }
+  $("irows").innerHTML = "";
+  items.forEach(it => addRow({ item_type: TYPES.some(x => x.code === it.item_type) ? it.item_type : "other", label: it.label, amount: it.amount, counted: it.counted !== false, period_text: it.period_text || "" }));
+  calcTotal(); autoFilled = true;
+  $("bStudentHelp").textContent += `　已依收費設定${mealAmt ? "與晚餐預收" : ""}自動帶入 ${ym.replace("-", "/")} 的費用，可再修改`;
 }
 function termTpl(t) { return t && Array.isArray(t.template) ? t.template : []; }
 function fillTermTemplate(t) {
@@ -989,6 +1009,7 @@ function onTermChange() {
   if (t.due_date) $("bDue").value = t.due_date;
   // 新增學費單、明細還沒填金額時，自動帶入梯次範本
   if (!editing && termTpl(t).length && !readRows().some(r => r.amount || r.period_text)) fillTermTemplate(t);
+  autoFillForStudent();
 }
 function applyTermTemplate() {
   const t = termOf($("bTerm").value);
@@ -998,7 +1019,7 @@ function applyTermTemplate() {
   fillTermTemplate(t);
 }
 function openEdit(b) {
-  editing = b || null;
+  editing = b || null; autoFilled = false; autoSeq++;
   fillSelects();
   $("bDlgTitle").textContent = b ? "編輯學費單" : "新增學費單";
   $("bPill").innerHTML = b ? `<span class="pill ${b.status}">${STATUS[b.status]}</span>` : "";
@@ -2012,6 +2033,8 @@ $("pvShare").addEventListener("click", () => imgAct("share"));
 $("bStudent").addEventListener("input", onStudentInput);
 $("bGrade").addEventListener("change", () => applyDept(deptOfGrade($("bGrade").value)));
 $("bTerm").addEventListener("change", onTermChange);
+$("bDue").addEventListener("change", () => { $("mealMonth").value = ($("bDue").value || new Date().toISOString().slice(0, 10)).slice(0, 7); autoFillForStudent(); });
+$("irows").addEventListener("input", () => { autoFilled = false; });
 $("calcLeave").addEventListener("click", openLeave);
 $("calcMeal").addEventListener("click", openMeal);
 $("tplTerm").addEventListener("click", applyTermTemplate);
