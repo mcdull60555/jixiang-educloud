@@ -503,7 +503,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1024-1410</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1024-1440</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -623,6 +623,7 @@ function priceOf(y, m) {
 }
 const PAIR_FROM = "2026-12";   // 從這個月起：奇數月併入偶數月結算
 const isSettle = (y, m) => m % 2 === 0 && ymOf(y, m) >= PAIR_FROM;
+const isClose = (y, m) => m % 2 === 0 && ymOf(y, m) >= "2026-10";   // 偶數月結帳（10 月起；10 月單獨結，12 月起併入奇數月）
 const isOddBefore = (y, m) => m % 2 === 1 && ymOf(...(nextYM(y, m))) >= PAIR_FROM;
 function nextYM(y, m) { return m === 12 ? [y + 1, 1] : [y, m + 1]; }
 function calcStu(sid, y, m, noPair) {
@@ -740,7 +741,7 @@ function render() {
   $("grid").innerHTML = `<thead><tr>${th}</tr></thead><tbody>${rows.length ? rows.map(rowHtml).join("") : `<tr><td class="empty" style="padding:36px" colspan="${n + 8}">${q ? "找不到符合的學生" : "這個月還沒有學生，請先「加入學生」"}</td></tr>`}</tbody><tfoot>${foot}</tfoot>`;
   $("price").value = priceOf(Y, M);
   $("price").disabled = !CAN_EDIT;
-  $("settleBtn").classList.toggle("hidden", !isSettle(Y, M));
+  $("settleBtn").classList.toggle("hidden", !isClose(Y, M));
   { const [py, pm] = prevYM(Y, M);
     $("pairnote").textContent = isSettle(Y, M) ? `本月是結算月：${pm} 月（奇數月）的溢繳／補繳已自動併入「上月轉入」，合計後才是本月的溢繳／補繳。` : isOddBefore(Y, M) ? `本月是奇數月：溢繳／補繳不單獨收退，會自動併入 ${nextYM(Y, M)[1]} 月一起結算。` : ""; }
   const hs = [...HOL.entries()].sort().filter(([k]) => k.startsWith(ymOf(Y, M)));
@@ -985,7 +986,7 @@ function monthCardHtml(sid) {
   const cls = c.bal > 0 ? "pos" : c.bal < 0 ? "neg" : "";
   let res;
   if (odd) res = c.bal === 0 ? `<span>本月結算</span><b>已結清</b>` : `<span>本月${c.bal > 0 ? "溢繳" : "尚差"}（併入 ${nextYM(Y, M)[1]} 月結算）</span><b>$${fmt(Math.abs(c.bal))}</b>`;
-  else if (settle) res = c.bal > 0 ? `<span>溢繳（折抵下月學費單）</span><b>$${fmt(c.bal)}</b>` : c.bal < 0 ? `<span>需補繳（併入下月學費單餐費）</span><b>$${fmt(-c.bal)}</b>` : `<span>兩個月結算</span><b>已結清</b>`;
+  else if (settle || isClose(Y, M)) res = c.bal > 0 ? `<span>溢繳（折抵下月學費單）</span><b>$${fmt(c.bal)}</b>` : c.bal < 0 ? `<span>需補繳（併入下月學費單餐費）</span><b>$${fmt(-c.bal)}</b>` : `<span>兩個月結算</span><b>已結清</b>`;
   else res = c.bal > 0 ? `<span>溢繳（可折抵下月）</span><b>$${fmt(c.bal)}</b>` : c.bal < 0 ? `<span>本月尚需補繳</span><b>$${fmt(-c.bal)}</b>` : `<span>本月結算</span><b>已結清</b>`;
   const note = [c.note, SETTINGS.card_footer].filter(Boolean).map(esc).join("<br>");
   return `<div class="mc">${cardHead(`${SETTINGS.card_title || "晚餐訂購單"}　${rocLabel(Y, M)}`)}
@@ -1193,8 +1194,9 @@ let STL = [];
 async function openSettle() {
   const [py, pm] = prevYM(Y, M);
   STL = monthRows().map(s => ({ s, c: calcStu(s.id, Y, M) })).filter(x => x.c.bal !== 0 || x.c.cin !== 0);
-  $("stlTitle").textContent = `${pm}～${M} 月結算`;
-  $("stlHelp").textContent = `${pm} 月（奇數月）的餘額已併入 ${M} 月。溢繳折抵下一期學費單；補繳併入學費單的餐費一起收。`;
+  const paired = isSettle(Y, M);
+  $("stlTitle").textContent = paired ? `${pm}～${M} 月結算` : `${M} 月結算`;
+  $("stlHelp").textContent = (paired ? `${pm} 月（奇數月）的餘額已併入 ${M} 月。` : "") + "溢繳折抵下一期學費單；補繳併入學費單的餐費一起收。（學費單批次建立時會自動帶入，這裡的「帶入學費單」是給已建立的草稿補帶用。）";
   const lab = v => v > 0 ? `<span style="color:var(--green)">溢 ${fmt(v)}</span>` : v < 0 ? `<span style="color:var(--rose)">補 ${fmt(-v)}</span>` : "";
   $("stlBody").innerHTML = STL.length ? STL.map(({ s, c }) => `<tr><td class="nm-c" style="position:static;cursor:default"><b>${esc(s.name)}</b><small>${esc(s.grade || "")}</small></td><td class="n">${lab(c.cin)}</td><td class="n">${lab(c.own)}</td><td class="n bal ${c.bal > 0 ? "pos" : c.bal < 0 ? "neg" : ""}">${c.bal > 0 ? "溢 " + fmt(c.bal) : c.bal < 0 ? "補 " + fmt(-c.bal) : "0"}</td><td style="text-align:left;padding:0 10px">${c.bal > 0 ? "溢繳折抵下月學費單" : c.bal < 0 ? "併入下月餐費，一起收" : "已結清"}</td></tr>`).join("") : `<tr><td colspan="5" class="empty" style="padding:24px">沒有需要處理的學生</td></tr>`;
   const ow = STL.filter(x => x.c.bal < 0), ov = STL.filter(x => x.c.bal > 0);
@@ -1213,7 +1215,7 @@ $("stlCopy").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText(t); toast("已複製補繳名單"); } catch (_) { toast("無法複製", true); }
 });
 $("stlPush").addEventListener("click", async () => {
-  const term = $("stlTerm").value, pm = prevYM(Y, M)[1], per = `${pm}～${M}月`;
+  const term = $("stlTerm").value, pm = prevYM(Y, M)[1], per = isSettle(Y, M) ? `${pm}～${M}月` : `${M}月`;
   if (!term) return;
   const rows = STL.filter(x => x.c.bal !== 0 || true).map(x => ({ student_id: x.s.id, credit: Math.max(0, x.c.bal), short: Math.max(0, -x.c.bal), period: per }));
   if (!confirm(`要把 ${per} 的結算（${rows.filter(r => r.credit).length} 位溢繳、${rows.filter(r => r.short).length} 位補繳）帶入「${$("stlTerm").selectedOptions[0].textContent}」的草稿學費單嗎？`)) return;
