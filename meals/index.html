@@ -187,7 +187,7 @@
   .mi.dirty { border-color: var(--blue); background: #F0F7FF; }
   .mt tfoot td, .mt tfoot th { position: sticky; background: #F8FAFC; font-weight: 700; z-index: 2; border-top: 1px solid var(--line); }
   .mt tfoot th { left: 0; z-index: 3; text-align: left; padding: 0 10px; box-shadow: 1px 0 0 var(--line); }
-  .mt tfoot input.di { width: 28px; min-height: 26px; border: 1px solid #D5DEEA; border-radius: 6px; text-align: center; font-size: 12.5px; padding: 0; margin: 2px 0; background: #fff; }
+  .mt tfoot input.di { width: 29px; padding: 0; font-size: 11.5px; min-height: 26px; border: 1px solid #D5DEEA; border-radius: 6px; text-align: center; font-size: 12.5px; padding: 0; margin: 2px 0; background: #fff; }
   .mt tfoot td { height: 32px; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
   .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 4px; border: 1px solid var(--line-2); }
@@ -307,7 +307,6 @@
       <span style="flex:1"></span>
       <button type="button" class="btn edit-only" id="addBtn">加入學生</button>
       <button type="button" class="btn edit-only" id="fillBtn">依用餐星期自動填入</button>
-      <button type="button" class="btn edit-only" id="carryBtn">帶入上月結餘</button>
       <button type="button" class="btn admin-only" id="setBtn">小卡設定</button>
     </div>
     <div class="sums" id="sums"></div>
@@ -338,10 +337,7 @@
       <label class="field">學生備註<textarea id="stNote" rows="2" placeholder="例如：週三不訂、對海鮮過敏…"></textarea></label>
       <hr style="border:0;border-top:1px solid var(--line);width:100%;margin:0">
       <div class="help" id="stMonthTitle" style="font-weight:700"></div>
-      <div class="grid2">
-        <label class="field">假日加強／考操（元）<input type="text" inputmode="numeric" id="stExtra"></label>
-        <label class="field">上月結餘（溢繳＋、欠繳−）<input type="text" inputmode="numeric" id="stCarry"></label>
-      </div>
+      <label class="field">假日加強／考操（元）<input type="text" inputmode="numeric" id="stExtra"></label>
       <label class="field">加強說明（顯示在小卡）<input type="text" id="stExtraNote" placeholder="例如：假日考操"></label>
       <label class="field">本月備註（顯示在小卡）<input type="text" id="stLNote"></label>
       <p class="err hidden" id="stErr"></p>
@@ -435,7 +431,7 @@
     </div>
     <div class="mbar edit-only" style="justify-content:center">
       <label class="pricebox">臨時加餐 <input type="text" inputmode="numeric" id="dayExtra" style="width:56px"> 份</label>
-      <label class="pricebox">老師 <input type="text" inputmode="numeric" id="dayTeach" style="width:56px"> 份</label>
+      <label class="pricebox">老師餐費 <input type="text" inputmode="numeric" id="dayTeach" style="width:70px"> 元（實際金額，不計入份數）</label>
       <label class="pricebox">備註 <input type="text" id="dayNote" style="width:150px;min-height:40px;border:1px solid #D5DEEA;border-radius:10px;padding:0 8px"></label>
       <button type="button" class="btn sm" id="daySave">儲存份數</button>
     </div>
@@ -588,15 +584,15 @@ function calcStu(sid, y, m) {
   const ym = ymOf(y, m); let cnt = 0;
   for (let d = 1, n = dim(y, m); d <= n; d++) cnt += ORD.get(sid + "|" + dateKey(y, m, d)) || 0;
   const L = LEDGER.get(sid + "|" + ym) || {};
-  const price = priceOf(y, m), paid = L.paid || 0, extra = L.extra || 0, carry = L.carry || 0;
+  const price = priceOf(y, m), paid = L.paid || 0, extra = L.extra || 0;
   const amount = cnt * price;
-  return { cnt, price, amount, paid, extra, carry, extra_note: L.extra_note || "", note: L.note || "", bal: carry + paid - amount - extra };
+  return { cnt, price, amount, paid, extra, extra_note: L.extra_note || "", note: L.note || "", bal: paid - amount - extra };
 }
 function monthRows() {
   const ym = ymOf(Y, M), ids = new Set();
   MS.forEach((ms, id) => { if (ms.active) ids.add(id); });
   ORD.forEach((q, k) => { if (q > 0 && k.indexOf("|" + ym + "-") > 0) ids.add(k.split("|")[0]); });
-  LEDGER.forEach((L, k) => { if (L.ym === ym && (L.paid || L.extra || L.carry)) ids.add(L.student_id); });
+  LEDGER.forEach((L, k) => { if (L.ym === ym && (L.paid || L.extra)) ids.add(L.student_id); });
   return [...ids].map(id => RMAP.get(id)).filter(Boolean).sort(cmpStu);
 }
 
@@ -668,7 +664,7 @@ function rowHtml(s) {
   const inp = (k, v) => CAN_EDIT ? `<input class="mi" data-k="${k}" inputmode="numeric" value="${v ? v : ""}" aria-label="${k}">` : `<span>${v ? fmt(v) : ""}</span>`;
   return `<tr data-sid="${esc(s.id)}"><td class="nm-c" data-open="${esc(s.id)}"><b>${esc(s.name)}</b><small>${esc(s.grade || "")}</small></td>${cells}
     <td class="n" data-f="cnt"></td><td class="n amt" data-f="amount"></td>
-    <td class="n">${inp("extra", L.extra)}</td><td class="n">${inp("carry", L.carry)}</td><td class="n">${inp("paid", L.paid)}</td>
+    <td class="n">${inp("extra", L.extra)}</td><td class="n">${inp("paid", L.paid)}</td>
     <td class="n bal" data-f="bal"></td></tr>`;
 }
 function render() {
@@ -679,13 +675,13 @@ function render() {
     const dk = dateKey(Y, M, d), dow = new Date(Y, M - 1, d).getDay();
     th += `<th class="${(dow === 0 || dow === 6) ? "we" : ""} ${HOL.has(dk) ? "hol" : ""}" title="${esc(HOL.get(dk) || "")}">${d}<small>${WD[dow]}</small></th>`;
   }
-  th += `<th>次數</th><th>餐費</th><th>假日加強</th><th>上月結餘</th><th>已繳</th><th>溢繳／補繳</th>`;
+  th += `<th>次數</th><th>餐費</th><th>假日加強</th><th>已繳</th><th>溢繳／補繳</th>`;
   const day = (f, lbl, cls) => { let t = `<th>${lbl}</th>`; for (let d = 1; d <= n; d++) t += f(d); return t; };
   const dayIn = k => d => { const r = MDAYS.get(dateKey(Y, M, d)) || {}; const v = r[k] || 0; return `<td>${CAN_EDIT ? `<input class="di" data-dd="${d}" data-k="${k}" inputmode="numeric" value="${v || ""}" aria-label="${k} ${d}">` : (v || "")}</td>`; };
-  const foot = `<tr>${day(d => `<td data-sum="${d}"></td>`, "學生小計")}<td colspan="6" data-tot="stu"></td></tr>
-    <tr>${day(dayIn("extra"), "臨時")}<td colspan="6"></td></tr>
-    <tr>${day(dayIn("teachers"), "老師")}<td colspan="6"></td></tr>
-    <tr>${day(d => `<td data-all="${d}"></td>`, "合計份數")}<td colspan="6" data-tot="all"></td></tr>`;
+  const foot = `<tr>${day(d => `<td data-sum="${d}"></td>`, "學生小計")}<td colspan="5" data-tot="stu"></td></tr>
+    <tr>${day(dayIn("extra"), "臨時")}<td colspan="5"></td></tr>
+    <tr>${day(dayIn("teachers"), "老師($)")}<td colspan="5" data-tot="tea"></td></tr>
+    <tr>${day(d => `<td data-all="${d}"></td>`, "合計份數")}<td colspan="5" data-tot="all"></td></tr>`;
   $("grid").className = "mt" + (CAN_EDIT ? "" : " ro");
   $("grid").innerHTML = `<thead><tr>${th}</tr></thead><tbody>${rows.length ? rows.map(rowHtml).join("") : `<tr><td class="empty" style="padding:36px" colspan="${n + 7}">${q ? "找不到符合的學生" : "這個月還沒有學生，請先「加入學生」"}</td></tr>`}</tbody><tfoot>${foot}</tfoot>`;
   $("price").value = priceOf(Y, M);
@@ -698,7 +694,7 @@ function updateRow(tr) {
   tr.querySelector('[data-f="cnt"]').textContent = c.cnt || "";
   tr.querySelector('[data-f="amount"]').textContent = c.amount ? fmt(c.amount) : "";
   const b = tr.querySelector('[data-f="bal"]');
-  const has = c.cnt || c.paid || c.extra || c.carry;
+  const has = c.cnt || c.paid || c.extra;
   b.className = "n bal" + (has ? (c.bal > 0 ? " pos" : c.bal < 0 ? " neg" : "") : "");
   b.textContent = !has ? "" : c.bal > 0 ? "溢 " + fmt(c.bal) : c.bal < 0 ? "補 " + fmt(-c.bal) : "0";
   tr.querySelectorAll("td.c").forEach(td => {
@@ -710,16 +706,17 @@ function updateRow(tr) {
 }
 function updateFoot() {
   const n = dim(Y, M), rowsIds = [...$("grid").querySelectorAll("tbody tr[data-sid]")].map(t => t.dataset.sid);
-  let stuTot = 0, allTot = 0;
+  let stuTot = 0, allTot = 0, teaTot = 0;
   for (let d = 1; d <= n; d++) {
     const dk = dateKey(Y, M, d); let s = 0;
     rowsIds.forEach(id => { s += ORD.get(id + "|" + dk) || 0; });
-    const r = MDAYS.get(dk) || {}, all = s + (r.extra || 0) + (r.teachers || 0);
+    const r = MDAYS.get(dk) || {}, all = s + (r.extra || 0);
     const a = $("grid").querySelector(`[data-sum="${d}"]`), b = $("grid").querySelector(`[data-all="${d}"]`);
     if (a) a.textContent = s || ""; if (b) b.textContent = all || "";
-    stuTot += s; allTot += all;
+    stuTot += s; allTot += all; teaTot += r.teachers || 0;
   }
   const t1 = $("grid").querySelector('[data-tot="stu"]'), t2 = $("grid").querySelector('[data-tot="all"]');
+  const t3 = $("grid").querySelector('[data-tot="tea"]'); if (t3) t3.textContent = `老師餐費共 $${fmt(teaTot)}`;
   if (t1) t1.textContent = `學生共 ${stuTot} 份`; if (t2) t2.textContent = `全月共 ${allTot} 份`;
   // 摘要
   let amt = 0, paid = 0, owe = 0, over = 0, oweN = 0;
@@ -781,7 +778,7 @@ function openStudent(sid) {
   wdChecks($("stWd"), (ms.weekdays || []).map(Number));
   $("stActive").checked = ms.active !== false; $("stNote").value = ms.note || "";
   $("stMonthTitle").textContent = `${rocLabel(Y, M)} 對帳資料`;
-  $("stExtra").value = L.extra || ""; $("stCarry").value = L.carry || ""; $("stExtraNote").value = L.extra_note || ""; $("stLNote").value = L.note || "";
+  $("stExtra").value = L.extra || ""; $("stExtraNote").value = L.extra_note || ""; $("stLNote").value = L.note || "";
   $("stErr").classList.add("hidden");
   const t = new Date(), today = dateKey(t.getFullYear(), t.getMonth() + 1, t.getDate());
   $("stEff").min = today; $("stEff").value = today; $("stEffBox").classList.add("hidden");
@@ -807,7 +804,7 @@ $("stForm").addEventListener("submit", async e => {
       await loadBase(); await loadMonth();
       toast(`已從 ${$("stEff").value} 起改用新的星期，調整了 ${n} 格`);
     }
-    await saveLedger(stuId, { extra: num($("stExtra").value), carry: num($("stCarry").value), extra_note: $("stExtraNote").value.trim(), note: $("stLNote").value.trim() });
+    await saveLedger(stuId, { extra: num($("stExtra").value), extra_note: $("stExtraNote").value.trim(), note: $("stLNote").value.trim() });
     $("stDlg").close(); render(); if (!$("toast").textContent.startsWith("已從")) toast("已儲存");
   } catch (ex) { $("stErr").textContent = friendly(ex); $("stErr").classList.remove("hidden"); }
   finally { busy(false); }
@@ -873,23 +870,6 @@ $("fillForm").addEventListener("submit", async e => {
   finally { busy(false); }
 });
 
-/* ---------- 帶入上月結餘 ---------- */
-async function carryOver() {
-  const [py, pm] = prevYM(Y, M);
-  const ids = monthRows().map(s => s.id).filter(id => {
-    const L = LEDGER.get(id + "|" + ymOf(Y, M)) || {};
-    if (L.carry) return false;
-    const c = calcStu(id, py, pm);
-    return c.cnt || c.paid || c.extra || c.carry;
-  });
-  const todo = ids.map(id => ({ id, bal: calcStu(id, py, pm).bal })).filter(x => x.bal !== 0);
-  if (!todo.length) return toast("沒有需要帶入的結餘（上月都已結清，或本月已填過）");
-  if (!confirm(`將把 ${rocLabel(py, pm)} 的溢繳／欠繳帶入本月「上月結餘」，共 ${todo.length} 位。\n\n注意：舊 Excel 的「繳費紀錄」已含退補上個月，所以只在上月是在這裡記錄的情況下使用，以免重複計算。要繼續嗎？`)) return;
-  busy(true);
-  try { for (const x of todo) await saveLedger(x.id, { carry: x.bal }); render(); toast(`已帶入 ${todo.length} 位`); }
-  catch (_) { /* 已提示 */ } finally { busy(false); }
-}
-
 /* ---------- 小卡共用 ---------- */
 function cardHead(sub) {
   return `<div class="hd"><div class="lg"><img src="../logo-full.jpg" alt=""></div><div class="tt"><b>基翔文理</b><span>${esc(sub)}</span></div></div>`;
@@ -906,7 +886,6 @@ function monthCardHtml(sid) {
   const row = (l, v, sm) => `<div class="r"><span>${l}${sm ? ` <small>${esc(sm)}</small>` : ""}</span><b>${v}</b></div>`;
   let rows = row(`訂餐 ${c.cnt} 次 × ${fmt(c.price)}`, "$" + fmt(c.amount));
   if (c.extra) rows += row("假日加強", "$" + fmt(c.extra), c.extra_note);
-  if (c.carry) rows += row("上月結餘", (c.carry > 0 ? "+" : "-") + "$" + fmt(Math.abs(c.carry)), c.carry > 0 ? "溢繳" : "欠繳");
   rows += row("本月已繳", "$" + fmt(c.paid));
   const cls = c.bal > 0 ? "pos" : c.bal < 0 ? "neg" : "";
   const res = c.bal > 0 ? `<span>溢繳（可折抵下月）</span><b>$${fmt(c.bal)}</b>` : c.bal < 0 ? `<span>本月尚需補繳</span><b>$${fmt(-c.bal)}</b>` : `<span>本月結算</span><b>已結清</b>`;
@@ -929,8 +908,9 @@ function dayCardHtml(dk) {
     <div class="dt">${mm} 月 ${dd} 日（週${WD[dow]}）<small>${hol ? "放假／停課：" + esc(hol) : `學生 ${names.length} 人`}</small></div>
     <div class="names">${body}</div>
     <div class="cnt"><span>學生</span><b>${stu} 份</b></div>
-    ${ex ? `<div class="cnt"><span>臨時加餐</span><b>${ex} 份</b></div>` : ""}${te ? `<div class="cnt"><span>老師</span><b>${te} 份</b></div>` : ""}
-    <div class="cnt tot"><span>合計</span><b>${stu + ex + te} 份</b></div>
+    ${ex ? `<div class="cnt"><span>臨時加餐</span><b>${ex} 份</b></div>` : ""}
+    <div class="cnt tot"><span>合計</span><b>${stu + ex} 份</b></div>
+    ${te ? `<div class="cnt"><span>老師餐費（另計）</span><b>$${fmt(te)}</b></div>` : ""}
     ${r.note ? `<div class="nt">備註：${esc(r.note)}</div>` : ""}</div>`;
 }
 const blobOf = c => new Promise(r => c.toBlob(r, "image/png"));
@@ -1101,7 +1081,6 @@ $("monthCardBtn").addEventListener("click", openMonthCards);
 $("dayCardBtn").addEventListener("click", openDay);
 $("addBtn").addEventListener("click", openAdd);
 $("fillBtn").addEventListener("click", openFill);
-$("carryBtn").addEventListener("click", carryOver);
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
 $("logoutBtn").addEventListener("click", () => goPortal(""));
 
