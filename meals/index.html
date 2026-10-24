@@ -312,6 +312,7 @@
       <span style="flex:1"></span>
       <button type="button" class="btn edit-only" id="addBtn">加入學生</button>
       <button type="button" class="btn edit-only" id="fillBtn">依用餐星期自動填入</button>
+      <button type="button" class="btn edit-only" id="clearBtn" style="border-color:#BE123C;color:#BE123C">清空本月訂餐</button>
       <button type="button" class="btn admin-only" id="setBtn">小卡設定</button>
     </div>
     <div class="sums" id="sums"></div>
@@ -1175,6 +1176,16 @@ $("monSel").addEventListener("change", e => { const [y, m] = e.target.value.spli
 $("prevM").addEventListener("click", () => { const [y, m] = prevYM(Y, M); gotoMonth(y, m); });
 $("nextM").addEventListener("click", () => gotoMonth(M === 12 ? Y + 1 : Y, M === 12 ? 1 : M + 1));
 $("monthCardBtn").addEventListener("click", openMonthCards);
+$("clearBtn").addEventListener("click", async () => {
+  const ym = ymOf(Y, M); let n = 0;
+  ORD.forEach((q, k) => { if (q > 0 && k.indexOf("|" + ym + "-") > 0) n++; });
+  if (!n) return toast(`${rocLabel(Y, M)} 沒有訂餐紀錄可清空`);
+  if (!confirm(`要清空 ${rocLabel(Y, M)} 全部學生的訂餐嗎？\n\n共 ${n} 筆訂餐會歸零（已繳金額、假日加強、臨時份數、老師餐費不受影響）。\n清空後可再用「依用餐星期自動填入」重新帶入。`)) return;
+  busy(true);
+  try { const c = await rpc("meal_clear_month", { p_ym: ym }); await loadMonth(); render(); toast(`已清空 ${c} 筆訂餐`); }
+  catch (ex) { toast(friendly(ex), true); }
+  finally { busy(false); }
+});
 
 /* ---------- 兩個月結算 ---------- */
 let STL = [];
