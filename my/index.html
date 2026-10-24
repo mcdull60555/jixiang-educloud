@@ -97,6 +97,11 @@
   .payform input { width: 100%; border: 1px solid var(--line-2); border-radius: 10px; padding: 10px 12px; font-size: 16px; background: #fff; }
   .payform .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .payform .ferr { color: var(--rose); font-size: 13px; }
+  .payform .meth { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .payform .meth label.opt { display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--line-2); border-radius: 12px; padding: 11px 12px; font-size: 15px; font-weight: 700; color: var(--text); cursor: pointer; }
+  .payform .meth label.opt:has(input:checked) { border-color: var(--blue); background: #EFF6FF; color: var(--blue-d); }
+  .payform .meth input { width: auto; accent-color: var(--blue); }
+  .payform .cashhint { margin: 0; font-size: 13px; color: var(--muted-2); background: #F8FAFC; border-radius: 10px; padding: 9px 12px; line-height: 1.6; }
   #imgDlg img { display: block; max-width: 100%; max-height: calc(100vh - 140px); margin: 0 auto; }
   .btn { border: 1px solid var(--line-2); background: #fff; color: var(--text); border-radius: 12px; padding: 10px 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
   .btn:hover { background: #F8FAFC; }
@@ -202,7 +207,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・家長端 ·v1024-1500</div>
+<div class="test-tag">學務雲 測試版・家長端 ·v1024-1530</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -261,7 +266,7 @@ function amtText(it) {
   return fmt(it.amount);
 }
 const todayTW = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
-const METHOD = { transfer: "匯款", cash: "現金", other: "其他" };
+const METHOD = { transfer: "匯款轉帳", cash: "現金支付", other: "其他" };
 const paysOf = b => PAYS.filter(x => x.bill_id === b.id);
 function payInfo(b) {
   const ps = paysOf(b);
@@ -371,7 +376,7 @@ $("bPrint").addEventListener("click", () => {
 function histRow(x) {
   const stName = { pending: "待確認", confirmed: "已確認", rejected: "已退回" }[x.status];
   const stCls = { pending: "pending", confirmed: "paid", rejected: "rejected" }[x.status];
-  const via = x.source === "staff" ? `班上登記（${METHOD[x.method] || "其他"}）` : "家長回報";
+  const via = x.source === "staff" ? `班上登記（${METHOD[x.method] || "其他"}）` : `家長回報（${METHOD[x.method] || "其他"}）`;
   const meta = [`${fmtDate(x.paid_date)}`, via, x.last5 ? `末五碼 ${esc(x.last5)}` : ""].filter(Boolean).join("・");
   const canEdit = !VIEW_ONLY && x.status === "rejected" && x.source === "parent";
   return `<div class="hrow">
@@ -397,14 +402,22 @@ function renderPay() {
 }
 function formHtml(b, pi, ed) {
   const amt = ed ? ed.amount : (pi.remain || b.total);
+  const m = ed && ed.method === "cash" ? "cash" : "transfer";
   return `<form class="payform" id="payForm" novalidate>
     <b>${ed ? "修改後重送" : "回報已繳款"}</b>
-    <div class="row2">
-      <label>匯款日期<input type="date" id="pfDate" required value="${esc(ed ? ed.paid_date : todayTW())}" max="${todayTW()}"></label>
-      <label>匯款金額（元）<input type="number" id="pfAmt" required min="1" step="1" inputmode="numeric" value="${esc(amt)}"></label>
+    <div class="meth" role="radiogroup" aria-label="付款方式">
+      <label class="opt"><input type="radio" name="pfMethod" value="transfer" ${m === "transfer" ? "checked" : ""}>匯款轉帳</label>
+      <label class="opt"><input type="radio" name="pfMethod" value="cash" ${m === "cash" ? "checked" : ""}>現金支付</label>
     </div>
-    <label>匯款帳號末五碼<small>匯款明細上可以查到，班上用來對帳（必填）</small><input type="text" id="pfLast5" required maxlength="5" inputmode="numeric" pattern="[0-9]{5}" autocomplete="off" value="${esc(ed ? ed.last5 : "")}" placeholder="例如 12345"></label>
-    <label>匯款截圖（選填）<small>有的話對帳更快</small><input type="file" id="pfFile" accept="image/*"></label>
+    <div class="row2">
+      <label>付款日期<input type="date" id="pfDate" required value="${esc(ed ? ed.paid_date : todayTW())}" max="${todayTW()}"></label>
+      <label>付款金額（元）<input type="number" id="pfAmt" required min="1" step="1" inputmode="numeric" value="${esc(amt)}"></label>
+    </div>
+    <div id="pfTransfer" class="${m === "cash" ? "hidden" : ""}" style="display:grid;gap:10px">
+      <label>匯款帳號末五碼<small>匯款明細上可以查到，班上用來對帳（必填）</small><input type="text" id="pfLast5" maxlength="5" inputmode="numeric" pattern="[0-9]{5}" autocomplete="off" value="${esc(ed ? ed.last5 : "")}" placeholder="例如 12345"></label>
+      <label>匯款截圖（選填）<small>有的話對帳更快</small><input type="file" id="pfFile" accept="image/*"></label>
+    </div>
+    <p class="cashhint ${m === "cash" ? "" : "hidden"}" id="pfCash">請把現金交給班導師或櫃檯。送出後班上收到款項會確認，確認前狀態是「待確認」。</p>
     <label>備註（選填）<input type="text" id="pfNote" maxlength="100" value="${esc(ed ? ed.parent_note : "")}"></label>
     <div class="ferr hidden" id="pfErr" role="alert"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="pfCancel">取消</button><button type="submit" class="btn pri" id="pfSubmit">送出回報</button></div>
@@ -419,6 +432,13 @@ $("paySec").addEventListener("click", async e => {
   if (t.dataset.shot) { showShot(t.dataset.shot); }
 });
 $("paySec").addEventListener("submit", e => { e.preventDefault(); submitPay(); });
+$("paySec").addEventListener("change", e => {
+  if (!e.target.matches('input[name="pfMethod"]')) return;
+  const cash = e.target.value === "cash";
+  $("pfTransfer").classList.toggle("hidden", cash);
+  $("pfCash").classList.toggle("hidden", !cash);
+  payErr("");
+});
 
 async function showShot(path) {
   $("imgBox").className = "empty"; $("imgBox").textContent = "讀取中…";
@@ -448,7 +468,8 @@ function shrinkImage(file) {
 }
 function payErr(msg) { const e = $("pfErr"); e.textContent = msg; e.classList.toggle("hidden", !msg); }
 function friendlyPay(m) {
-  if (/last5 required/.test(m)) return "請輸入 5 碼數字的匯款帳號末五碼";
+  if (/last5 required/.test(m)) return "匯款轉帳要輸入 5 碼數字的匯款帳號末五碼";
+  if (/invalid method/.test(m)) return "請選擇匯款轉帳或現金支付";
   if (/invalid amount/.test(m)) return "金額要大於 0";
   if (/invalid date/.test(m)) return "匯款日期不正確（不能是未來，也不能超過一年前）";
   if (/too many pending/.test(m)) return "已經有 5 筆待確認，請等班上確認後再回報";
@@ -462,23 +483,24 @@ function friendlyPay(m) {
 let submitting = false;
 async function submitPay() {
   if (submitting || VIEW_ONLY || !current) return;
-  const date = $("pfDate").value, amount = parseInt($("pfAmt").value, 10), last5 = $("pfLast5").value.trim();
-  if (!date) return payErr("請選擇匯款日期");
-  if (date > todayTW()) return payErr("匯款日期不能是未來");
-  if (!(amount > 0)) return payErr("請輸入匯款金額");
-  if (!/^[0-9]{5}$/.test(last5)) return payErr("請輸入 5 碼數字的匯款帳號末五碼");
+  const method = (document.querySelector('input[name="pfMethod"]:checked') || {}).value === "cash" ? "cash" : "transfer";
+  const date = $("pfDate").value, amount = parseInt($("pfAmt").value, 10), last5 = method === "transfer" ? $("pfLast5").value.trim() : "";
+  if (!date) return payErr("請選擇付款日期");
+  if (date > todayTW()) return payErr("付款日期不能是未來");
+  if (!(amount > 0)) return payErr("請輸入付款金額");
+  if (method === "transfer" && !/^[0-9]{5}$/.test(last5)) return payErr("匯款轉帳要輸入 5 碼數字的匯款帳號末五碼");
   payErr("");
   submitting = true; $("pfSubmit").disabled = true; busy(true);
   try {
     let path = null;
-    const f = $("pfFile").files[0];
+    const f = method === "transfer" ? $("pfFile").files[0] : null;
     if (f) {
       const blob = await shrinkImage(f);
       path = `${SID}/${current.id}_${Date.now()}.jpg`;
       const up = await sb.storage.from("fee-proofs").upload(path, blob, { contentType: "image/jpeg", upsert: false });
       if (up.error) throw up.error;
     }
-    const { error } = await sb.rpc("fee_report_payment", { p: { id: editPayId || undefined, bill_id: current.id, amount, paid_date: date, last5, note: $("pfNote").value.trim(), screenshot_path: path } });
+    const { error } = await sb.rpc("fee_report_payment", { p: { id: editPayId || undefined, bill_id: current.id, method, amount, paid_date: date, last5, note: $("pfNote").value.trim(), screenshot_path: path } });
     if (error) throw error;
     editPayId = null; delete $("paySec").dataset.open;
     await loadData();

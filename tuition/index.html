@@ -705,7 +705,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1024-1520</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1024-1530</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1532,7 +1532,7 @@ async function mealSelected() {
 $("mealSel").addEventListener("click", mealSelected);
 
 /* ---------- 繳款對帳（7b） ---------- */
-const METHOD = { transfer: "匯款", cash: "現金", other: "其他" };
+const METHOD = { transfer: "匯款轉帳", cash: "現金支付", other: "其他" };
 const todayTW = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 const paysOf = b => PAYS.filter(x => x.bill_id === b.id);
 function payInfo(b) {
@@ -1562,7 +1562,7 @@ function issuedSumHtml(list) {
 function histRow(x, withAct) {
   const stName = { pending: "待確認", confirmed: "已確認", rejected: "已退回" }[x.status];
   const stCls = { pending: "pending", confirmed: "paid", rejected: "rejected" }[x.status];
-  const via = x.source === "staff" ? `班上登記（${METHOD[x.method] || "其他"}）` : "家長回報";
+  const via = x.source === "staff" ? `班上登記（${METHOD[x.method] || "其他"}）` : `家長回報（${METHOD[x.method] || "其他"}）`;
   const meta = [fmtDate(x.paid_date), via, x.last5 ? `末五碼 ${esc(x.last5)}` : ""].filter(Boolean).join("・");
   const acts = [];
   if (x.screenshot_path) acts.push(`<button type="button" class="btn sm" data-pact="shot" data-path="${esc(x.screenshot_path)}">查看截圖</button>`);
@@ -1609,10 +1609,11 @@ function renderPending() {
       const b = BILLS.find(y => y.id === x.bill_id);
       const pi = b ? payInfo(b) : null;
       const diff = pi && x.amount !== pi.remain ? `<span class="hint">金額與尚欠（${fmt(pi.remain)}）不同，請核對</span>` : "";
-      const via = x.source === "staff" ? "班上登記" : "家長回報";
+      const via = (x.source === "staff" ? "班上登記" : "家長回報") + `（${METHOD[x.method] || "其他"}）`;
+      const cashHint = x.method === "cash" ? '<span class="hint">現金：請確認已收到款項再按確認</span>' : "";
       return `<div class="prow">
         <div class="p1"><span><b>${esc(b ? b.student_name : "（已刪除的單）")}</b> <span class="sub">${esc(b ? b.grade_text : "")}・${esc(b ? b.title : "")}</span></span><b>${fmt(x.amount)} 元</b></div>
-        <div class="p2">${fmtDate(x.paid_date)}・${via}${x.last5 ? `・末五碼 ${esc(x.last5)}` : ""}${pi ? `・應繳 ${fmt(pi.total)}／已確認 ${fmt(pi.paid)}／尚欠 ${fmt(pi.remain)}` : ""}${x.parent_note ? `<br>家長備註：${esc(x.parent_note)}` : ""} ${diff}</div>
+        <div class="p2">${fmtDate(x.paid_date)}・${via}${x.last5 ? `・末五碼 ${esc(x.last5)}` : ""}${pi ? `・應繳 ${fmt(pi.total)}／已確認 ${fmt(pi.paid)}／尚欠 ${fmt(pi.remain)}` : ""}${x.parent_note ? `<br>家長備註：${esc(x.parent_note)}` : ""} ${diff} ${cashHint}</div>
         <div class="p3">
           ${x.screenshot_path ? `<button type="button" class="btn sm" data-pact="shot" data-path="${esc(x.screenshot_path)}">查看截圖</button>` : ""}
           ${b ? `<button type="button" class="btn sm" data-pact="view" data-bill="${esc(b.id)}">看學費單</button>` : ""}
