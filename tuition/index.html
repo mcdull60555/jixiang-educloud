@@ -422,6 +422,8 @@
           <button type="button" class="btn sm" id="tplTerm" title="使用「梯次」設定裡的範本">這個梯次的範本</button>
           <button type="button" class="btn sm" id="addRow">＋ 加一列</button>
           <button type="button" class="btn sm" id="calcLeave" style="border-color:var(--blue);color:var(--blue)">計算請假折抵</button>
+          <button type="button" class="btn sm" id="calcMeal" style="border-color:#C2410C;color:#C2410C" title="預收 2 個月：預計次數 × 單價 × 2，不扣放假日（來自晚餐管理）">帶入晚餐餐費</button>
+          <input type="month" id="mealMonth" aria-label="餐費從哪個月開始" title="預收餐費的第一個月（共 2 個月）" style="width:150px;min-height:32px;border:1px solid #D5DEEA;border-radius:9px;padding:0 6px">
         </div>
         <div class="irows" id="irows"></div>
       </fieldset>
@@ -483,6 +485,11 @@
       <div id="batPlanOpts">
         <label class="field">帳單月份（要收哪個月的學費）<input type="month" id="batMonth"></label>
         <p class="help" style="margin:6px 0 0">月繳學生收當月；期繳學生只有在期繳的起始月才會出單。金額依價目表（看學生年級）和學生收費設定計算。沒設定收費的學生不會出現在名單。</p>
+      </div>
+      <div id="batMealOpts" class="checks">
+        <label><input type="checkbox" id="batMeal">自動帶入晚餐餐費（預收 2 個月，來自晚餐管理）</label>
+        <label class="field" style="flex-direction:row;align-items:center;gap:8px;font-weight:400">從哪個月開始<input type="month" id="batMealMonth" style="width:160px;min-height:36px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px"></label>
+        <p class="help" style="margin:0;flex-basis:100%">餐費 = 該月依「用餐星期」算出的預計次數 × 單價 × 2，不扣放假日；單上只顯示金額，不標次數。晚餐管理沒有訂餐的學生不加。多退少補在兩個月結算時處理。</p>
       </div>
       <div id="batLeaveOpts" class="checks">
         <label><input type="checkbox" id="batLeave">自動計入請假折抵（依雲點名請假紀錄）</label>
@@ -1001,6 +1008,7 @@ function openEdit(b) {
   $("bTerm").value = b && b.term_id && termOf(b.term_id) && termOf(b.term_id).active ? b.term_id : "";
   $("bTitle").value = b ? b.title : "學費單";
   $("bDue").value = b ? (b.due_date || "") : "";
+  $("mealMonth").value = nextMonthOf($("bDue").value);
   $("bAcct").value = b ? (b.account_id || "") : "";
   $("bNote").value = b ? b.note : "";
   $("irows").innerHTML = "";
@@ -1125,6 +1133,32 @@ function nextInQueue(id) {
 }
 const keyOf = b => b.student_id || ("n:" + b.student_name);
 let batCands = [];                    // 候選學生 [{key, name, grade, dept, sub, src(bill) | stu(student), exists}]
+function nextMonthOf(dateStr) {
+  const d = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+  const n = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0");
+}
+let MEALEST = null;
+async function mealEstimate(month) {
+  const rows = await rpc("meal_estimate_fee", { p_from: month + "-01", p_months: 2 });
+  return new Map((rows || []).map(r => [r.student_id, r]));
+}
+function setMealRow(items, amount) {
+  const it = items.find(x => x.item_type === "meal");
+  if (it) { it.amount = amount; it.counted = true; } else items.push({ item_type: "meal", label: typeOf("meal").name, amount, counted: true, period_text: "", note: "" });
+}
+async function openMeal() {
+  if (!editStudentId) return toast("這位學生不在名冊裡，抓不到晚餐管理的訂餐設定，請手動輸入", true);
+  const m = $("mealMonth").value; if (!m) return toast("請先選預收餐費的第一個月", true);
+  try {
+    const mp = await mealEstimate(m), e = mp.get(editStudentId);
+    if (!e || !(e.amount > 0)) return toast("這位學生在晚餐管理沒有訂餐設定（或預計次數為 0）", true);
+    const row = [...$("irows").querySelectorAll(".irow")].find(r => r.querySelector(".it").value === "meal");
+    if (row) { row.querySelector(".ia").value = e.amount; row.querySelector(".ic").checked = true; }
+    else addRow({ item_type: "meal", label: typeOf("meal").name, amount: e.amount, counted: true, period_text: "" });
+    calcTotal(); toast(`已帶入餐費 ${fmt(e.amount)} 元（預收 2 個月，可再手動調整）`);
+  } catch (ex) { toast(friendly(ex), true); }
+}
 function batMode() { return document.querySelector('input[name="batMode"]:checked').value; }
 function itemSummary(b) { return sortedItems(b).filter(i => !isBlank(i)).map(i => `${i.label}${i.amount ? " " + fmt(i.amount) : ""}`).join("、"); }
 function openBatch() {
@@ -1135,7 +1169,7 @@ function openBatch() {
   $("batDept").innerHTML = '<option value="">全部部別</option>' + depts.map(d => `<option>${esc(d)}</option>`).join("");
   document.querySelector('input[name="batMode"][value="plan"]').checked = true;
   $("batQ").value = ""; $("batPeriod").value = ""; $("batErr").classList.add("hidden");
-  $("batLeave").checked = false;
+  $("batLeave").checked = false; $("batMeal").checked = false;
   batModeChanged();
   $("batDlg").showModal();
 }
@@ -1152,6 +1186,7 @@ function batTermChanged() {
   $("batDue").value = t && t.due_date ? t.due_date : "";
   $("batLeaveMonth").value = prevMonth($("batDue").value);
   $("batMonth").value = ($("batDue").value || new Date().toISOString().slice(0, 10)).slice(0, 7);
+  $("batMealMonth").value = nextMonthOf($("batDue").value);
 }
 function batModeChanged() {
   const m = batMode();
@@ -1246,6 +1281,7 @@ async function runBatch(e) {
   const o = { mode: batMode(), term: $("batTerm").value, title: $("batTitleIn").value.trim() || "學費單", due: $("batDue").value, period: $("batPeriod").value.trim(),
               clear: $("batClear").checked, drop: $("batDrop").checked, tpl: $("batTpl").value, tuiLabel: $("batTuiLabel").value.trim(),
               tuiAmt: parseInt($("batTuiAmt").value.replace(/[^\d]/g, ""), 10) || 0,
+              meal: $("batMeal").checked, mealMonth: $("batMealMonth").value,
               leave: batMode() !== "tpl" && $("batLeave").checked, leaveMonth: $("batLeaveMonth").value, month: $("batMonth").value };
   if (!o.term) return err("請選擇這一期（目標梯次）");
   const picked = batCands.filter(c => batChecked.has(c.key) && !c.exists);
@@ -1253,7 +1289,10 @@ async function runBatch(e) {
   if (o.mode === "copy" && !$("batSrc").value) return err("請選擇要複製哪一期");
   if (o.leave && !o.leaveMonth) return err("請選擇要計算哪個月的請假折抵");
   if (o.mode === "plan" && !o.month) return err("請選擇帳單月份");
+  if (o.meal && !o.mealMonth) return err("請選擇餐費從哪個月開始");
   batWarns = [];
+  let mealMap = null, mealMiss = 0;
+  if (o.meal) { try { mealMap = await mealEstimate(o.mealMonth); } catch (ex) { return err("讀不到晚餐管理的資料：" + friendly(ex)); } }
   if (!confirm(`要建立 ${picked.length} 張草稿嗎？建立後可以逐張微調，確認沒問題再一起發布。`)) return;
   busy(true);
   $("batGo").disabled = true;
@@ -1275,6 +1314,10 @@ async function runBatch(e) {
         }
       }
       delete payload._base;
+      if (mealMap && payload.student_id) {
+        const e = mealMap.get(payload.student_id);
+        if (e && e.amount > 0) setMealRow(payload.items, e.amount); else mealMiss++;
+      }
       const r = await rpc("fee_save_bill", { p: payload }); ok.push(r.id);
     } catch (ex) { fail.push(picked[i].name + "：" + friendly(ex)); }
   }
@@ -1288,7 +1331,7 @@ async function runBatch(e) {
     render();
   } finally { busy(false); $("batGo").disabled = false; $("batGo").textContent = "建立草稿"; }
   if (fail.length) alert(`成功 ${ok.length} 張，失敗 ${fail.length} 張：\n` + fail.join("\n"));
-  else toast(`已建立 ${ok.length} 張草稿` + (o.leave ? `，其中 ${rebated} 張有請假折抵` : "") + "，可逐張檢查後發布");
+  else toast(`已建立 ${ok.length} 張草稿` + (o.leave ? `，其中 ${rebated} 張有請假折抵` : "") + (o.meal ? `，已帶入晚餐餐費${mealMiss ? `（${mealMiss} 位沒有晚餐訂餐設定、未加）` : ""}` : "") + "，可逐張檢查後發布");
   if (batWarns.length) alert("價目表提醒（這些金額請檢查）：\n" + [...new Set(batWarns)].slice(0, 30).join("\n"));
   if (incomplete) alert("提醒：雲點名的點名紀錄只保留 40 天，這個月的請假資料可能不完整，請假折抵請人工確認。");
 }
@@ -1937,6 +1980,7 @@ $("bStudent").addEventListener("input", onStudentInput);
 $("bGrade").addEventListener("change", () => applyDept(deptOfGrade($("bGrade").value)));
 $("bTerm").addEventListener("change", onTermChange);
 $("calcLeave").addEventListener("click", openLeave);
+$("calcMeal").addEventListener("click", openMeal);
 $("tplTerm").addEventListener("click", applyTermTemplate);
 $("lvRun").addEventListener("click", runLeave);
 $("lvAdd").addEventListener("click", addLeaveRow);
