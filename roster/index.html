@@ -300,6 +300,17 @@
         <legend>收費設定 <span class="help">勾選上的班，並選月繳或期繳；批次建立學費單時會依此帶入</span></legend>
         <div id="sFee" style="display:flex;flex-direction:column;gap:8px"></div>
       </fieldset>
+      <fieldset id="sMealBox" class="hidden">
+        <legend>晚餐訂購 <span class="help">與「晚餐管理」同一份資料，在這裡或在晚餐管理改都會同步</span></legend>
+        <label class="sw" style="max-width:260px;margin-bottom:8px"><span>有訂晚餐</span><input type="checkbox" id="sMeal"></label>
+        <div id="sMealWrap" class="hidden">
+          <div class="checks" id="sMealWd"></div>
+          <div id="sMealEffBox" class="hidden" style="margin-top:8px">
+            <label class="field" style="max-width:260px">從哪一天開始用新的星期<input type="date" id="sMealEff"></label>
+            <p class="help">只從這天起（含）改變，這天以前的訂餐不動。</p>
+          </div>
+        </div>
+      </fieldset>
       <label class="field">備註<textarea id="sNote" maxlength="200" placeholder="例如：星期五下午家長接"></textarea></label>
       <p class="err hidden" id="sErr" role="alert"></p>
     </div>
@@ -398,6 +409,8 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&a
 
 let STUDENTS = [], SCHOOLS = [], CLASSES = [], editing = null;
 let PROGRAMS = [], ENROLLS = [];
+let MEALS = null;   // student_id -> {active, weekdays}；null＝晚餐資料表不可用
+const MEAL_WD = [1, 2, 3, 4, 5, 6, 7], MEAL_WD_NAME = "一二三四五六日";
 
 /* ---------- 共用 ---------- */
 function busy(on) { $("busy").classList.toggle("hidden", !on); }
@@ -464,6 +477,10 @@ async function load() {
     const [pg, en] = await Promise.all([sb.from("fee_programs").select("code,name,active,sort_order").order("sort_order"), sb.from("fee_enrollments").select("*")]);
     PROGRAMS = pg.error ? [] : (pg.data || []); ENROLLS = en.error ? [] : (en.data || []);
   } catch (_) { PROGRAMS = []; ENROLLS = []; }
+  try {
+    const ms = await sb.from("meal_students").select("student_id,weekdays,active");
+    MEALS = ms.error ? null : new Map((ms.data || []).map(r => [r.student_id, { active: r.active, weekdays: (r.weekdays || []).map(Number) }]));
+  } catch (_) { MEALS = null; }
   STUDENTS = st.data || [];
   SCHOOLS = (sc.data || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   CLASSES = (cl.data || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -643,10 +660,25 @@ function openEdit(s) {
       <input type="text" class="fe-a" inputmode="numeric" placeholder="個別月費" value="${e && e.amount != null ? e.amount : ""}" title="個別月費：留空＝依價目表" style="min-height:38px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px" aria-label="個別月費">
       <input type="text" class="fe-d" inputmode="numeric" placeholder="每月優惠" value="${e && e.discount ? e.discount : ""}" style="min-height:38px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px" aria-label="每月優惠"></div>`;
   }).join("");
+  const m = s && MEALS ? MEALS.get(s.id) : null;
+  $("sMealBox").classList.toggle("hidden", !MEALS);
+  $("sMeal").checked = !!(m && m.active);
+  $("sMealWd").innerHTML = MEAL_WD.map(n => `<label><input type="checkbox" value="${n}" ${((m && m.weekdays) || [1, 2, 3, 4, 5]).includes(n) ? "checked" : ""}>${MEAL_WD_NAME[n - 1]}</label>`).join("");
+  const tt = new Date(); $("sMealEff").min = $("sMealEff").value = `${tt.getFullYear()}-${String(tt.getMonth() + 1).padStart(2, "0")}-${String(tt.getDate()).padStart(2, "0")}`;
+  syncMealUi();
   $("sErr").classList.add("hidden");
   $("sDlg").showModal();
   $("sName").focus();
 }
+const mealWd = () => [...$("sMealWd").querySelectorAll("input:checked")].map(i => +i.value);
+function syncMealUi() {
+  const m = editing && MEALS ? MEALS.get(editing.id) : null, on = $("sMeal").checked;
+  $("sMealWrap").classList.toggle("hidden", !on);
+  const changed = !!(m && m.active && on && m.weekdays.slice().sort().join() !== mealWd().sort().join());
+  $("sMealEffBox").classList.toggle("hidden", !changed);
+}
+$("sMeal").addEventListener("change", syncMealUi);
+$("sMealWd").addEventListener("change", syncMealUi);
 async function saveStudent(e) {
   e.preventDefault();
   const err = m => { $("sErr").textContent = m; $("sErr").classList.remove("hidden"); $("sErr").scrollIntoView({ block: "nearest" }); };
@@ -681,7 +713,7 @@ async function saveStudent(e) {
   try {
     const res = await rpc("admin_save_student", { p: payload });
     const sid = editing ? editing.id : (res && res.id);
-    let feeWarn = false;
+    let feeWarn = false, mealWarn = false;
     if (sid && !$("sFeeBox").classList.contains("hidden")) {
       const rows = [];
       $("sFee").querySelectorAll(".feerow").forEach(r => {
@@ -692,9 +724,24 @@ async function saveStudent(e) {
       });
       if (rows.length) { const { error } = await sb.from("fee_enrollments").upsert(rows, { onConflict: "student_id,program_code" }); if (error) feeWarn = true; }
     }
+    if (sid && MEALS && !$("sMealBox").classList.contains("hidden")) {
+      try {
+        const old = MEALS.get(sid), on = $("sMeal").checked, wd = mealWd();
+        if (on && !wd.length) throw new Error("晚餐請至少選一個星期");
+        if (on && !(old && old.active)) {
+          await rpc("meal_save_student", { p: { student_id: sid, weekdays: wd, active: true, note: "" } });
+          if (old && old.weekdays.slice().sort().join() !== wd.slice().sort().join()) await rpc("meal_set_schedule", { p_student: sid, p_from: $("sMealEff").value, p_weekdays: wd });
+        } else if (on) {
+          if (old.weekdays.slice().sort().join() !== wd.slice().sort().join()) await rpc("meal_set_schedule", { p_student: sid, p_from: $("sMealEff").value, p_weekdays: wd });
+        } else if (old && old.active) {
+          await rpc("meal_save_student", { p: { student_id: sid, weekdays: old.weekdays, active: false, note: "" } });
+        }
+      } catch (_) { feeWarn = true; mealWarn = true; }
+    }
     $("sDlg").close();
     const code = res && res.account_code;
-    if (feeWarn) alert("學生資料已儲存，但收費設定沒有存成功（可能沒有權限或資料表尚未建立）。");
+    if (mealWarn) alert("學生資料已儲存，但晚餐設定沒有存成功（可能沒有權限、日期早於今天，或晚餐資料表尚未建立）。");
+    if (feeWarn && !mealWarn) alert("學生資料已儲存，但收費設定沒有存成功（可能沒有權限或資料表尚未建立）。");
     toast(editing ? `已更新 ${name}` : `已新增 ${name}${code ? "，帳號 " + code : ""}${pinNeeded ? "，初始密碼 " + pin : ""}`);
     await load();
   } catch (ex) { err(friendly(ex)); } finally { busy(false); }
