@@ -656,7 +656,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1024-1440</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1024-1500</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1326,7 +1326,7 @@ function batPayload(c, o) {
   const t = termOf(o.term);
   const acct = ACCOUNTS.find(a => a.active && a.dept === (c.dept || "")) || null;
   if (o.mode === "plan") {
-    const r = enrollItems(c.stu, o.month);
+    const r = enrollItems(c.stu, o.month, o.meal);   // 餐費金額由晚餐管理帶入，不用價目表
     batWarns.push(...r.warns);
     return { student_id: c.stu.id, student_name: c.stu.name, grade_text: c.stu.grade, dept: c.dept, term_id: o.term, title: o.title,
              due_date: o.due || null, account_id: acct ? acct.id : null, note: "", status: "draft", items: r.items, _base: r.base };
@@ -1659,7 +1659,7 @@ function enrollSummary(sid) {
   return enrollsOf(sid).map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `${p.name}（${e.amount != null ? fmt(e.amount) + "・" : ""}${billingName(e.billing)}${e.discount ? "，優惠 " + fmt(e.discount) + "/月" : ""}）`; }).join("、");
 }
 // 依學生的收費設定，算出某個月份要收的明細
-function enrollItems(stu, ym) {
+function enrollItems(stu, ym, mealAuto) {
   const [Y, M] = ym.split("-").map(Number);
   const items = [], warns = []; let base = 0;
   const discType = TYPES.some(t => t.code === "discount") ? "discount" : "other";
@@ -1676,7 +1676,7 @@ function enrollItems(stu, ym) {
       amount = pp != null ? pp : (mp != null ? mp * months : null);
       if (pp == null && mp != null && !own) warns.push(`${stu.name}　${p.name}：沒有期繳價，暫以月費 × ${months} 個月計算`);
     }
-    if (amount == null) { warns.push(`${stu.name}　${p.name}：價目表沒有「${stu.grade}」的${billingName(e.billing)}金額`); amount = 0; }
+    if (amount == null) { if (!(mealAuto && p.item_type === "meal")) warns.push(`${stu.name}　${p.name}：價目表沒有「${stu.grade}」的${billingName(e.billing)}金額`); amount = 0; }
     items.push({ item_type: p.item_type, label: p.name, amount, counted: true, period_text: period, note: "" });
     if (e.discount > 0 && amount > 0) items.push({ item_type: discType, label: `優惠折扣（${p.name}）`, amount: e.discount * months, counted: true, period_text: period, note: "" });
   });
