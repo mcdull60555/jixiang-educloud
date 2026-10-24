@@ -204,6 +204,15 @@
   .regform .r3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
   .regform label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #334155; }
   .regform input, .regform select { min-height: 36px; border: 1px solid #D5DEEA; border-radius: 9px; padding: 0 8px; font: inherit; background: #fff; }
+  .dun-bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
+  .dun-sum { font-size: 14px; color: var(--muted-2); margin: 0 0 8px; }
+  .dun-sum b { color: var(--text); font-size: 16px; }
+  .dun-row { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; display: grid; gap: 6px; }
+  .dun-row .d1 { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; }
+  .dun-row .d1 label { display: flex; gap: 8px; align-items: center; font-weight: 700; }
+  .dun-row .d2 { font-size: 13px; color: var(--muted-2); line-height: 1.7; }
+  .dun-row pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: inherit; font-size: 13px; background: #F8FAFC; border-radius: 10px; padding: 10px 12px; line-height: 1.7; }
+  .dun-tpl { width: 100%; min-height: 150px; border: 1px solid #D5DEEA; border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13.5px; line-height: 1.6; }
   #imgDlg img { display: block; max-width: 100%; max-height: calc(100vh - 160px); margin: 0 auto; }
   .sumbar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline; margin-top: 12px; font-size: 13.5px; color: var(--muted); }
   .sumbar b { color: var(--text); font-size: 16px; }
@@ -361,6 +370,7 @@
         <select class="sel" id="fPay" aria-label="繳款狀態">
           <option value="">全部繳款</option><option value="pending">待確認</option><option value="unpaid">未繳</option><option value="overdue">逾期</option><option value="partial">部分繳</option><option value="paid">已繳清</option>
         </select>
+        <button type="button" class="btn" id="dunBtn" style="border-color:var(--rose);color:var(--rose);font-weight:700" title="列出未繳、逾期的學生，一鍵複製催繳訊息">催繳名單</button>
         <button type="button" class="btn" id="printSel" disabled title="列印勾選的學費單">列印</button>
         <button type="button" class="btn hidden" id="issueSel" disabled title="發布勾選的草稿">發布草稿</button>
         <button type="button" class="btn hidden" id="editSel" disabled title="把勾選的學費單放在同一張表裡，一次修改收費項目、金額與期間">批次修改</button>
@@ -423,6 +433,28 @@
     <button type="button" class="btn hidden" id="pvIssue">發布</button>
     <button type="button" class="btn primary hidden" id="pvEdit">編輯</button>
   </div>
+</dialog>
+
+<!-- 催繳名單 -->
+<dialog id="dunDlg" class="wide" aria-labelledby="dunTitle">
+  <div class="dlg-head"><h3 id="dunTitle">催繳名單</h3><span class="help">只列「已發布」且還有欠款的學費單；沒有自動寄出，請複製後用 LINE 傳給家長</span></div>
+  <div class="dlg-body">
+    <div class="dun-bar">
+      <select class="sel" id="dunScope" aria-label="範圍"><option value="overdue">已逾期未繳</option><option value="all">所有欠款（含未到期）</option></select>
+      <select class="sel" id="dunGrade" aria-label="年級"></select>
+      <label class="tog"><input type="checkbox" id="dunPend">包含已回報、待確認的</label>
+      <button type="button" class="btn sm" id="dunAll">全選／取消</button>
+    </div>
+    <p class="dun-sum" id="dunSum"></p>
+    <div id="dunList"></div>
+    <details>
+      <summary style="cursor:pointer;font-weight:700;font-size:14px">編輯訊息範本</summary>
+      <p class="help" style="margin:6px 0">可用：{姓名} {年級} {明細} {合計} {匯款資訊}。範本只存在這台電腦的瀏覽器。</p>
+      <textarea class="dun-tpl" id="dunTpl"></textarea>
+      <button type="button" class="btn sm" id="dunTplReset" style="margin-top:6px">還原預設範本</button>
+    </details>
+  </div>
+  <div class="dlg-foot"><button type="button" class="btn" data-close>關閉</button><button type="button" class="btn" id="dunCopyList">複製欠款名單</button><button type="button" class="btn primary" id="dunCopyAll">複製選取的訊息</button></div>
 </dialog>
 
 <!-- 退回繳款：填原因 -->
@@ -705,7 +737,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1024-1530</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1024-1550</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1705,6 +1737,110 @@ $("pvPay").addEventListener("submit", async e => {
     toast(r.overpaid > 0 ? `已登記。多繳 ${fmt(r.overpaid)} 元，請在下一期學費單加「溢繳折抵」` : (r.paid_total >= r.total ? "已登記，這張學費單已繳清" : `已登記。還尚欠 ${fmt(r.total - r.paid_total)} 元`));
   } catch (ex) { err(payFriendly(ex)); }
   finally { busy(false); }
+});
+
+/* ---------- 催繳名單（7e） ---------- */
+const DUN_TPL_KEY = "jx-dun-tpl";
+const DUN_DEFAULT = `{姓名}家長您好，這裡是基翔文理。
+提醒您 {姓名}（{年級}）的以下學費尚未繳清：
+{明細}
+合計尚欠 {合計} 元。
+{匯款資訊}
+已繳款的話，請到學務雲「學費單」回報（匯款轉帳填末五碼；現金請交給班導師）。如已處理請忽略這則訊息，謝謝！`;
+function dunTpl() { try { return localStorage.getItem(DUN_TPL_KEY) || DUN_DEFAULT; } catch (_) { return DUN_DEFAULT; } }
+const GRADE_ORDER = ["大班", "一年級", "二年級", "三年級", "四年級", "五年級", "六年級", "國一", "國二", "國三", "高一", "高二", "高三"];
+const gradeRank = g => { const i = GRADE_ORDER.indexOf(g); return i < 0 ? 99 : i; };
+let DUN = [];       // 目前列出的學生（每位一筆）
+const DUN_SEL = new Set();
+const mdDate = d => { if (!d) return ""; const [, m, dd] = d.split("-"); return `${+m}/${+dd}`; };
+function daysLate(d) { return d ? Math.floor((Date.parse(todayTW()) - Date.parse(d)) / 864e5) : 0; }
+function buildDun() {
+  const scope = $("dunScope").value, grade = $("dunGrade").value, withPend = $("dunPend").checked, today = todayTW();
+  const map = new Map();
+  BILLS.filter(b => b.status === "issued").forEach(b => {
+    const pi = payInfo(b);
+    if (pi.remain <= 0) return;
+    if (pi.pend.length && !withPend) return;
+    const late = !!b.due_date && b.due_date < today;
+    if (scope === "overdue" && !late) return;
+    if (grade && b.grade_text !== grade) return;
+    const key = b.student_id || ("n:" + b.student_name);
+    if (!map.has(key)) map.set(key, { key, name: b.student_name, grade: b.grade_text, bills: [], owed: 0, pending: false });
+    const r = map.get(key);
+    r.bills.push({ b, pi, late });
+    r.owed += pi.remain;
+    if (pi.pend.length) r.pending = true;
+  });
+  DUN = [...map.values()].sort((a, c) => gradeRank(a.grade) - gradeRank(c.grade) || zh(a.name, c.name));
+  DUN.forEach(r => r.bills.sort((x, y) => String(x.b.due_date || "").localeCompare(String(y.b.due_date || ""))));
+}
+function dunMsg(r) {
+  const detail = r.bills.map(({ b, pi, late }) => `・${b.title || "學費單"}　尚欠 ${fmt(pi.remain)} 元${b.due_date ? `（繳費期限 ${mdDate(b.due_date)}${late ? `，已逾期 ${daysLate(b.due_date)} 天` : ""}）` : ""}`).join("\n");
+  const seen = new Set(), pays = [];
+  r.bills.forEach(({ b }) => { const a = acctOf(b.account_id); if (a && !seen.has(a.id)) { seen.add(a.id); pays.push(`${a.bank_name}${a.bank_code ? " " + a.bank_code : ""}　帳號 ${a.account_no}`); } });
+  const bank = pays.length ? "匯款資訊：" + pays.join("；") : "";
+  return dunTpl().replaceAll("{姓名}", r.name).replaceAll("{年級}", r.grade || "").replaceAll("{明細}", detail).replaceAll("{合計}", fmt(r.owed)).replaceAll("{匯款資訊}", bank).replace(/\n{3,}/g, "\n\n").trim();
+}
+function renderDun() {
+  buildDun();
+  const keep = new Set(DUN.map(r => r.key));
+  [...DUN_SEL].forEach(k => { if (!keep.has(k)) DUN_SEL.delete(k); });
+  const total = DUN.reduce((a, r) => a + r.owed, 0), nBill = DUN.reduce((a, r) => a + r.bills.length, 0);
+  $("dunSum").innerHTML = DUN.length ? `共 <b>${DUN.length}</b> 位學生、<b>${nBill}</b> 張單，尚欠合計 <b>${fmt(total)}</b> 元　已勾選 <b>${DUN_SEL.size}</b> 位` : "目前沒有符合條件的欠款。";
+  $("dunList").innerHTML = DUN.map(r => `<div class="dun-row" data-k="${esc(r.key)}">
+    <div class="d1"><label><input type="checkbox" data-dsel="${esc(r.key)}" ${DUN_SEL.has(r.key) ? "checked" : ""}>${esc(r.name)} <span class="sub">${esc(r.grade)}</span>${r.pending ? ' <span class="pay pending">有待確認</span>' : ""}</label><b>尚欠 ${fmt(r.owed)} 元</b></div>
+    <div class="d2">${r.bills.map(({ b, pi, late }) => `${esc(b.title || "學費單")}：尚欠 ${fmt(pi.remain)}／應繳 ${fmt(b.total)}${b.due_date ? `・期限 ${mdDate(b.due_date)}${late ? `<span style="color:var(--rose)">（逾期 ${daysLate(b.due_date)} 天）</span>` : ""}` : ""}`).join("<br>")}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm primary" data-dact="copy" data-k="${esc(r.key)}">複製訊息</button><button type="button" class="btn sm" data-dact="share" data-k="${esc(r.key)}">傳送</button><button type="button" class="btn sm" data-dact="prev" data-k="${esc(r.key)}">預覽</button></div>
+    <pre class="hidden" data-pv="${esc(r.key)}"></pre></div>`).join("");
+  $("dunCopyAll").disabled = !DUN_SEL.size;
+  $("dunCopyAll").textContent = DUN_SEL.size ? `複製選取的訊息（${DUN_SEL.size}）` : "複製選取的訊息";
+  $("dunCopyList").disabled = !DUN.length;
+}
+async function copyText(t, okMsg) {
+  try { await navigator.clipboard.writeText(t); toast(okMsg); }
+  catch (_) {
+    const ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); toast(okMsg); } catch (e) { toast("這個瀏覽器不能自動複製，請改用預覽自己選取複製", true); }
+    ta.remove();
+  }
+}
+function openDun() {
+  const grades = [...new Set(BILLS.filter(b => b.status === "issued").map(b => b.grade_text).filter(Boolean))].sort((a, c) => gradeRank(a) - gradeRank(c));
+  $("dunGrade").innerHTML = '<option value="">全部年級</option>' + grades.map(g => `<option>${esc(g)}</option>`).join("");
+  $("dunTpl").value = dunTpl();
+  DUN_SEL.clear();
+  buildDun(); DUN.forEach(r => DUN_SEL.add(r.key));
+  renderDun();
+  $("dunDlg").showModal();
+}
+$("dunBtn").addEventListener("click", openDun);
+["dunScope", "dunGrade", "dunPend"].forEach(id => $(id).addEventListener("change", () => { DUN_SEL.clear(); buildDun(); DUN.forEach(r => DUN_SEL.add(r.key)); renderDun(); }));
+$("dunAll").addEventListener("click", () => { if (DUN_SEL.size === DUN.length) DUN_SEL.clear(); else DUN.forEach(r => DUN_SEL.add(r.key)); renderDun(); });
+$("dunList").addEventListener("change", e => { const k = e.target.dataset.dsel; if (k == null) return; e.target.checked ? DUN_SEL.add(k) : DUN_SEL.delete(k); renderDun(); });
+$("dunList").addEventListener("click", async e => {
+  const t = e.target.closest("button[data-dact]"); if (!t) return;
+  const r = DUN.find(x => x.key === t.dataset.k); if (!r) return;
+  const msg = dunMsg(r);
+  if (t.dataset.dact === "copy") return copyText(msg, `已複製 ${r.name} 的催繳訊息，可貼到 LINE`);
+  if (t.dataset.dact === "share") {
+    if (navigator.share) { try { await navigator.share({ text: msg }); } catch (ex) { if (!ex || ex.name !== "AbortError") toast("傳送失敗，請改用複製", true); } }
+    else copyText(msg, "這個裝置不能直接傳送，已改為複製訊息");
+    return;
+  }
+  const pre = $("dunList").querySelector(`pre[data-pv="${CSS.escape(r.key)}"]`);
+  if (pre) { pre.textContent = msg; pre.classList.toggle("hidden"); }
+});
+$("dunTpl").addEventListener("input", () => { try { localStorage.setItem(DUN_TPL_KEY, $("dunTpl").value); } catch (_) { /* 忽略 */ } });
+$("dunTplReset").addEventListener("click", () => { try { localStorage.removeItem(DUN_TPL_KEY); } catch (_) {} $("dunTpl").value = DUN_DEFAULT; });
+$("dunCopyAll").addEventListener("click", () => {
+  const rows = DUN.filter(r => DUN_SEL.has(r.key));
+  if (!rows.length) return;
+  copyText(rows.map(r => `===== ${r.name}（${r.grade}）=====\n${dunMsg(r)}`).join("\n\n"), `已複製 ${rows.length} 位的催繳訊息`);
+});
+$("dunCopyList").addEventListener("click", () => {
+  if (!DUN.length) return;
+  const lines = DUN.map(r => `${r.name}（${r.grade}）尚欠 ${fmt(r.owed)} 元：` + r.bills.map(({ b, pi, late }) => `${b.title || "學費單"} ${fmt(pi.remain)}${late ? `（逾期${daysLate(b.due_date)}天）` : ""}`).join("、"));
+  copyText(`欠款名單（${todayTW()}，共 ${DUN.length} 位、${fmt(DUN.reduce((a, r) => a + r.owed, 0))} 元）\n` + lines.join("\n"), "已複製欠款名單");
 });
 
 /* ---------- 設定（管理員） ---------- */
