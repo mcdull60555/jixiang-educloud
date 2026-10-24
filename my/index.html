@@ -63,6 +63,10 @@
   .adminbar { background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; font-size: 14px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; align-items: center; }
   .adminbar .acts { display: flex; gap: 14px; }
   .adminbar a { color: #92400E; font-weight: 700; }
+  .pickbar { display: flex; gap: 8px; margin-bottom: 10px; }
+  .pickbar .search { margin-bottom: 0; }
+  .pickbar #pickQ { flex: 1; min-width: 0; }
+  .pickbar #pickG { width: 8.5em; flex: none; background: #fff; }
   .search { width: 100%; border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; font-size: 15px; margin-bottom: 10px; }
   .plist { border: 1px solid var(--line); border-radius: 12px; max-height: 56vh; overflow: auto; }
   .plist a { display: flex; justify-content: space-between; gap: 10px; padding: 11px 14px; color: inherit; text-decoration: none; border-bottom: 1px solid var(--line); }
@@ -136,7 +140,10 @@
 <main>
   <section class="panel hidden" id="pickPanel" aria-labelledby="pickTitle">
     <h2 id="pickTitle">選擇要檢視的學生</h2>
-    <input id="pickQ" class="search" type="search" placeholder="搜尋姓名、帳號、年級" autocomplete="off" aria-label="搜尋學生">
+    <div class="pickbar">
+      <input id="pickQ" class="search" type="search" placeholder="搜尋姓名、帳號、學校" autocomplete="off" aria-label="搜尋學生">
+      <select id="pickG" class="search" aria-label="年級篩選"></select>
+    </div>
     <div id="pickList" class="plist"></div>
     <p class="help">管理員專用：看到的畫面與家長相同（只有已發布的學費單），唯讀。</p>
   </section>
@@ -165,7 +172,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・家長端 ·v1024-1420</div>
+<div class="test-tag">學務雲 測試版・家長端 ·v1024-1430</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -309,20 +316,29 @@ $("bPrint").addEventListener("click", () => {
   setTimeout(() => window.print(), 60);
 });
 
-/* ---------- 管理員：選學生 ---------- */
+/* ---------- 管理員：選學生（低年級到高年級由上而下，可依年級篩選） ---------- */
+const GRADE_LIST = ["大班", "一年級", "二年級", "三年級", "四年級", "五年級", "六年級", "國一", "國二", "國三", "高一", "高二", "高三"];
+const gradeNo = g => { const i = GRADE_LIST.indexOf(g); return i < 0 ? 99 : i; };
+const zh = (a, b) => String(a || "").localeCompare(String(b || ""), "zh-Hant");
+const cmpStu = (a, b) => gradeNo(a.grade) - gradeNo(b.grade) || zh(a.school, b.school) || zh(a.name, b.name);
 function showPicker(all) {
   const rows = all.filter(s => s.active !== false);
+  const gs = GRADE_LIST.filter(g => rows.some(s => s.grade === g));
+  if (rows.some(s => gradeNo(s.grade) === 99)) gs.push("其他");
+  $("pickG").innerHTML = '<option value="">全部年級</option>' + gs.map(g => `<option>${esc(g)}</option>`).join("");
   $("who").textContent = "管理員檢視家長端";
   $("billPanel").classList.add("hidden");
   $("pickPanel").classList.remove("hidden");
   const draw = () => {
     const q = $("pickQ").value.trim().toLowerCase();
-    const hit = rows.filter(s => !q || `${s.name} ${s.account_code} ${s.grade} ${s.school}`.toLowerCase().includes(q));
+    const g = $("pickG").value;
+    const hit = rows.filter(s => (!g || (g === "其他" ? gradeNo(s.grade) === 99 : s.grade === g)) && (!q || `${s.name} ${s.account_code} ${s.grade} ${s.school}`.toLowerCase().includes(q)));
     $("pickList").innerHTML = hit.length
       ? hit.map(s => `<a href="?sid=${encodeURIComponent(s.id)}"><span>${esc(s.name)}</span><small>${esc([s.grade, s.account_code].filter(Boolean).join("・"))}</small></a>`).join("")
       : '<div class="empty">找不到符合的學生</div>';
   };
   $("pickQ").addEventListener("input", draw);
+  $("pickG").addEventListener("change", draw);
   draw();
 }
 
@@ -344,7 +360,7 @@ async function start() {
       const want = new URLSearchParams(location.search).get("sid") || "";
       const r = await sb.rpc("admin_list_students");
       if (r.error) throw r.error;
-      const all = (r.data || []).slice().sort((a, c) => String(a.account_code || "").localeCompare(String(c.account_code || "")));
+      const all = (r.data || []).slice().sort(cmpStu);
       const st = all.find(x => x.id === want);
       if (!st) { showPicker(all); return; }
       sid = st.id;
