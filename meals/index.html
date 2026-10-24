@@ -183,6 +183,8 @@
   .mt td.bal { font-weight: 700; min-width: 86px; }
   .mt td.bal.pos { color: var(--green); background: #F0FDF7; }
   .mt td.bal.neg { color: var(--rose); background: #FFF5F6; }
+  .wdb { border: 1px dashed var(--line-2); background: #fff; border-radius: 8px; min-height: 28px; padding: 0 8px; cursor: pointer; font-size: 13px; letter-spacing: 1px; color: var(--blue-d); font-weight: 700; }
+  .wdb:hover { background: var(--blue-l); }
   .mi { width: 66px; min-height: 30px; border: 1px solid #D5DEEA; border-radius: 7px; padding: 0 6px; font-size: 13px; text-align: right; background: #fff; font-variant-numeric: tabular-nums; margin: 2px 4px; }
   .mi.dirty { border-color: var(--blue); background: #F0F7FF; }
   .mt tfoot td, .mt tfoot th { position: sticky; background: #F8FAFC; font-weight: 700; z-index: 2; border-top: 1px solid var(--line); }
@@ -349,6 +351,20 @@
         <button type="submit" class="btn primary edit-only" id="stSave">儲存</button>
       </span>
     </div>
+  </form>
+</dialog>
+
+<!-- 快速修改用餐星期 -->
+<dialog id="wdDlg" class="narrow" aria-labelledby="wdTitle">
+  <form method="dialog" id="wdForm">
+    <div class="dlg-head"><h3 id="wdTitle">固定訂餐星期</h3></div>
+    <div class="dlg-body">
+      <div class="wdchecks" id="wdBoxes"></div>
+      <label class="field">從哪一天開始用新的星期<input type="date" id="wdEff"></label>
+      <p class="help">只從這天起（含）改變，這天以前的訂餐不動；之後已手動加訂或取消的日子會保留。學生名冊裡的晚餐設定會同步。</p>
+      <p class="err hidden" id="wdErr"></p>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn" data-close>取消</button><button type="submit" class="btn primary">儲存</button></div>
   </form>
 </dialog>
 
@@ -662,7 +678,7 @@ function rowHtml(s) {
   }
   const L = LEDGER.get(s.id + "|" + ymOf(Y, M)) || {};
   const inp = (k, v) => CAN_EDIT ? `<input class="mi" data-k="${k}" inputmode="numeric" value="${v ? v : ""}" aria-label="${k}">` : `<span>${v ? fmt(v) : ""}</span>`;
-  return `<tr data-sid="${esc(s.id)}"><td class="nm-c" data-open="${esc(s.id)}"><b>${esc(s.name)}</b><small>${esc(s.grade || "")}</small></td>${cells}
+  return `<tr data-sid="${esc(s.id)}"><td class="nm-c" data-open="${esc(s.id)}"><b>${esc(s.name)}</b><small>${esc(s.grade || "")}</small></td><td class="n">${wdBtn(s.id)}</td>${cells}
     <td class="n" data-f="cnt"></td><td class="n amt" data-f="amount"></td>
     <td class="n">${inp("extra", L.extra)}</td><td class="n">${inp("paid", L.paid)}</td>
     <td class="n bal" data-f="bal"></td></tr>`;
@@ -670,20 +686,20 @@ function rowHtml(s) {
 function render() {
   const n = dim(Y, M), q = $("q").value.trim().toLowerCase();
   const all = monthRows(), rows = all.filter(s => !q || (s.name + (s.grade || "")).toLowerCase().includes(q));
-  let th = `<th class="nm-c">姓名</th>`;
+  let th = `<th class="nm-c">姓名</th><th title="目前固定訂餐星期，點下去可直接修改">用餐星期</th>`;
   for (let d = 1; d <= n; d++) {
     const dk = dateKey(Y, M, d), dow = new Date(Y, M - 1, d).getDay();
     th += `<th class="${(dow === 0 || dow === 6) ? "we" : ""} ${HOL.has(dk) ? "hol" : ""}" title="${esc(HOL.get(dk) || "")}">${d}<small>${WD[dow]}</small></th>`;
   }
   th += `<th>次數</th><th>餐費</th><th>假日加強</th><th>已繳</th><th>溢繳／補繳</th>`;
-  const day = (f, lbl, cls) => { let t = `<th>${lbl}</th>`; for (let d = 1; d <= n; d++) t += f(d); return t; };
+  const day = (f, lbl, cls) => { let t = `<th>${lbl}</th><td></td>`; for (let d = 1; d <= n; d++) t += f(d); return t; };
   const dayIn = k => d => { const r = MDAYS.get(dateKey(Y, M, d)) || {}; const v = r[k] || 0; return `<td>${CAN_EDIT ? `<input class="di" data-dd="${d}" data-k="${k}" inputmode="numeric" value="${v || ""}" aria-label="${k} ${d}">` : (v || "")}</td>`; };
   const foot = `<tr>${day(d => `<td data-sum="${d}"></td>`, "學生小計")}<td colspan="5" data-tot="stu"></td></tr>
     <tr>${day(dayIn("extra"), "臨時")}<td colspan="5"></td></tr>
     <tr>${day(dayIn("teachers"), "老師($)")}<td colspan="5" data-tot="tea"></td></tr>
     <tr>${day(d => `<td data-all="${d}"></td>`, "合計份數")}<td colspan="5" data-tot="all"></td></tr>`;
   $("grid").className = "mt" + (CAN_EDIT ? "" : " ro");
-  $("grid").innerHTML = `<thead><tr>${th}</tr></thead><tbody>${rows.length ? rows.map(rowHtml).join("") : `<tr><td class="empty" style="padding:36px" colspan="${n + 7}">${q ? "找不到符合的學生" : "這個月還沒有學生，請先「加入學生」"}</td></tr>`}</tbody><tfoot>${foot}</tfoot>`;
+  $("grid").innerHTML = `<thead><tr>${th}</tr></thead><tbody>${rows.length ? rows.map(rowHtml).join("") : `<tr><td class="empty" style="padding:36px" colspan="${n + 8}">${q ? "找不到符合的學生" : "這個月還沒有學生，請先「加入學生」"}</td></tr>`}</tbody><tfoot>${foot}</tfoot>`;
   $("price").value = priceOf(Y, M);
   $("price").disabled = !CAN_EDIT;
   $("grid").querySelectorAll("tbody tr[data-sid]").forEach(updateRow);
@@ -769,6 +785,37 @@ function wdChecks(box, sel) {
   box.innerHTML = [1, 2, 3, 4, 5, 6, 7].map(n => `<label><input type="checkbox" value="${n}"${sel.includes(n) ? " checked" : ""}>${WD[n % 7]}</label>`).join("");
 }
 const wdValue = box => [...box.querySelectorAll("input:checked")].map(i => +i.value);
+function wdText(sid) {
+  const ms = MS.get(sid); if (!ms) return "";
+  return (ms.weekdays || []).map(Number).sort().map(n => WD[n % 7]).join("");
+}
+function wdBtn(sid) {
+  const t = wdText(sid), off = MS.get(sid) && MS.get(sid).active === false;
+  return CAN_EDIT ? `<button type="button" class="wdb" data-wd="${esc(sid)}" title="修改固定訂餐星期">${t ? "週" + esc(t) : "設定"}${off ? "（停）" : ""}</button>` : (t ? "週" + esc(t) : "");
+}
+let wdSid = null;
+function openWd(sid) {
+  const s = RMAP.get(sid); if (!s) return; wdSid = sid;
+  $("wdTitle").textContent = `${s.name} 的固定訂餐星期`;
+  wdChecks($("wdBoxes"), ((MS.get(sid) || {}).weekdays || [1, 2, 3, 4, 5]).map(Number));
+  const t = new Date(); $("wdEff").min = $("wdEff").value = dateKey(t.getFullYear(), t.getMonth() + 1, t.getDate());
+  $("wdErr").classList.add("hidden"); $("wdDlg").showModal();
+}
+$("wdForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const newW = wdValue($("wdBoxes")), oldW = ((MS.get(wdSid) || {}).weekdays || []).map(Number);
+  const fail = m => { $("wdErr").textContent = m; $("wdErr").classList.remove("hidden"); };
+  if (!newW.length) return fail("請至少選一個星期");
+  if (newW.slice().sort().join() === oldW.slice().sort().join()) return $("wdDlg").close();
+  if (!$("wdEff").value) return fail("請選擇從哪一天開始生效");
+  busy(true);
+  try {
+    if (!MS.has(wdSid)) await rpc("meal_save_student", { p: { student_id: wdSid, weekdays: oldW.length ? oldW : newW, active: true, note: "" } });
+    const n = await rpc("meal_set_schedule", { p_student: wdSid, p_from: $("wdEff").value, p_weekdays: newW });
+    await loadBase(); await loadMonth(); $("wdDlg").close(); render();
+    toast(`已從 ${$("wdEff").value} 起改用新的星期，調整了 ${n} 格`);
+  } catch (ex) { fail(friendly(ex)); } finally { busy(false); }
+});
 function openStudent(sid) {
   const s = RMAP.get(sid); if (!s) return;
   stuId = sid;
@@ -1051,6 +1098,7 @@ $("setForm").addEventListener("submit", async e => {
 /* ---------- 事件 ---------- */
 $("grid").addEventListener("click", e => {
   const td = e.target.closest("td.c"); if (td) return toggleCell(td);
+  const wb = e.target.closest("[data-wd]"); if (wb) return openWd(wb.dataset.wd);
   const nm = e.target.closest("[data-open]"); if (nm) openStudent(nm.dataset.open);
 });
 $("grid").addEventListener("keydown", e => {
