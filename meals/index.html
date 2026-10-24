@@ -691,7 +691,7 @@ async function reload() {
 /* ---------- 月份選單 ---------- */
 function buildMonthSelect() {
   const sel = $("monSel"), now = new Date();
-  let a = 2026 * 12 + 0, b = now.getFullYear() * 12 + now.getMonth() + 3;
+  let a = 2026 * 12 + 0, b = now.getFullYear() * 12 + now.getMonth() + 24;   // 往後 2 年
   MONTHS.forEach((_, k) => { const [yy, mm] = k.split("-").map(Number); a = Math.min(a, yy * 12 + mm - 1); b = Math.max(b, yy * 12 + mm - 1); });
   let h = "";
   for (let i = a; i <= b; i++) { const yy = Math.floor(i / 12), mm = i % 12 + 1; h += `<option value="${ymOf(yy, mm)}">${rocLabel(yy, mm)}</option>`; }
