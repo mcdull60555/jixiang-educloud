@@ -466,6 +466,25 @@
   </div>
   <div class="dlg-foot"><button type="button" class="btn" data-close>取消</button><button type="button" class="btn primary" id="rjOk" style="background:var(--rose);border-color:var(--rose)">退回</button></div>
 </dialog>
+<!-- 家長沒回報、已收到款：直接標記已收款 -->
+<dialog id="qpDlg" aria-labelledby="qpTitle" style="width:min(440px,calc(100vw - 24px))">
+  <div class="dlg-head"><h3 id="qpTitle">標記已收款</h3></div>
+  <div class="dlg-body">
+    <p class="help" style="margin:0" id="qpInfo"></p>
+    <p class="warn hidden" id="qpWarn" style="margin:0"></p>
+    <div class="regform" style="display:grid;gap:10px">
+      <div class="r3">
+        <label>收到金額（元）<input type="number" id="qpAmt" min="1" step="1"></label>
+        <label>收款日期<input type="date" id="qpDate"></label>
+        <label>方式<select id="qpMethod"><option value="transfer">匯款轉帳</option><option value="cash">現金</option><option value="other">其他</option></select></label>
+        <label>末五碼（選填）<input type="text" id="qpLast5" maxlength="5" inputmode="numeric" autocomplete="off"></label>
+      </div>
+      <label>備註（選填）<input type="text" id="qpNote" maxlength="100" autocomplete="off"></label>
+      <p class="err hidden" id="qpErr"></p>
+    </div>
+  </div>
+  <div class="dlg-foot"><button type="button" class="btn" data-close>取消</button><button type="button" class="btn primary" id="qpOk">確認已收款</button></div>
+</dialog>
 <dialog id="imgDlg" aria-label="匯款截圖">
   <div class="dlg-head"><h3>匯款截圖</h3></div>
   <div class="dlg-body"><div id="imgBox" class="empty">讀取中…</div></div>
@@ -737,7 +756,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1024-1550</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1024-1610</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -894,7 +913,7 @@ function render() {
       <td class="money">${fmt(b.total)}</td>
       <td><span class="pill ${b.status}">${STATUS[b.status]}</span></td>
       <td>${payChip(b)}</td>
-      <td><button type="button" class="btn sm" data-act="view" data-id="${esc(b.id)}">預覽</button></td>
+      <td style="white-space:nowrap"><button type="button" class="btn sm" data-act="view" data-id="${esc(b.id)}">預覽</button>${CAN_EDIT && b.status === "issued" && payInfo(b).remain > 0 ? ` <button type="button" class="btn sm" data-act="paid" data-id="${esc(b.id)}" style="color:var(--green,#0F7B4F);border-color:currentColor" title="家長沒回報但已收到款，直接標記已收款">已收款</button>` : ""}</td>
     </tr>`;
   }).join("") : `<tr><td colspan="9" class="empty">${BILLS.length ? "沒有符合條件的學費單" : "還沒有學費單" + (CAN_EDIT ? "，按右上「新增學費單」開始" : "")}</td></tr>`;
   $("printSel").disabled = !SELECTED.size;
@@ -1739,6 +1758,40 @@ $("pvPay").addEventListener("submit", async e => {
   finally { busy(false); }
 });
 
+/* ---------- 直接標記已收款（家長沒回報） ---------- */
+let qpBill = null;
+function openQuickPay(b) {
+  if (!CAN_EDIT) return;
+  const pi = payInfo(b);
+  qpBill = b;
+  $("qpInfo").textContent = `${b.student_name}（${b.grade_text}）・${b.title}・應繳 ${fmt(pi.total)}，已確認 ${fmt(pi.paid)}，尚欠 ${fmt(pi.remain)} 元`;
+  const w = $("qpWarn");
+  if (pi.pend.length) { w.textContent = `家長已回報 ${pi.pend.length} 筆待確認（${fmt(pi.pendSum)} 元）。如果就是那一筆，請改到「待確認繳款」按確認收款，避免重複登記。`; w.classList.remove("hidden"); }
+  else w.classList.add("hidden");
+  $("qpAmt").value = pi.remain; $("qpDate").value = todayTW(); $("qpDate").max = todayTW();
+  $("qpMethod").value = "transfer"; $("qpLast5").value = ""; $("qpNote").value = "";
+  $("qpErr").classList.add("hidden");
+  $("qpDlg").showModal(); $("qpAmt").focus(); $("qpAmt").select();
+}
+$("qpOk").addEventListener("click", async () => {
+  if (!CAN_EDIT || !qpBill) return;
+  const amount = parseInt($("qpAmt").value, 10), last5 = $("qpLast5").value.trim();
+  const err = m => { $("qpErr").textContent = m; $("qpErr").classList.toggle("hidden", !m); };
+  if (!(amount > 0)) return err("請輸入金額");
+  if (last5 && !/^[0-9]{5}$/.test(last5)) return err("末五碼要是 5 個數字，或留空");
+  err("");
+  const bid = qpBill.id;
+  busy(true);
+  try {
+    const r = await rpc("fee_admin_add_payment", { p: { bill_id: bid, amount, paid_date: $("qpDate").value, method: $("qpMethod").value, last5, note: $("qpNote").value.trim() } });
+    $("qpDlg").close(); qpBill = null;
+    await afterPayChange(bid);
+    if ($("dunDlg").open) renderDun();
+    toast(r.overpaid > 0 ? `已登記。多繳 ${fmt(r.overpaid)} 元，請在下一期學費單加「溢繳折抵」` : (r.paid_total >= r.total ? "已標記為已繳清" : `已登記，還尚欠 ${fmt(r.total - r.paid_total)} 元`));
+  } catch (ex) { err(payFriendly(ex)); }
+  finally { busy(false); }
+});
+
 /* ---------- 催繳名單（7e） ---------- */
 const DUN_TPL_KEY = "jx-dun-tpl";
 const DUN_DEFAULT = `{姓名}家長您好，這裡是基翔文理。
@@ -1790,7 +1843,7 @@ function renderDun() {
   $("dunList").innerHTML = DUN.map(r => `<div class="dun-row" data-k="${esc(r.key)}">
     <div class="d1"><label><input type="checkbox" data-dsel="${esc(r.key)}" ${DUN_SEL.has(r.key) ? "checked" : ""}>${esc(r.name)} <span class="sub">${esc(r.grade)}</span>${r.pending ? ' <span class="pay pending">有待確認</span>' : ""}</label><b>尚欠 ${fmt(r.owed)} 元</b></div>
     <div class="d2">${r.bills.map(({ b, pi, late }) => `${esc(b.title || "學費單")}：尚欠 ${fmt(pi.remain)}／應繳 ${fmt(b.total)}${b.due_date ? `・期限 ${mdDate(b.due_date)}${late ? `<span style="color:var(--rose)">（逾期 ${daysLate(b.due_date)} 天）</span>` : ""}` : ""}`).join("<br>")}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm primary" data-dact="copy" data-k="${esc(r.key)}">複製訊息</button><button type="button" class="btn sm" data-dact="share" data-k="${esc(r.key)}">傳送</button><button type="button" class="btn sm" data-dact="prev" data-k="${esc(r.key)}">預覽</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm primary" data-dact="copy" data-k="${esc(r.key)}">複製訊息</button><button type="button" class="btn sm" data-dact="share" data-k="${esc(r.key)}">傳送</button><button type="button" class="btn sm" data-dact="prev" data-k="${esc(r.key)}">預覽</button>${CAN_EDIT ? r.bills.map(({ b }) => `<button type="button" class="btn sm" data-dact="paid" data-bill="${esc(b.id)}" style="color:var(--green,#0F7B4F);border-color:currentColor">已收款${r.bills.length > 1 ? "：" + esc(b.title || "學費單") : ""}</button>`).join("") : ""}</div>
     <pre class="hidden" data-pv="${esc(r.key)}"></pre></div>`).join("");
   $("dunCopyAll").disabled = !DUN_SEL.size;
   $("dunCopyAll").textContent = DUN_SEL.size ? `複製選取的訊息（${DUN_SEL.size}）` : "複製選取的訊息";
@@ -1819,6 +1872,7 @@ $("dunAll").addEventListener("click", () => { if (DUN_SEL.size === DUN.length) D
 $("dunList").addEventListener("change", e => { const k = e.target.dataset.dsel; if (k == null) return; e.target.checked ? DUN_SEL.add(k) : DUN_SEL.delete(k); renderDun(); });
 $("dunList").addEventListener("click", async e => {
   const t = e.target.closest("button[data-dact]"); if (!t) return;
+  if (t.dataset.dact === "paid") { const bb = BILLS.find(x => x.id === t.dataset.bill); if (bb) openQuickPay(bb); return; }
   const r = DUN.find(x => x.key === t.dataset.k); if (!r) return;
   const msg = dunMsg(r);
   if (t.dataset.dact === "copy") return copyText(msg, `已複製 ${r.name} 的催繳訊息，可貼到 LINE`);
@@ -2401,6 +2455,8 @@ $("tbody").addEventListener("click", e => {
   const chk = e.target.closest("[data-sel]");
   if (chk) { chk.checked ? SELECTED.add(chk.dataset.sel) : SELECTED.delete(chk.dataset.sel); render(); return; }
   if (e.target.closest(".c-chk")) return;
+  const pb = e.target.closest("button[data-act=paid]");
+  if (pb) { const bb = BILLS.find(x => x.id === pb.dataset.id); if (bb) openQuickPay(bb); return; }
   const tr = e.target.closest("tr[data-id]");
   const b = tr && BILLS.find(x => x.id === tr.dataset.id);
   if (b) openPreview(b);
