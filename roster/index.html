@@ -139,8 +139,8 @@
   .test-tag { position: fixed; left: 8px; bottom: 8px; z-index: 99; background: #7c3aed; color: #fff; font: 700 11px/1 sans-serif; padding: 6px 10px; border-radius: 999px; opacity: .9; pointer-events: none; }
 
   /* 帳密小卡 */
-  #cardBtn, #dCard { color: var(--blue); border: 1.5px solid var(--blue); font-weight: 700; }
-  #cardBtn:hover, #dCard:hover { background: var(--blue-l); }
+  #cardBtn, #dCard, #dParent { color: var(--blue); border: 1.5px solid var(--blue); font-weight: 700; }
+  #cardBtn:hover, #dCard:hover, #dParent:hover { background: var(--blue-l); }
   dialog.wide { width: min(920px, calc(100vw - 24px)); }
   .plist { border: 1px solid var(--line); border-radius: 12px; max-height: 300px; overflow: auto; }
   .plist label { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 14px; }
@@ -251,6 +251,7 @@
   <div class="dlg-body" id="dBody"></div>
   <div class="dlg-foot">
     <button type="button" class="btn" data-close>關閉</button>
+    <button type="button" class="btn" id="dParent">家長端檢視</button>
     <button type="button" class="btn" id="dCard">帳密小卡</button>
     <button type="button" class="btn" id="dReset">重設密碼</button>
     <button type="button" class="btn primary" id="dEdit">編輯</button>
@@ -598,6 +599,7 @@ function openDetail(s) {
     ${s.note ? `<section class="dsec"><h4>備註</h4><div style="white-space:pre-wrap">${esc(s.note)}</div></section>` : ""}`;
   $("dReset").classList.toggle("hidden", !s.has_login);
   $("dCard").classList.toggle("hidden", !(s.active && s.has_login && s.pin_viewable));
+  $("dParent").classList.toggle("hidden", !s.has_login);
   $("dDlg").showModal();
 }
 $("dBody").addEventListener("click", e => { const b = e.target.closest('button[data-act="pin"]'); if (b) togglePin(b.dataset.id); });
@@ -605,6 +607,7 @@ $("dDlg").addEventListener("close", () => { hidePin(); detailId = null; });
 $("dEdit").addEventListener("click", () => { const s = STUDENTS.find(x => x.id === detailId); $("dDlg").close(); if (s) openEdit(s); });
 $("dReset").addEventListener("click", () => { const s = STUDENTS.find(x => x.id === detailId); $("dDlg").close(); if (s) openReset(s); });
 $("dCard").addEventListener("click", () => { const s = STUDENTS.find(x => x.id === detailId); $("dDlg").close(); if (s) openCards(s.id, true); });
+$("dParent").addEventListener("click", () => { const s = STUDENTS.find(x => x.id === detailId); if (s) window.open("../my/?sid=" + encodeURIComponent(s.id), "_blank"); });
 
 /* ---------- 新增／編輯 ---------- */
 function contactRow(c, i) {

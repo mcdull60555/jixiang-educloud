@@ -25,10 +25,11 @@
     tuition:  { title: '學費管理', en: 'Tuition', url: BASE + '/jixiang-educloud/tuition/', bg: '#D1FAE5', fg: '#047857' },
     meals:    { title: '晚餐管理', en: 'Dinner', url: BASE + '/jixiang-educloud/meals/', bg: '#FFEDD5', fg: '#C2410C' },
     tuitionFamily: { title: '學費單', en: 'Tuition', url: BASE + '/jixiang-educloud/my/', bg: '#D1FAE5', fg: '#047857', icon: 'tuition' },
+    familyView: { title: '家長端檢視', en: 'Parent View', url: BASE + '/jixiang-educloud/my/', bg: '#FCE7F3', fg: '#9D174D', icon: 'roster' },
     accounts: { title: '帳號管理', en: 'Accounts', url: BASE + '/jixiang-educloud/accounts/', bg: '#E2E8F0', fg: '#334155' }
   };
   var BY_ROLE = {
-    admin: ['rollcall', 'learning', 'roster', 'tuition', 'meals', 'accounts'],
+    admin: ['rollcall', 'learning', 'roster', 'tuition', 'meals', 'familyView', 'accounts'],
     teacher: ['rollcall', 'learning'],
     student: ['learning', 'tuitionFamily']
   };

@@ -419,7 +419,7 @@ const NEXT_TARGET = {
   accounts: { url: "accounts/", roles: ["admin"], name: "帳號管理" },
   tuition: { url: "tuition/", roles: ["admin", "teacher"], name: "學費管理" },
   meals: { url: "meals/", roles: ["admin", "teacher"], name: "晚餐管理" },
-  my: { url: "my/", roles: ["student"], name: "學費單" }
+  my: { url: "my/", roles: ["student", "admin"], name: "家長端" }
 };
 function clearNext() { try { if (NEXT) history.replaceState(null, "", location.pathname); } catch (_) { /* 忽略 */ } }
 // 有權限就直接進去，回傳 true；沒有權限就留在入口
@@ -447,14 +447,15 @@ const CARDS = {
   tuition: { title: "學費管理", en: "Tuition", desc: "開立學費單、預覽、列印或轉圖片傳 LINE", href: "tuition/", cta: "進入學費管理", bg: "#D1FAE5", fg: "#047857" },
   meals: { title: "晚餐管理", en: "Dinner", desc: "每月訂餐、繳費對帳，產生家長對帳小卡與每日訂餐名單", href: "meals/", cta: "進入晚餐管理", bg: "#FFEDD5", fg: "#C2410C" },
   tuitionFamily: { title: "學費單", en: "Tuition", desc: "每月學費明細、匯款資訊，可存成圖片或列印", href: "my/", cta: "查看學費單", bg: "#D1FAE5", fg: "#047857" },
+  familyView: { title: "家長端檢視", en: "Parent View", desc: "選一位學生，看家長登入後看到的學費單畫面（唯讀）", href: "my/", cta: "進入家長端檢視", bg: "#FCE7F3", fg: "#9D174D" },
   accounts: { title: "帳號管理", en: "Accounts", desc: "新增老師、指定負責班級與年級、重設密碼、刪除、排序", href: "accounts/", cta: "進入帳號管理", bg: "#E2E8F0", fg: "#334155" }
 };
 const BY_ROLE = {
-  admin: ["rollcall", "learning", "roster", "tuition", "meals", "accounts"],
+  admin: ["rollcall", "learning", "roster", "tuition", "meals", "familyView", "accounts"],
   teacher: ["rollcall", "learning"],
   student: ["learningFamily", "tuitionFamily"]
 };
-const ICON_OF = { learningFamily: "learning", tuitionFamily: "tuition" };
+const ICON_OF = { learningFamily: "learning", tuitionFamily: "tuition", familyView: "roster" };
 
 function cardHtml(key) {
   const c = CARDS[key];

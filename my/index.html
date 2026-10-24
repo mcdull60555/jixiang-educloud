@@ -60,6 +60,15 @@
   .err { background: var(--rose-l); color: var(--rose); border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-bottom: 12px; }
   .help { font-size: 13px; color: var(--muted); line-height: 1.7; margin: 14px 2px 0; }
 
+  .adminbar { background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; font-size: 14px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; align-items: center; }
+  .adminbar .acts { display: flex; gap: 14px; }
+  .adminbar a { color: #92400E; font-weight: 700; }
+  .search { width: 100%; border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; font-size: 15px; margin-bottom: 10px; }
+  .plist { border: 1px solid var(--line); border-radius: 12px; max-height: 56vh; overflow: auto; }
+  .plist a { display: flex; justify-content: space-between; gap: 10px; padding: 11px 14px; color: inherit; text-decoration: none; border-bottom: 1px solid var(--line); }
+  .plist a:last-child { border-bottom: 0; }
+  .plist a:hover, .plist a:focus-visible { background: #F0F7FF; outline: none; }
+  .plist small { color: var(--muted); }
   .btn { border: 1px solid var(--line-2); background: #fff; color: var(--text); border-radius: 12px; padding: 10px 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
   .btn:hover { background: #F8FAFC; }
   .btn.pri { background: var(--blue); border-color: var(--blue); color: #fff; }
@@ -125,7 +134,17 @@
 </header>
 
 <main>
-  <section class="panel" aria-labelledby="listTitle">
+  <section class="panel hidden" id="pickPanel" aria-labelledby="pickTitle">
+    <h2 id="pickTitle">選擇要檢視的學生</h2>
+    <input id="pickQ" class="search" type="search" placeholder="搜尋姓名、帳號、年級" autocomplete="off" aria-label="搜尋學生">
+    <div id="pickList" class="plist"></div>
+    <p class="help">管理員專用：看到的畫面與家長相同（只有已發布的學費單），唯讀。</p>
+  </section>
+  <div id="adminBar" class="adminbar hidden" role="status">
+    <span>👁 管理員檢視：<b id="adminWho"></b> 的家長端（唯讀，只顯示已發布的學費單）</span>
+    <span class="acts"><a href="./">換一位</a><a href="../roster/">回學生名冊</a></span>
+  </div>
+  <section class="panel" id="billPanel" aria-labelledby="listTitle">
     <h2 id="listTitle">我的學費單</h2>
     <div id="err" class="err hidden" role="alert"></div>
     <div id="list" class="list" aria-live="polite"></div>
@@ -146,7 +165,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・家長端 ·v1024-1400</div>
+<div class="test-tag">學務雲 測試版・家長端 ·v1024-1420</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -290,6 +309,23 @@ $("bPrint").addEventListener("click", () => {
   setTimeout(() => window.print(), 60);
 });
 
+/* ---------- 管理員：選學生 ---------- */
+function showPicker(all) {
+  const rows = all.filter(s => s.active !== false);
+  $("who").textContent = "管理員檢視家長端";
+  $("billPanel").classList.add("hidden");
+  $("pickPanel").classList.remove("hidden");
+  const draw = () => {
+    const q = $("pickQ").value.trim().toLowerCase();
+    const hit = rows.filter(s => !q || `${s.name} ${s.account_code} ${s.grade} ${s.school}`.toLowerCase().includes(q));
+    $("pickList").innerHTML = hit.length
+      ? hit.map(s => `<a href="?sid=${encodeURIComponent(s.id)}"><span>${esc(s.name)}</span><small>${esc([s.grade, s.account_code].filter(Boolean).join("・"))}</small></a>`).join("")
+      : '<div class="empty">找不到符合的學生</div>';
+  };
+  $("pickQ").addEventListener("input", draw);
+  draw();
+}
+
 /* ---------- 啟動 ---------- */
 function showError(msg) { const e = $("err"); e.textContent = msg; e.classList.remove("hidden"); }
 async function start() {
@@ -299,13 +335,30 @@ async function start() {
     if (!s || !s.session) return goPortal("登入已過期，請重新登入");
     const p = await sb.from("profiles").select("role,student_id").eq("id", s.session.user.id).maybeSingle();
     if (p.error || !p.data) return goPortal("登入已過期，請重新登入");
-    if (p.data.role !== "student") { location.replace(PORTAL_URL); return; }   // 老師、管理員請從學費管理進入
+    const role = p.data.role;
+    if (role !== "student" && role !== "admin") { location.replace(PORTAL_URL); return; }   // 老師請從學費管理進入
     touch();
-    const st = await sb.from("students").select("name,grade,school,account_code").eq("id", p.data.student_id).maybeSingle();
-    if (st.data) $("who").textContent = [st.data.name, st.data.grade, st.data.account_code].filter(Boolean).join("・");
-    // 後端只會回傳「已發布」且屬於本人的學費單
+    let sid = p.data.student_id;
+    if (role === "admin") {
+      // 管理員檢視：選一位學生（?sid=），看到的和家長一樣
+      const want = new URLSearchParams(location.search).get("sid") || "";
+      const r = await sb.rpc("admin_list_students");
+      if (r.error) throw r.error;
+      const all = (r.data || []).slice().sort((a, c) => String(a.account_code || "").localeCompare(String(c.account_code || "")));
+      const st = all.find(x => x.id === want);
+      if (!st) { showPicker(all); return; }
+      sid = st.id;
+      $("who").textContent = [st.name, st.grade, st.account_code].filter(Boolean).join("・");
+      $("adminWho").textContent = st.name;
+      $("adminBar").classList.remove("hidden");
+      $("listTitle").textContent = `${st.name} 的學費單`;
+    } else {
+      const st = await sb.from("students").select("name,grade,school,account_code").eq("id", sid).maybeSingle();
+      if (st.data) $("who").textContent = [st.data.name, st.data.grade, st.data.account_code].filter(Boolean).join("・");
+    }
+    // 家長：後端只會回傳「已發布」且屬於本人的學費單。管理員：另外限定該學生與已發布，畫面與家長一致
     const [b, a] = await Promise.all([
-      sb.from("fee_bills").select("*, fee_bill_items(*)").eq("status", "issued").order("issued_at", { ascending: false, nullsFirst: false }),
+      sb.from("fee_bills").select("*, fee_bill_items(*)").eq("status", "issued").eq("student_id", sid).order("issued_at", { ascending: false, nullsFirst: false }),
       sb.from("fee_accounts").select("*")
     ]);
     if (b.error) throw b.error;
