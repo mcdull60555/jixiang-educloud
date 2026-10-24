@@ -73,6 +73,31 @@
   .plist a:last-child { border-bottom: 0; }
   .plist a:hover, .plist a:focus-visible { background: #F0F7FF; outline: none; }
   .plist small { color: var(--muted); }
+  .st { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .st.paid { background: var(--green-l); color: var(--green); }
+  .st.pending { background: #FEF3C7; color: #92400E; }
+  .st.overdue { background: var(--rose-l); color: var(--rose); }
+  .st.unpaid { background: #E2E8F0; color: var(--muted-2); }
+  .st.partial { background: #FFEDD5; color: #C2410C; }
+  .st.rejected { background: var(--rose-l); color: var(--rose); }
+  .paysec { margin: 14px 2px 4px; }
+  .paysec h3 { margin: 0 0 8px; font-size: 15px; letter-spacing: 1px; }
+  .sumline { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .sumline b { font-variant-numeric: tabular-nums; }
+  .hist { display: grid; gap: 8px; margin-bottom: 10px; }
+  .hrow { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 14px; }
+  .hrow .h1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .hrow .h2 { color: var(--muted-2); font-size: 13px; margin-top: 4px; line-height: 1.6; }
+  .hrow .why { color: var(--rose); font-size: 13px; margin-top: 4px; }
+  .hrow .acts { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn.sm { padding: 6px 10px; font-size: 13px; border-radius: 10px; }
+  .payform { background: #fff; border: 1px solid var(--line-2); border-radius: 14px; padding: 12px; display: grid; gap: 10px; }
+  .payform label { display: grid; gap: 4px; font-size: 13px; font-weight: 700; color: var(--muted-2); }
+  .payform label small { font-weight: 400; color: var(--muted); }
+  .payform input { width: 100%; border: 1px solid var(--line-2); border-radius: 10px; padding: 10px 12px; font-size: 16px; background: #fff; }
+  .payform .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .payform .ferr { color: var(--rose); font-size: 13px; }
+  #imgDlg img { display: block; max-width: 100%; max-height: calc(100vh - 140px); margin: 0 auto; }
   .btn { border: 1px solid var(--line-2); background: #fff; color: var(--text); border-radius: 12px; padding: 10px 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
   .btn:hover { background: #F8FAFC; }
   .btn.pri { background: var(--blue); border-color: var(--blue); color: #fff; }
@@ -161,7 +186,7 @@
 
 <dialog id="dlg" aria-labelledby="dlgTitle">
   <div class="dh"><b id="dlgTitle">學費單</b><button type="button" class="btn" id="dlgClose">關閉</button></div>
-  <div class="dbody"><div class="paper-wrap" id="paperBox"></div></div>
+  <div class="dbody"><div class="paper-wrap" id="paperBox"></div><div class="paysec" id="paySec"></div></div>
   <div class="dact">
     <button type="button" class="btn" id="bPrint">列印</button>
     <button type="button" class="btn" id="bDown">下載圖片</button>
@@ -169,10 +194,15 @@
   </div>
 </dialog>
 
+<dialog id="imgDlg" aria-label="匯款截圖">
+  <div class="dh"><b>匯款截圖</b><button type="button" class="btn" id="imgClose">關閉</button></div>
+  <div class="dbody"><div id="imgBox" class="empty">讀取中…</div></div>
+</dialog>
+
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・家長端 ·v1024-1430</div>
+<div class="test-tag">學務雲 測試版・家長端 ·v1024-1500</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -186,7 +216,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = n => (n < 0 ? "-" : "") + Math.abs(Number(n) || 0).toLocaleString("en-US");
 
-let BILLS = [], ACCOUNTS = [], current = null;
+let BILLS = [], ACCOUNTS = [], PAYS = [], current = null;
+let SID = null, VIEW_ONLY = false, editPayId = null;
 
 /* ---------- 共用 ---------- */
 function busy(on) {
@@ -229,6 +260,23 @@ function amtText(it) {
   if (!it.counted) return it.amount === 0 ? "已繳" : fmt(it.amount) + "（已繳）";
   return fmt(it.amount);
 }
+const todayTW = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+const METHOD = { transfer: "匯款", cash: "現金", other: "其他" };
+const paysOf = b => PAYS.filter(x => x.bill_id === b.id);
+function payInfo(b) {
+  const ps = paysOf(b);
+  const pend = ps.filter(x => x.status === "pending");
+  const paid = b.paid_total || 0, total = b.total || 0;
+  const remain = Math.max(total - paid, 0);
+  const pendSum = pend.reduce((a, x) => a + x.amount, 0);
+  let key, text;
+  if (total <= 0 || paid >= total) { key = "paid"; text = paid > total && total > 0 ? "已繳清（多繳 " + fmt(paid - total) + "）" : "已繳清"; }
+  else if (pend.length) { key = "pending"; text = "待確認"; }
+  else if (b.due_date && b.due_date < todayTW()) { key = "overdue"; text = paid > 0 ? "逾期・尚欠 " + fmt(remain) : "已逾期"; }
+  else if (paid > 0) { key = "partial"; text = "部分繳・尚欠 " + fmt(remain); }
+  else { key = "unpaid"; text = "未繳"; }
+  return { key, text, paid, total, remain, pend, pendSum, ps };
+}
 const isNew = b => b.issued_at && (Date.now() - new Date(b.issued_at).getTime()) < 7 * 864e5;
 
 /* ---------- 學費單（紙本樣式，與管理端相同） ---------- */
@@ -261,15 +309,16 @@ function render() {
     return;
   }
   list.innerHTML = BILLS.map((b, i) => {
+    const pi = payInfo(b);
     const chips = sortedItems(b).filter(it => it.counted && it.amount !== 0)
       .map(it => `<span class="chip${it.amount < 0 ? " neg" : ""}">${esc(it.label)}</span>`).join("");
     return `<button type="button" class="bill" data-i="${i}" aria-label="${esc(b.title || "學費單")}，應繳 ${fmt(b.total)} 元，點一下查看明細">
       <div class="r1"><span class="ttl">${esc(b.title || "學費單")}${isNew(b) ? '<span class="new">新</span>' : ""}</span><span class="amt">${fmt(b.total)} 元</span></div>
-      <div class="r2">${b.due_date ? `<span>繳費期限 ${esc(fmtDue(b.due_date))}</span>` : ""}</div>
+      <div class="r2">${b.due_date ? `<span>繳費期限 ${esc(fmtDue(b.due_date))}</span>` : ""}<span class="st ${pi.key}">${esc(pi.text)}</span>${pi.key === "pending" ? `<span>已回報 ${fmt(pi.pendSum)} 元，等班上確認</span>` : ""}</div>
       ${chips ? `<div class="chips">${chips}</div>` : ""}
     </button>`;
   }).join("");
-  $("help").textContent = "點選任一張可查看完整明細、匯款資訊，也可儲存成圖片或列印。如有疑問請洽班導師。";
+  $("help").textContent = "點選任一張可查看完整明細、匯款資訊與繳款紀錄；匯款後可在明細裡「回報已繳款」。如有疑問請洽班導師。";
 }
 $("list").addEventListener("click", e => {
   const el = e.target.closest(".bill");
@@ -281,7 +330,9 @@ function openBill(b) {
   current = b;
   $("dlgTitle").textContent = b.title || "學費單";
   $("paperBox").innerHTML = paperHtml(b);
-  $("dlg").showModal();
+  editPayId = null;
+  renderPay();
+  if (!$("dlg").open) $("dlg").showModal();
 }
 $("dlgClose").addEventListener("click", () => $("dlg").close());
 $("dlg").addEventListener("click", e => { if (e.target === $("dlg")) $("dlg").close(); });
@@ -316,6 +367,129 @@ $("bPrint").addEventListener("click", () => {
   setTimeout(() => window.print(), 60);
 });
 
+/* ---------- 繳款紀錄與回報 ---------- */
+function histRow(x) {
+  const stName = { pending: "待確認", confirmed: "已確認", rejected: "已退回" }[x.status];
+  const stCls = { pending: "pending", confirmed: "paid", rejected: "rejected" }[x.status];
+  const via = x.source === "staff" ? `班上登記（${METHOD[x.method] || "其他"}）` : "家長回報";
+  const meta = [`${fmtDate(x.paid_date)}`, via, x.last5 ? `末五碼 ${esc(x.last5)}` : ""].filter(Boolean).join("・");
+  const canEdit = !VIEW_ONLY && x.status === "rejected" && x.source === "parent";
+  return `<div class="hrow">
+    <div class="h1"><b>${fmt(x.amount)} 元</b><span class="st ${stCls}">${stName}</span></div>
+    <div class="h2">${meta}${x.parent_note ? `<br>備註：${esc(x.parent_note)}` : ""}</div>
+    ${x.status === "rejected" && x.admin_note ? `<div class="why">退回原因：${esc(x.admin_note)}</div>` : ""}
+    ${x.status === "confirmed" && x.admin_note ? `<div class="h2">班上備註：${esc(x.admin_note)}</div>` : ""}
+    <div class="acts">${x.screenshot_path ? `<button type="button" class="btn sm" data-shot="${esc(x.screenshot_path)}">查看截圖</button>` : ""}${canEdit ? `<button type="button" class="btn sm pri" data-edit="${esc(x.id)}">修改後重送</button>` : ""}</div>
+  </div>`;
+}
+function renderPay() {
+  const b = current; if (!b) return;
+  const pi = payInfo(b);
+  const hist = pi.ps.slice().sort((a, c) => String(c.reported_at).localeCompare(String(a.reported_at)));
+  const canReport = !VIEW_ONLY && pi.key !== "paid";
+  const ed = editPayId ? PAYS.find(x => x.id === editPayId) : null;
+  $("paySec").innerHTML = `
+    <h3>繳款狀態 <span class="st ${pi.key}">${esc(pi.text)}</span></h3>
+    <div class="sumline"><span>應繳 <b>${fmt(pi.total)}</b></span><span>已確認 <b>${fmt(pi.paid)}</b></span><span>尚欠 <b>${fmt(pi.remain)}</b></span>${pi.pendSum ? `<span>待確認 <b>${fmt(pi.pendSum)}</b></span>` : ""}</div>
+    ${hist.length ? `<div class="hist">${hist.map(histRow).join("")}</div>` : `<p class="help" style="margin:0 0 8px">還沒有繳款紀錄。</p>`}
+    ${canReport ? (ed || $("paySec").dataset.open === b.id ? formHtml(b, pi, ed) : `<button type="button" class="btn pri" id="openForm" style="width:100%">回報已繳款</button>`) : ""}
+    ${VIEW_ONLY ? `<p class="help" style="margin:0">管理員檢視模式：不能回報，只能查看。</p>` : ""}`;
+}
+function formHtml(b, pi, ed) {
+  const amt = ed ? ed.amount : (pi.remain || b.total);
+  return `<form class="payform" id="payForm" novalidate>
+    <b>${ed ? "修改後重送" : "回報已繳款"}</b>
+    <div class="row2">
+      <label>匯款日期<input type="date" id="pfDate" required value="${esc(ed ? ed.paid_date : todayTW())}" max="${todayTW()}"></label>
+      <label>匯款金額（元）<input type="number" id="pfAmt" required min="1" step="1" inputmode="numeric" value="${esc(amt)}"></label>
+    </div>
+    <label>匯款帳號末五碼<small>匯款明細上可以查到，班上用來對帳（必填）</small><input type="text" id="pfLast5" required maxlength="5" inputmode="numeric" pattern="[0-9]{5}" autocomplete="off" value="${esc(ed ? ed.last5 : "")}" placeholder="例如 12345"></label>
+    <label>匯款截圖（選填）<small>有的話對帳更快</small><input type="file" id="pfFile" accept="image/*"></label>
+    <label>備註（選填）<input type="text" id="pfNote" maxlength="100" value="${esc(ed ? ed.parent_note : "")}"></label>
+    <div class="ferr hidden" id="pfErr" role="alert"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="pfCancel">取消</button><button type="submit" class="btn pri" id="pfSubmit">送出回報</button></div>
+  </form>`;
+}
+const fmtDate = d => d ? String(d).replace(/-/g, "/") : "";
+$("paySec").addEventListener("click", async e => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.id === "openForm") { $("paySec").dataset.open = current.id; renderPay(); const f = $("pfLast5"); if (f) f.scrollIntoView({ block: "center" }); return; }
+  if (t.id === "pfCancel") { editPayId = null; delete $("paySec").dataset.open; renderPay(); return; }
+  if (t.dataset.edit) { editPayId = t.dataset.edit; renderPay(); const f = $("pfLast5"); if (f) f.scrollIntoView({ block: "center" }); return; }
+  if (t.dataset.shot) { showShot(t.dataset.shot); }
+});
+$("paySec").addEventListener("submit", e => { e.preventDefault(); submitPay(); });
+
+async function showShot(path) {
+  $("imgBox").className = "empty"; $("imgBox").textContent = "讀取中…";
+  $("imgDlg").showModal();
+  try {
+    const { data, error } = await sb.storage.from("fee-proofs").createSignedUrl(path, 300);
+    if (error) throw error;
+    $("imgBox").className = ""; $("imgBox").innerHTML = `<img src="${esc(data.signedUrl)}" alt="匯款截圖">`;
+  } catch (ex) { $("imgBox").textContent = "無法讀取截圖：" + ((ex && ex.message) || ""); }
+}
+$("imgClose").addEventListener("click", () => $("imgDlg").close());
+
+// 截圖縮小再上傳（長邊 1600px、JPEG），省流量也避免超過 5MB
+function shrinkImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b ? resolve(b) : reject(new Error("圖片處理失敗")), "image/jpeg", 0.8);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("無法讀取這張圖片，請換一張或不附截圖")); };
+    img.src = url;
+  });
+}
+function payErr(msg) { const e = $("pfErr"); e.textContent = msg; e.classList.toggle("hidden", !msg); }
+function friendlyPay(m) {
+  if (/last5 required/.test(m)) return "請輸入 5 碼數字的匯款帳號末五碼";
+  if (/invalid amount/.test(m)) return "金額要大於 0";
+  if (/invalid date/.test(m)) return "匯款日期不正確（不能是未來，也不能超過一年前）";
+  if (/too many pending/.test(m)) return "已經有 5 筆待確認，請等班上確認後再回報";
+  if (/bill not found/.test(m)) return "找不到這張學費單，請重新整理";
+  if (/payment not editable/.test(m)) return "這筆已經不能修改，請重新整理";
+  if (/invalid screenshot|Payload too large|exceeded/.test(m)) return "截圖上傳失敗，請換一張或不附截圖";
+  if (/Failed to fetch|NetworkError/i.test(m)) return "無法連線，請檢查網路後再試一次";
+  if (/JWT|not authenticated|42501|students only/.test(m)) return "登入已過期或沒有權限，請重新登入";
+  return "送出失敗：" + m;
+}
+let submitting = false;
+async function submitPay() {
+  if (submitting || VIEW_ONLY || !current) return;
+  const date = $("pfDate").value, amount = parseInt($("pfAmt").value, 10), last5 = $("pfLast5").value.trim();
+  if (!date) return payErr("請選擇匯款日期");
+  if (date > todayTW()) return payErr("匯款日期不能是未來");
+  if (!(amount > 0)) return payErr("請輸入匯款金額");
+  if (!/^[0-9]{5}$/.test(last5)) return payErr("請輸入 5 碼數字的匯款帳號末五碼");
+  payErr("");
+  submitting = true; $("pfSubmit").disabled = true; busy(true);
+  try {
+    let path = null;
+    const f = $("pfFile").files[0];
+    if (f) {
+      const blob = await shrinkImage(f);
+      path = `${SID}/${current.id}_${Date.now()}.jpg`;
+      const up = await sb.storage.from("fee-proofs").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (up.error) throw up.error;
+    }
+    const { error } = await sb.rpc("fee_report_payment", { p: { id: editPayId || undefined, bill_id: current.id, amount, paid_date: date, last5, note: $("pfNote").value.trim(), screenshot_path: path } });
+    if (error) throw error;
+    editPayId = null; delete $("paySec").dataset.open;
+    await loadData();
+    const again = BILLS.find(x => x.id === current.id);
+    if (again) { current = again; renderPay(); }
+    toast("已送出回報，等班上確認後會更新狀態");
+  } catch (ex) {
+    payErr(friendlyPay((ex && ex.message) || String(ex || "")));
+  } finally { submitting = false; busy(false); const b = $("pfSubmit"); if (b) b.disabled = false; }
+}
+
 /* ---------- 管理員：選學生（低年級到高年級由上而下，可依年級篩選） ---------- */
 const GRADE_LIST = ["大班", "一年級", "二年級", "三年級", "四年級", "五年級", "六年級", "國一", "國二", "國三", "高一", "高二", "高三"];
 const gradeNo = g => { const i = GRADE_LIST.indexOf(g); return i < 0 ? 99 : i; };
@@ -344,6 +518,19 @@ function showPicker(all) {
 
 /* ---------- 啟動 ---------- */
 function showError(msg) { const e = $("err"); e.textContent = msg; e.classList.remove("hidden"); }
+// 家長：後端只會回傳「已發布」且屬於本人的學費單與繳款。管理員：另外限定該學生與已發布，畫面與家長一致
+async function loadData() {
+  const [b, a, y] = await Promise.all([
+    sb.from("fee_bills").select("*, fee_bill_items(*)").eq("status", "issued").eq("student_id", SID).order("issued_at", { ascending: false, nullsFirst: false }),
+    sb.from("fee_accounts").select("*"),
+    sb.from("fee_payments").select("*").eq("student_id", SID).order("reported_at", { ascending: false })
+  ]);
+  if (b.error) throw b.error;
+  BILLS = b.data || [];
+  ACCOUNTS = a.data || [];
+  PAYS = y.error ? [] : (y.data || []);
+  render();
+}
 async function start() {
   busy(true);
   try {
@@ -355,6 +542,7 @@ async function start() {
     if (role !== "student" && role !== "admin") { location.replace(PORTAL_URL); return; }   // 老師請從學費管理進入
     touch();
     let sid = p.data.student_id;
+    VIEW_ONLY = role === "admin";
     if (role === "admin") {
       // 管理員檢視：選一位學生（?sid=），看到的和家長一樣
       const want = new URLSearchParams(location.search).get("sid") || "";
@@ -372,15 +560,8 @@ async function start() {
       const st = await sb.from("students").select("name,grade,school,account_code").eq("id", sid).maybeSingle();
       if (st.data) $("who").textContent = [st.data.name, st.data.grade, st.data.account_code].filter(Boolean).join("・");
     }
-    // 家長：後端只會回傳「已發布」且屬於本人的學費單。管理員：另外限定該學生與已發布，畫面與家長一致
-    const [b, a] = await Promise.all([
-      sb.from("fee_bills").select("*, fee_bill_items(*)").eq("status", "issued").eq("student_id", sid).order("issued_at", { ascending: false, nullsFirst: false }),
-      sb.from("fee_accounts").select("*")
-    ]);
-    if (b.error) throw b.error;
-    BILLS = b.data || [];
-    ACCOUNTS = a.data || [];
-    render();
+    SID = sid;
+    await loadData();
   } catch (ex) {
     const m = (ex && ex.message) || String(ex || "");
     if (/JWT|not authenticated|42501|permission/i.test(m)) return goPortal("登入已過期，請重新登入");
