@@ -418,7 +418,8 @@ const NEXT_TARGET = {
   rollcall: { url: ROLLCALL_URL, roles: ["admin", "teacher"], name: "雲點名" },
   accounts: { url: "accounts/", roles: ["admin"], name: "帳號管理" },
   tuition: { url: "tuition/", roles: ["admin", "teacher"], name: "學費管理" },
-  meals: { url: "meals/", roles: ["admin", "teacher"], name: "晚餐管理" }
+  meals: { url: "meals/", roles: ["admin", "teacher"], name: "晚餐管理" },
+  my: { url: "my/", roles: ["student"], name: "學費單" }
 };
 function clearNext() { try { if (NEXT) history.replaceState(null, "", location.pathname); } catch (_) { /* 忽略 */ } }
 // 有權限就直接進去，回傳 true；沒有權限就留在入口
@@ -445,7 +446,7 @@ const CARDS = {
   roster: { title: "學生名冊", en: "Student Roster", desc: "學生資料、學生帳號與密碼、聯絡電話、進點名與學習通開關", href: "roster/", cta: "進入學生名冊", bg: "#FEF3C7", fg: "#92400E" },
   tuition: { title: "學費管理", en: "Tuition", desc: "開立學費單、預覽、列印或轉圖片傳 LINE", href: "tuition/", cta: "進入學費管理", bg: "#D1FAE5", fg: "#047857" },
   meals: { title: "晚餐管理", en: "Dinner", desc: "每月訂餐、繳費對帳，產生家長對帳小卡與每日訂餐名單", href: "meals/", cta: "進入晚餐管理", bg: "#FFEDD5", fg: "#C2410C" },
-  tuitionFamily: { title: "學費單", en: "Tuition", desc: "每月學費明細與繳費紀錄", tag: "規劃中", bg: "#D1FAE5", fg: "#047857" },
+  tuitionFamily: { title: "學費單", en: "Tuition", desc: "每月學費明細、匯款資訊，可存成圖片或列印", href: "my/", cta: "查看學費單", bg: "#D1FAE5", fg: "#047857" },
   accounts: { title: "帳號管理", en: "Accounts", desc: "新增老師、指定負責班級與年級、重設密碼、刪除、排序", href: "accounts/", cta: "進入帳號管理", bg: "#E2E8F0", fg: "#334155" }
 };
 const BY_ROLE = {

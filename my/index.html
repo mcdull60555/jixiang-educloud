@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>學費單｜基翔學務雲</title>
+<script>
+  // 沒有從學務雲登入就回登入頁
+  try { if (!sessionStorage.getItem("jx-auth")) location.replace("../"); } catch (e) { /* 忽略 */ }
+</script>
+<link rel="icon" href="../favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="../favicon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --bg: #F1F5F9; --card: #FFFFFF; --line: #E2E8F0; --line-2: #CBD5E1;
+    --text: #1E293B; --muted: #64748B; --muted-2: #475569;
+    --blue: #1660D6; --blue-d: #0F4FB8; --blue-l: #DBEAFE;
+    --gold: #F5B301; --green: #047857; --green-l: #D1FAE5; --rose: #BE123C; --rose-l: #FFE4E6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', system-ui, sans-serif; min-height: 100vh; }
+  button { font: inherit; }
+  .hidden { display: none !important; }
+
+  .hero { background: linear-gradient(90deg, #0F4FB8, #1D8CF0); color: #fff; padding: 0 16px 72px; }
+  .hero-inner { max-width: 720px; margin: 0 auto; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; }
+  .brand { display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; }
+  .logo { width: 42px; height: 42px; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 2px 8px rgba(15,23,42,.18); }
+  .logo img { width: 100%; height: 100%; display: block; }
+  .brand-name { font-size: 18px; font-weight: 700; letter-spacing: .5px; }
+  .brand-sub { font-size: 11px; color: #DBEAFE; letter-spacing: .5px; }
+  .back { color: #fff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 8px 14px; border-radius: 999px; background: rgba(255,255,255,.18); }
+  .back:hover { background: rgba(255,255,255,.28); }
+  .back:focus-visible, .bill:focus-visible, .btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .greet h1 { margin: 8px 0 4px; font-size: 24px; letter-spacing: 1px; }
+  .greet p { margin: 0; font-size: 14px; color: #DBEAFE; }
+
+  main { max-width: 720px; margin: -52px auto 0; padding: 0 16px 80px; }
+  .panel { background: var(--card); border-radius: 18px; box-shadow: 0 10px 30px rgba(15,23,42,.08); padding: 16px; }
+  .panel h2 { margin: 0 0 12px; font-size: 16px; letter-spacing: 1px; }
+  .list { display: grid; gap: 10px; }
+  .bill { display: block; width: 100%; text-align: left; border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 14px; cursor: pointer; color: inherit; }
+  .bill:hover { border-color: var(--blue); background: #F8FBFF; }
+  .bill .r1 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .bill .ttl { font-weight: 700; font-size: 16px; }
+  .bill .amt { font-weight: 700; font-size: 20px; color: var(--blue-d); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bill .r2 { margin-top: 6px; font-size: 13px; color: var(--muted-2); display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .chips { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--blue-l); color: var(--blue-d); }
+  .chip.neg { background: var(--green-l); color: var(--green); }
+  .new { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--gold); color: var(--text); margin-left: 6px; vertical-align: 2px; }
+  .empty { text-align: center; color: var(--muted); padding: 36px 12px; line-height: 1.8; }
+  .err { background: var(--rose-l); color: var(--rose); border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-bottom: 12px; }
+  .help { font-size: 13px; color: var(--muted); line-height: 1.7; margin: 14px 2px 0; }
+
+  .btn { border: 1px solid var(--line-2); background: #fff; color: var(--text); border-radius: 12px; padding: 10px 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .btn:hover { background: #F8FAFC; }
+  .btn.pri { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .btn.pri:hover { background: var(--blue-d); }
+
+  dialog { border: 0; border-radius: 18px; padding: 0; width: min(460px, calc(100vw - 16px)); max-height: calc(100vh - 16px); box-shadow: 0 24px 60px rgba(15,23,42,.35); }
+  dialog::backdrop { background: rgba(15,23,42,.5); }
+  .dh { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .dh b { font-size: 16px; }
+  .dbody { padding: 12px; overflow: auto; max-height: calc(100vh - 150px); background: #F8FAFC; }
+  .paper-wrap { display: flex; justify-content: center; padding: 6px 0; overflow: auto; }
+  .dact { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); justify-content: flex-end; }
+
+  .paper { --ln: #A9BEDD; --ac: #0F4FB8; width: 350px; background: #fff; color: #1E293B; border: 1.5px solid var(--ac); font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif; font-size: 14px; line-height: 1.35; }
+  .paper .phd { display: flex; align-items: center; gap: 10px; padding: 10px 12px; height: 80px; box-sizing: border-box; background: #fff; color: #1E293B; border-bottom: 3px solid var(--ac); }
+  .paper .phd .lg { width: 56px; height: 60px; background: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
+  .paper .phd .lg img { width: 56px; height: 60px; object-fit: contain; display: block; }
+  .paper .phd .tt { flex: 1; text-align: center; }
+  .paper .phd .tt b { display: block; font-size: 36px; letter-spacing: 3px; line-height: 1; white-space: nowrap; }
+  .paper .ph2 { display: flex; justify-content: center; gap: 22px; font-size: 19px; font-weight: 700; padding: 8px; border-bottom: 1px solid var(--ln); }
+  .paper .ph3 { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; font-size: 14px; border-bottom: 1px solid var(--ln); }
+  .paper .ph3 small { font-size: 11px; font-weight: 700; }
+  .paper .band { text-align: center; font-size: 17px; font-weight: 700; letter-spacing: 3px; padding: 4px 0; color: #1E293B; border-top: 2px solid var(--ac); border-bottom: 2px solid var(--ac); }
+  .paper .pr { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--ln); min-height: 44px; }
+  .paper .pl { padding: 4px 10px; font-size: 16px; display: flex; flex-direction: column; justify-content: space-between; }
+  .paper .pl small, .paper .pv small { font-size: 10.5px; color: #475569; }
+  .paper .pv { padding: 4px 10px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; }
+  .paper .pv .amt { font-size: 18px; font-variant-numeric: tabular-nums; }
+  .paper .tot { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--ln); align-items: center; min-height: 40px; }
+  .paper .tot .pl { font-size: 17px; font-weight: 700; }
+  .paper .tot .pv { font-size: 20px; font-weight: 700; align-items: center; justify-content: center; color: var(--ac); }
+  .paper .foot { padding: 6px 10px; font-size: 11.5px; border-bottom: 1px solid var(--ln); }
+  .paper .foot b { font-weight: 700; }
+  .paper .nt { padding: 6px 10px 18px; font-size: 12px; min-height: 52px; white-space: pre-wrap; }
+
+  #toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: #0F172A; color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; z-index: 50; max-width: calc(100vw - 32px); }
+  #toast.bad { background: var(--rose); }
+  .busy { position: fixed; inset: 0; background: rgba(255,255,255,.6); display: flex; align-items: center; justify-content: center; font-weight: 700; z-index: 40; }
+  .test-tag { position: fixed; left: 8px; bottom: 6px; font-size: 11px; color: var(--muted); opacity: .8; pointer-events: none; }
+  @media print {
+    body > *:not(#printArea) { display: none !important; }
+    #printArea .paper { --ln: #000; --ac: #000; border: 1.5px solid #000; color: #000; margin: 0 auto; }
+    #printArea .paper .phd, #printArea .paper .band, #printArea .paper .tot { border-color: #000; }
+    #printArea .paper .tot .pv { color: #000; }
+  }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="hero-inner">
+    <div class="topbar">
+      <a class="brand" href="../" aria-label="回學務雲首頁">
+        <span class="logo"><img src="../logo.png" alt=""></span>
+        <span><span class="brand-name">基翔學務雲</span><br><span class="brand-sub">JX EduCloud</span></span>
+      </a>
+      <a class="back" href="../">回首頁</a>
+    </div>
+    <div class="greet">
+      <h1>學費單</h1>
+      <p id="who">&nbsp;</p>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="panel" aria-labelledby="listTitle">
+    <h2 id="listTitle">我的學費單</h2>
+    <div id="err" class="err hidden" role="alert"></div>
+    <div id="list" class="list" aria-live="polite"></div>
+    <p class="help" id="help"></p>
+  </section>
+</main>
+
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <div class="dh"><b id="dlgTitle">學費單</b><button type="button" class="btn" id="dlgClose">關閉</button></div>
+  <div class="dbody"><div class="paper-wrap" id="paperBox"></div></div>
+  <div class="dact">
+    <button type="button" class="btn" id="bPrint">列印</button>
+    <button type="button" class="btn" id="bDown">下載圖片</button>
+    <button type="button" class="btn pri" id="bShare">傳送／儲存圖片</button>
+  </div>
+</dialog>
+
+<div id="printArea"></div>
+<div id="toast" class="hidden" role="status" popover="manual"></div>
+<div id="busy" class="busy hidden" popover="manual">處理中…</div>
+<div class="test-tag">學務雲 測試版・家長端 ·v1024-1400</div>
+
+<script>
+const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
+const SUPABASE_KEY = "sb_publishable_ZVT08ujYz6NmsowKmqBNng_JxBJaVmb";
+const PORTAL_URL = "../";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: window.sessionStorage, storageKey: "jx-auth" }
+});
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = n => (n < 0 ? "-" : "") + Math.abs(Number(n) || 0).toLocaleString("en-US");
+
+let BILLS = [], ACCOUNTS = [], current = null;
+
+/* ---------- 共用 ---------- */
+function busy(on) {
+  const el = $("busy");
+  el.classList.toggle("hidden", !on);
+  try { if (on) { if (!el.matches(":popover-open")) el.showPopover(); } else if (el.matches(":popover-open")) el.hidePopover(); } catch (_) { /* 舊瀏覽器 */ }
+}
+let toastTimer;
+function toast(msg, bad) {
+  const t = $("toast"); t.textContent = msg; t.className = bad ? "bad" : "";
+  try { if (!t.matches(":popover-open")) t.showPopover(); } catch (_) { /* 舊瀏覽器 */ }
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.classList.add("hidden"); try { if (t.matches(":popover-open")) t.hidePopover(); } catch (_) {} }, 3200);
+}
+async function goPortal(msg) {
+  try { await sb.auth.signOut({ scope: "local" }); } catch (_) { /* 忽略 */ }
+  ["authToken", "isTeacherLoggedIn", "loggedInStudentId", "lastActivityTime", "jx-me"].forEach(k => { try { sessionStorage.removeItem(k); } catch (_) {} });
+  try { sessionStorage.setItem("jx-notice", msg || ""); } catch (_) { /* 忽略 */ }
+  location.replace(PORTAL_URL);
+}
+
+/* ---------- 閒置 60 分鐘自動登出 ---------- */
+const IDLE_MS = 60 * 60 * 1000;
+function touch() { try { sessionStorage.setItem("lastActivityTime", String(Date.now())); } catch (_) {} }
+let lastTouch = 0;
+["mousedown", "keydown", "touchstart", "scroll"].forEach(ev => window.addEventListener(ev, () => {
+  if (Date.now() - lastTouch > 15000) { lastTouch = Date.now(); touch(); }
+}, { passive: true, capture: true }));
+setInterval(() => {
+  const last = parseInt(sessionStorage.getItem("lastActivityTime") || "0", 10);
+  if (last && Date.now() - last > IDLE_MS) goPortal("閒置超過 60 分鐘，已自動登出");
+}, 15000);
+
+/* ---------- 工具 ---------- */
+function fmtDue(d) { if (!d) return ""; const [, m, dd] = d.split("-"); return `${+m} 月 ${+dd} 日止`; }
+const sortedItems = b => (b.fee_bill_items || []).slice().sort((a, c) => (a.sort_order || 0) - (c.sort_order || 0));
+const isBlank = it => it.amount === 0 && it.counted && !it.period_text && !it.note;
+const acctOf = id => ACCOUNTS.find(a => a.id === id);
+function amtText(it) {
+  if (!it.counted) return it.amount === 0 ? "已繳" : fmt(it.amount) + "（已繳）";
+  return fmt(it.amount);
+}
+const isNew = b => b.issued_at && (Date.now() - new Date(b.issued_at).getTime()) < 7 * 864e5;
+
+/* ---------- 學費單（紙本樣式，與管理端相同） ---------- */
+function paperHtml(b) {
+  const acc = acctOf(b.account_id);
+  const rows = sortedItems(b).filter(it => !isBlank(it)).map(it => `
+    <div class="pr"><div class="pl">${esc(it.label)}<small>期間</small></div>
+    <div class="pv"><span class="amt">${esc(amtText(it))}</span><small>${esc(it.period_text)}${it.note ? " " + esc(it.note) : ""}</small></div></div>`).join("");
+  const foot = acc ? `${acc.report_note ? `<div>${esc(acc.report_note)}</div>` : ""}
+      <div style="margin-top:4px"><b>匯款銀行 : ${esc(acc.bank_name)}${acc.bank_code ? " " + esc(acc.bank_code) : ""}</b></div>
+      <div><b>匯款帳號 : ${esc(acc.account_no)}</b></div>` : `<div>（收款帳戶請洽班導師）</div>`;
+  return `<div class="paper">
+    <div class="phd"><div class="lg"><img src="../logo-full.jpg" alt=""></div><div class="tt"><b>基翔文理</b></div></div>
+    <div class="ph2"><span>${esc(b.grade_text)}</span><span>${esc(b.student_name)}</span></div>
+    <div class="ph3"><small>繳費期限</small><span>${esc(fmtDue(b.due_date))}</span><small>請勿逾期，謝謝。</small></div>
+    <div class="band">${esc(b.title || "學費單")}</div>
+    ${rows}
+    <div class="tot"><div class="pl">總計</div><div class="pv">${fmt(b.total)}</div></div>
+    <div class="foot">${foot}</div>
+    <div class="nt">備註：${esc(b.note || "")}</div>
+  </div>`;
+}
+
+/* ---------- 列表 ---------- */
+function render() {
+  const list = $("list");
+  if (!BILLS.length) {
+    list.innerHTML = `<div class="empty">目前沒有學費單。<br>班上開立並發布後，會顯示在這裡。</div>`;
+    $("help").textContent = "";
+    return;
+  }
+  list.innerHTML = BILLS.map((b, i) => {
+    const chips = sortedItems(b).filter(it => it.counted && it.amount !== 0)
+      .map(it => `<span class="chip${it.amount < 0 ? " neg" : ""}">${esc(it.label)}</span>`).join("");
+    return `<button type="button" class="bill" data-i="${i}" aria-label="${esc(b.title || "學費單")}，應繳 ${fmt(b.total)} 元，點一下查看明細">
+      <div class="r1"><span class="ttl">${esc(b.title || "學費單")}${isNew(b) ? '<span class="new">新</span>' : ""}</span><span class="amt">${fmt(b.total)} 元</span></div>
+      <div class="r2">${b.due_date ? `<span>繳費期限 ${esc(fmtDue(b.due_date))}</span>` : ""}</div>
+      ${chips ? `<div class="chips">${chips}</div>` : ""}
+    </button>`;
+  }).join("");
+  $("help").textContent = "點選任一張可查看完整明細、匯款資訊，也可儲存成圖片或列印。如有疑問請洽班導師。";
+}
+$("list").addEventListener("click", e => {
+  const el = e.target.closest(".bill");
+  if (el) openBill(BILLS[+el.dataset.i]);
+});
+
+/* ---------- 明細 ---------- */
+function openBill(b) {
+  current = b;
+  $("dlgTitle").textContent = b.title || "學費單";
+  $("paperBox").innerHTML = paperHtml(b);
+  $("dlg").showModal();
+}
+$("dlgClose").addEventListener("click", () => $("dlg").close());
+$("dlg").addEventListener("click", e => { if (e.target === $("dlg")) $("dlg").close(); });
+
+const blobOf = c => new Promise(r => c.toBlob(r, "image/png"));
+const fileName = b => `${b.student_name}_${b.title || "學費單"}.png`.replace(/[\\/:*?"<>|]/g, "_");
+async function imgAct(kind) {
+  if (!current) return;
+  busy(true);
+  try {
+    const canvas = await html2canvas($("paperBox").querySelector(".paper"), { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+    const blob = await blobOf(canvas);
+    const name = fileName(current);
+    if (kind === "down") {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } else {
+      const file = new File([blob], name, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: name });
+      else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast("這個裝置不支援直接傳送，已改為下載圖片"); }
+    }
+  } catch (ex) {
+    if (ex && ex.name === "AbortError") return;
+    toast((ex && ex.message) || "操作失敗", true);
+  } finally { busy(false); }
+}
+$("bDown").addEventListener("click", () => imgAct("down"));
+$("bShare").addEventListener("click", () => imgAct("share"));
+$("bPrint").addEventListener("click", () => {
+  if (!current) return;
+  $("printArea").innerHTML = paperHtml(current);
+  setTimeout(() => window.print(), 60);
+});
+
+/* ---------- 啟動 ---------- */
+function showError(msg) { const e = $("err"); e.textContent = msg; e.classList.remove("hidden"); }
+async function start() {
+  busy(true);
+  try {
+    const { data: s } = await sb.auth.getSession();
+    if (!s || !s.session) return goPortal("登入已過期，請重新登入");
+    const p = await sb.from("profiles").select("role,student_id").eq("id", s.session.user.id).maybeSingle();
+    if (p.error || !p.data) return goPortal("登入已過期，請重新登入");
+    if (p.data.role !== "student") { location.replace(PORTAL_URL); return; }   // 老師、管理員請從學費管理進入
+    touch();
+    const st = await sb.from("students").select("name,grade,school,account_code").eq("id", p.data.student_id).maybeSingle();
+    if (st.data) $("who").textContent = [st.data.name, st.data.grade, st.data.account_code].filter(Boolean).join("・");
+    // 後端只會回傳「已發布」且屬於本人的學費單
+    const [b, a] = await Promise.all([
+      sb.from("fee_bills").select("*, fee_bill_items(*)").eq("status", "issued").order("issued_at", { ascending: false, nullsFirst: false }),
+      sb.from("fee_accounts").select("*")
+    ]);
+    if (b.error) throw b.error;
+    BILLS = b.data || [];
+    ACCOUNTS = a.data || [];
+    render();
+  } catch (ex) {
+    const m = (ex && ex.message) || String(ex || "");
+    if (/JWT|not authenticated|42501|permission/i.test(m)) return goPortal("登入已過期，請重新登入");
+    showError(/Failed to fetch|NetworkError/i.test(m) ? "無法連線，請檢查網路後再試一次" : "讀取失敗：" + m);
+  } finally { busy(false); }
+}
+start();
+</script>
+<script src="https://mcdull60555.github.io/jixiang-educloud/switcher.js" data-app="tuitionFamily" defer></script>
+</body>
+</html>
