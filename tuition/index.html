@@ -653,7 +653,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1024-1400</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1024-1410</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1193,7 +1193,7 @@ function openBatch() {
   $("batDept").innerHTML = '<option value="">全部部別</option>' + depts.map(d => `<option>${esc(d)}</option>`).join("");
   document.querySelector('input[name="batMode"][value="plan"]').checked = true;
   $("batQ").value = ""; $("batPeriod").value = ""; $("batErr").classList.add("hidden");
-  $("batLeave").checked = false; $("batMeal").checked = true;
+  $("batLeave").checked = true; $("batMeal").checked = true;   // 兩項預設都自動帶入，不要的再取消勾選
   batModeChanged();
   $("batDlg").showModal();
 }
