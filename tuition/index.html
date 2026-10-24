@@ -653,7 +653,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1024-1345</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1024-1400</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1224,6 +1224,27 @@ function batModeChanged() {
   syncBatTpl();
   buildCands();
 }
+/* 批次預覽：把晚餐預收餐費也算進去（和實際建立時一致） */
+let batMealMap = null, batMealKey = "";
+function planSub(s, ym) {
+  const r = enrollItems(s, ym);
+  if (!r.items.length) return "這個月沒有要收的項目（期繳還沒到收費月份）";
+  const items = r.items.map(i => Object.assign({}, i));
+  if ($("batMeal").checked && batMealMap) { const e = batMealMap.get(s.id); if (e && e.amount > 0) setMealRow(items, e.amount); }
+  return items.map(i => `${i.label}${i.amount ? " " + fmt(i.amount) : (i.item_type === "meal" && $("batMeal").checked ? " ⚠晚餐管理沒有訂餐設定" : " ⚠無金額")}`).join("、");
+}
+async function refreshBatMeal() {
+  const m = $("batMealMonth").value;
+  if (!$("batMeal").checked || !m) { batMealMap = null; batMealKey = ""; }
+  else if (batMealKey !== m) {
+    batMealKey = m;
+    try { batMealMap = await mealEstimate(m); } catch (_) { batMealMap = null; }
+    if (batMealKey !== m) return;
+  }
+  if (batMode() === "plan" && $("batMonth").value) { batCands.forEach(c => { if (c.stu) c.sub = planSub(c.stu, $("batMonth").value); }); renderBat(); }
+}
+$("batMeal").addEventListener("change", refreshBatMeal);
+$("batMealMonth").addEventListener("change", refreshBatMeal);
 function buildCands() {
   const target = $("batTerm").value;
   const have = new Set(BILLS.filter(b => b.term_id === target && b.status !== "void").map(keyOf));
@@ -1231,8 +1252,7 @@ function buildCands() {
     const ym = $("batMonth").value;
     batCands = !ym ? [] : STUDENTS.filter(s => enrollsOf(s.id).length).map(s => {
       const r = enrollItems(s, ym), has = r.items.length > 0;
-      return { key: s.id, name: s.name, grade: s.grade, dept: deptOfGrade(s.grade), stu: s, exists: have.has(s.id), none: !has,
-               sub: has ? r.items.map(i => `${i.label}${i.amount ? " " + fmt(i.amount) : " ⚠無金額"}`).join("、") : "這個月沒有要收的項目（期繳還沒到收費月份）" };
+      return { key: s.id, name: s.name, grade: s.grade, dept: deptOfGrade(s.grade), stu: s, exists: have.has(s.id), none: !has, sub: planSub(s, ym) };
     });
     if (!STUDENTS.some(s => enrollsOf(s.id).length)) batCands = [];
   } else if (batMode() === "copy") {
@@ -1247,6 +1267,7 @@ function buildCands() {
   const pre = new Set(batCands.filter(c => !c.exists && !c.none).map(c => c.key));
   batChecked = pre;
   renderBat();
+  refreshBatMeal();
 }
 let batChecked = new Set();
 function batVisible() {
