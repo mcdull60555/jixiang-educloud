@@ -134,7 +134,7 @@
   .err { font-size: 14px; color: var(--rose); background: var(--rose-l); border-radius: 10px; padding: 10px 12px; margin: 0; }
   .acct-box { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; color: var(--blue-d); background: var(--blue-l); padding: 2px 10px; border-radius: 8px; }
 
-  #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: #1E293B; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 14px; z-index: 9000; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); }
+  #toast { position: fixed; top: auto; right: auto; width: max-content; height: auto; margin: 0; border: 0; overflow: visible; left: 50%; bottom: 84px; transform: translateX(-50%); background: #1E293B; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 14px; z-index: 9000; box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); }
   #toast.bad { background: var(--rose); }
   .busy { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgba(15,23,42,.45); display: flex; align-items: center; justify-content: center; z-index: 9400; color: #fff; font-size: 20px; text-shadow: 0 1px 6px rgba(0,0,0,.5); text-align: center; font-weight: 700; }
   .test-tag { position: fixed; left: 8px; bottom: 8px; z-index: 99; background: #7c3aed; color: #fff; font: 700 11px/1 sans-serif; padding: 6px 10px; border-radius: 999px; opacity: .9; pointer-events: none; }
@@ -501,7 +501,7 @@
 </dialog>
 
 <div id="printArea"></div>
-<div id="toast" class="hidden" role="status"></div>
+<div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
 <div class="test-tag">學務雲 測試版・整合版</div>
 
@@ -543,7 +543,8 @@ function busy(on) {
 let toastTimer;
 function toast(msg, bad) {
   const t = $("toast"); t.textContent = msg; t.className = bad ? "bad" : "";
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add("hidden"), 3200);
+  try { if (!t.matches(":popover-open")) t.showPopover(); } catch (_) { /* 舊瀏覽器 */ }   // 浮在對話框上面
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.classList.add("hidden"); try { if (t.matches(":popover-open")) t.hidePopover(); } catch (_) {} }, 3200);
 }
 function friendly(err) {
   const m = (err && err.message) || String(err || "");
