@@ -141,6 +141,18 @@
   /* 帳密小卡 */
   #cardBtn, #dCard, #dParent { color: var(--blue); border: 1.5px solid var(--blue); font-weight: 700; }
   #cardBtn:hover, #dCard:hover, #dParent:hover { background: var(--blue-l); }
+  .gs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 760px) { .gs-grid { grid-template-columns: 1fr; } }
+  .gs-grid h4 { margin: 0 0 8px; font-size: 16px; }
+  .gs-list { display: grid; gap: 6px; max-height: 52vh; overflow: auto; padding-right: 2px; }
+  .gs-row { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; min-height: 48px; }
+  .gs-row.off { background: #F8FAFC; color: var(--muted-2); }
+  .gs-row .nm { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+  .gs-row .nm small { font-weight: 400; color: var(--muted-2); margin-left: 6px; }
+  .gs-row input[type=text] { flex: 1; min-width: 0; min-height: 40px; border: 1px solid #D5DEEA; border-radius: 9px; padding: 0 10px; font: inherit; }
+  .gs-row .btn { min-height: 40px; padding: 0 10px; font-size: 13.5px; }
+  .gs-add { display: flex; gap: 8px; margin-top: 10px; }
+  .gs-add input { flex: 1; min-width: 0; min-height: 44px; border: 1px solid #D5DEEA; border-radius: 11px; padding: 0 12px; font: inherit; }
   dialog.wide { width: min(920px, calc(100vw - 24px)); }
   .plist { border: 1px solid var(--line); border-radius: 12px; max-height: 300px; overflow: auto; }
   .plist label { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 14px; }
@@ -228,6 +240,7 @@
         <option value="all">全部</option>
       </select>
       <button type="button" class="btn" id="cardBtn">帳密小卡</button>
+      <button type="button" class="btn" id="gsBtn" title="新增、改名、停用學校與年級，調整順序">學校・年級設定</button>
       <button type="button" class="btn primary" id="addBtn">＋ 新增學生</button>
     </div>
     <div class="filters2">
@@ -322,6 +335,27 @@
   </form>
 </dialog>
 
+<!-- 學校・年級設定 -->
+<dialog id="gsDlg" class="wide" aria-labelledby="gsTitle">
+  <div class="dlg-head"><h3 id="gsTitle">學校・年級設定</h3><span class="help">改名會連同已登記的學生一起更新；停用後不會出現在新增學生的選單</span></div>
+  <div class="dlg-body">
+    <div class="gs-grid">
+      <section>
+        <h4>學校</h4>
+        <div id="gsSchools" class="gs-list"></div>
+        <div class="gs-add"><input type="text" id="gsSchoolNew" maxlength="30" placeholder="新增學校名稱" autocomplete="off"><button type="button" class="btn primary" id="gsSchoolAdd">新增</button></div>
+      </section>
+      <section>
+        <h4>年級</h4>
+        <div id="gsGrades" class="gs-list"></div>
+        <div class="gs-add"><input type="text" id="gsGradeNew" maxlength="12" placeholder="新增年級，例如 國一" autocomplete="off"><button type="button" class="btn primary" id="gsGradeAdd">新增</button></div>
+      </section>
+    </div>
+    <p class="err hidden" id="gsErr" role="alert"></p>
+  </div>
+  <div class="dlg-foot"><button type="button" class="btn primary" data-close>關閉</button></div>
+</dialog>
+
 <!-- 重設學生密碼 -->
 <dialog id="pDlg" class="narrow" aria-labelledby="pDlgTitle">
   <form method="dialog" id="pForm" novalidate>
@@ -393,13 +427,15 @@
 
 <div id="toast" class="hidden" role="status"></div>
 <div id="busy" class="busy hidden">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1430</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
 const SUPABASE_KEY = "sb_publishable_ZVT08ujYz6NmsowKmqBNng_JxBJaVmb";
 const PORTAL_URL = "../";
-const GRADES = ["一年級", "二年級", "三年級", "四年級", "五年級", "六年級"];
+let GRADE_ROWS = [];   // grade_list：{name, sort_order, active}
+const DEFAULT_GRADES = ["一年級", "二年級", "三年級", "四年級", "五年級", "六年級"];
+let GRADES = DEFAULT_GRADES.slice();
 const DOW = ["週一", "週二", "週三", "週四", "週五"];
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -448,8 +484,7 @@ async function goPortal(msg) {
   try { sessionStorage.setItem("jx-notice", msg || ""); } catch (_) { /* 忽略 */ }
   location.replace(PORTAL_URL);
 }
-const GRADE_ORDER = ["大班", "一年級", "二年級", "三年級", "四年級", "五年級", "六年級", "國一", "國二", "國三", "高一", "高二", "高三"];
-const gradeNo = g => { const i = GRADE_ORDER.indexOf(g); return i < 0 ? 99 : i; };
+const gradeNo = g => { const i = GRADE_ROWS.findIndex(r => r.name === g); return i < 0 ? 99 : i; };
 const gradeText = s => (s.grade || "") + (s.school_class ? ` ${s.school_class} 班` : "");
 const primaryContact = s => { const c = Array.isArray(s.contacts) ? s.contacts : []; return c.find(x => x.primary) || c[0] || null; };
 const fmtBday = d => d ? d.replace(/-/g, "/") : "";
@@ -483,6 +518,13 @@ async function load() {
     MEALS = ms.error ? null : new Map((ms.data || []).map(r => [r.student_id, { active: r.active, weekdays: (r.weekdays || []).map(Number) }]));
   } catch (_) { MEALS = null; }
   STUDENTS = st.data || [];
+  try {
+    const gl = await sb.from("grade_list").select("name,sort_order,active").order("sort_order");
+    GRADE_ROWS = gl.error ? [] : (gl.data || []);
+  } catch (_) { GRADE_ROWS = []; }
+  if (!GRADE_ROWS.length) GRADE_ROWS = DEFAULT_GRADES.map((n, i) => ({ name: n, sort_order: i + 1, active: true }));
+  // 已有學生在用但被停用的年級，篩選與小卡仍要看得到
+  { const used = new Set(STUDENTS.map(x => x.grade).filter(Boolean)); GRADES = GRADE_ROWS.filter(g => g.active || used.has(g.name)).map(g => g.name); used.forEach(g => { if (!GRADES.includes(g)) GRADES.push(g); }); }
   SCHOOLS = (sc.data || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   CLASSES = (cl.data || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const curS = $("fSchoolF").value, curG = $("fGradeF").value;
@@ -635,7 +677,8 @@ function openEdit(s) {
   const schools = SCHOOLS.filter(x => x.active || (s && x.name === s.school));
   $("sSchool").innerHTML = '<option value="">請選擇</option>' + schools.map(x => `<option>${esc(x.name)}</option>`).join("");
   $("sSchool").value = s ? s.school : "";
-  $("sGrade").innerHTML = '<option value="">請選擇</option>' + GRADES.map(g => `<option>${g}</option>`).join("");
+  { const opts = GRADE_ROWS.filter(g => g.active || (s && g.name === s.grade)).map(g => g.name); if (s && s.grade && !opts.includes(s.grade)) opts.push(s.grade);
+    $("sGrade").innerHTML = '<option value="">請選擇</option>' + opts.map(g => `<option>${esc(g)}</option>`).join(""); }
   $("sGrade").value = s ? s.grade : "";
   $("sCls").value = s && s.school_class ? s.school_class : "";
   const cs = (s && Array.isArray(s.contacts) ? s.contacts : []).slice(0, 3);
@@ -1027,6 +1070,79 @@ $("sLn").addEventListener("change", updatePinField);
 $("sForm").addEventListener("submit", saveStudent);
 $("pForm").addEventListener("submit", saveReset);
 ["sPin", "pNew"].forEach(id => $(id).addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4); }));
+/* ---------- 學校・年級設定 ---------- */
+let gsEdit = null;   // { kind, key }
+function gsErr(m) { $("gsErr").textContent = m || ""; $("gsErr").classList.toggle("hidden", !m); }
+function gsRender() {
+  const nS = n => STUDENTS.filter(x => x.active !== false && x.school === n).length, nG = n => STUDENTS.filter(x => x.active !== false && x.grade === n).length;
+  const row = (kind, key, name, on, count, first, last) => {
+    const editing = gsEdit && gsEdit.kind === kind && gsEdit.key === key;
+    if (editing) return `<div class="gs-row"><input type="text" id="gsEditIn" value="${esc(name)}" maxlength="${kind === "g" ? 12 : 30}" autocomplete="off"><button type="button" class="btn primary" data-gs="save">儲存</button><button type="button" class="btn" data-gs="cancel">取消</button></div>`;
+    return `<div class="gs-row ${on ? "" : "off"}"><span class="nm">${esc(name)}<small>${on ? count + " 位在學" : "已停用"}</small></span>
+      <button type="button" class="btn" data-gs="up" data-k="${esc(kind)}" data-key="${esc(key)}" ${first ? "disabled" : ""} aria-label="上移">↑</button>
+      <button type="button" class="btn" data-gs="down" data-k="${esc(kind)}" data-key="${esc(key)}" ${last ? "disabled" : ""} aria-label="下移">↓</button>
+      <button type="button" class="btn" data-gs="edit" data-k="${esc(kind)}" data-key="${esc(key)}" ${on || kind === "g" ? "" : "disabled"}>改名</button>
+      <button type="button" class="btn" data-gs="toggle" data-k="${esc(kind)}" data-key="${esc(key)}" style="${on ? "color:var(--rose)" : ""}">${on ? "停用" : "啟用"}</button></div>`;
+  };
+  $("gsSchools").innerHTML = SCHOOLS.length ? SCHOOLS.map((x, i) => row("s", x.id, x.name, x.active, nS(x.name), i === 0, i === SCHOOLS.length - 1)).join("") : '<p class="help">還沒有學校</p>';
+  $("gsGrades").innerHTML = GRADE_ROWS.map((x, i) => row("g", x.name, x.name, x.active, nG(x.name), i === 0, i === GRADE_ROWS.length - 1)).join("");
+  const ei = $("gsEditIn"); if (ei) { ei.focus(); ei.select(); }
+}
+const GS_MSG = { NAME_INVALID: "名稱不能空白，年級最多 12 個字", GRADE_EXISTS: "已經有這個年級了", SCHOOL_EXISTS: "已經有這間學校了", NAME_REQUIRED: "名稱不能空白", SCHOOL_NOT_FOUND: "找不到這間學校（可能已停用）", NOT_FOUND: "找不到這一筆" };
+async function gsCall(fn, args, okMsg) {
+  gsErr("");
+  busy(true);
+  try {
+    const { data, error } = await sb.rpc(fn, args);
+    if (error) throw error;
+    if (typeof data === "string" && data !== "OK") { gsErr(GS_MSG[data] || data); return false; }
+    await load(); gsEdit = null; gsRender();
+    if (okMsg) toast(okMsg);
+    return true;
+  } catch (ex) { gsErr(friendly(ex)); return false; }
+  finally { busy(false); }
+}
+$("gsBtn").addEventListener("click", () => { gsEdit = null; gsErr(""); gsRender(); $("gsDlg").showModal(); });
+$("gsDlg").addEventListener("click", async e => {
+  const t = e.target.closest("button[data-gs]"); if (!t) return;
+  const a = t.dataset.gs, kind = t.dataset.k, key = t.dataset.key;
+  if (a === "cancel") { gsEdit = null; return gsRender(); }
+  if (a === "edit") { gsEdit = { kind, key }; return gsRender(); }
+  if (a === "save") {
+    const v = $("gsEditIn").value.trim(); if (!v) return gsErr("名稱不能空白");
+    if (gsEdit.kind === "s") return gsCall("rc_rename_school", { p_id: gsEdit.key, p_name: v }, "已改名，學生資料同步更新");
+    return gsCall("admin_rename_grade", { p_old: gsEdit.key, p_new: v }, "已改名，學生、價目表同步更新");
+  }
+  if (a === "up" || a === "down") return gsCall(kind === "s" ? "admin_move_school" : "admin_move_grade", kind === "s" ? { p_id: key, p_dir: a === "up" ? -1 : 1 } : { p_name: key, p_dir: a === "up" ? -1 : 1 });
+  if (a === "toggle") {
+    if (kind === "s") {
+      const x = SCHOOLS.find(y => y.id === key); if (!x) return;
+      if (x.active) {
+        const n = STUDENTS.filter(s => s.active !== false && s.school === x.name && s.in_rollcall).length;
+        if (!confirm(`要停用「${x.name}」嗎？${n ? `\n這間學校有 ${n} 位在學學生目前「進點名」，停用後會一併從雲點名移除。` : ""}\n學生資料不會刪除，之後可以再啟用。`)) return;
+        busy(true); gsErr("");
+        try { const { error } = await sb.rpc("rc_close_school", { p_id: key }); if (error) throw error; await load(); gsRender(); toast("已停用"); } catch (ex) { gsErr(friendly(ex)); } finally { busy(false); }
+      } else return gsCall("rc_add_schools", { p_names: [x.name] }, "已啟用");
+      return;
+    }
+    const g = GRADE_ROWS.find(y => y.name === key); if (!g) return;
+    if (g.active) { const n = STUDENTS.filter(s => s.active !== false && s.grade === key).length; if (n && !confirm(`「${key}」還有 ${n} 位在學學生。\n停用只是不再出現在新增學生的選單，這些學生不會被改動。要停用嗎？`)) return; }
+    return gsCall("admin_set_grade_active", { p_name: key, p_active: !g.active }, g.active ? "已停用" : "已啟用");
+  }
+});
+$("gsDlg").addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "gsEditIn") { e.preventDefault(); $("gsDlg").querySelector('[data-gs="save"]').click(); } });
+$("gsSchoolAdd").addEventListener("click", async () => {
+  const v = $("gsSchoolNew").value.trim(); if (!v) return gsErr("請輸入學校名稱");
+  gsErr(""); busy(true);
+  try {
+    const { data, error } = await sb.rpc("rc_add_schools", { p_names: [v] }); if (error) throw error;
+    if (data && data.skipped && data.skipped.length) return gsErr("已經有這間學校了");
+    $("gsSchoolNew").value = ""; await load(); gsRender(); toast("已新增學校");
+  } catch (ex) { gsErr(friendly(ex)); } finally { busy(false); }
+});
+$("gsGradeAdd").addEventListener("click", async () => { const v = $("gsGradeNew").value.trim(); if (!v) return gsErr("請輸入年級名稱"); if (await gsCall("admin_add_grade", { p_name: v }, "已新增年級")) $("gsGradeNew").value = ""; });
+["gsSchoolNew", "gsGradeNew"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $(id === "gsSchoolNew" ? "gsSchoolAdd" : "gsGradeAdd").click(); } }));
+
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
 $("logoutBtn").addEventListener("click", () => goPortal(""));
 
