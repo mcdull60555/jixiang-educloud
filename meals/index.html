@@ -192,6 +192,16 @@
   .mt tfoot td, .mt tfoot th { position: sticky; background: #F8FAFC; font-weight: 700; z-index: 2; border-top: 1px solid var(--line); }
   .mt tfoot th { left: 0; z-index: 3; text-align: left; padding: 0 10px; box-shadow: 1px 0 0 var(--line); }
   .mt tfoot input.di { width: 29px; padding: 0; font-size: 11.5px; min-height: 26px; border: 1px solid #D5DEEA; border-radius: 6px; text-align: center; font-size: 12.5px; padding: 0; margin: 2px 0; background: #fff; }
+  #calcPad { position: fixed; z-index: 9000; width: 236px; background: #fff; border: 1px solid #D5DEEA; border-radius: 14px; box-shadow: 0 14px 36px rgba(15,23,42,.28); padding: 10px; display: none; }
+  #calcPad .cd { background: #F1F5F9; border-radius: 10px; padding: 8px 10px; min-height: 42px; text-align: right; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; word-break: break-all; }
+  #calcPad .cd small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); min-height: 16px; }
+  #calcPad .ck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+  #calcPad .ck button { min-height: 42px; border: 1px solid #D5DEEA; border-radius: 10px; background: #fff; font-size: 18px; font-weight: 700; cursor: pointer; padding: 0; }
+  #calcPad .ck button.op { background: #EEF4FF; color: #1660D6; }
+  #calcPad .ck button.ok { background: #1660D6; color: #fff; border-color: #1660D6; grid-column: span 2; font-size: 16px; }
+  #calcPad .ck button:active { transform: scale(.95); }
+  #calcPad .cerr { color: var(--rose); font-size: 12.5px; min-height: 16px; margin-top: 4px; }
+  .mt tfoot input.ac { width: 29px; font-size: 10.5px; }
   .mt tfoot td { height: 32px; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
   .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 4px; border: 1px solid var(--line-2); }
@@ -315,6 +325,14 @@
       <button type="button" class="btn admin-only" id="setBtn">小卡設定</button>
     </div>
     <div class="sums" id="sums"></div>
+    <div id="calcPad" role="dialog" aria-label="計算機"><div class="cd"><small id="calcSub"></small><span id="calcDisp">0</span></div><div class="cerr" id="calcErr"></div>
+      <div class="ck" id="calcKeys">
+        <button type="button" data-k="C" class="op">C</button><button type="button" data-k="⌫" class="op">⌫</button><button type="button" data-k="(" class="op">(</button><button type="button" data-k=")" class="op">)</button>
+        <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="/" class="op">÷</button>
+        <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k="*" class="op">×</button>
+        <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k="-" class="op">−</button>
+        <button type="button" data-k="0">0</button><button type="button" data-k="=" class="op">=</button><button type="button" data-k="+" class="op">+</button><button type="button" data-k="OK" class="ok">確定</button>
+      </div></div>
     <div class="grid-wrap"><table class="mt" id="grid"></table></div>
     <div class="holnote" id="holnote"></div>
     <div class="holnote" id="pairnote" style="background:#EFF6FF;border-color:#BFDBFE;color:#1E3A8A"></div>
@@ -502,7 +520,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1950</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2000</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -733,7 +751,9 @@ function render() {
   th += `<th>次數</th><th>餐費</th><th>假日加強</th><th>已繳</th>${isSettle(Y, M) ? `<th title="上個月（奇數月）的溢繳／補繳，自動併入">上月轉入</th>` : ""}<th>溢繳／補繳</th>`;
   const day = (f, lbl, cls) => { let t = `<th>${lbl}</th><td></td>`; for (let d = 1; d <= n; d++) t += f(d); return t; };
   const dayIn = k => d => { const r = MDAYS.get(dateKey(Y, M, d)) || {}; const v = r[k] || 0; return `<td>${CAN_EDIT ? `<input class="di" data-dd="${d}" data-k="${k}" inputmode="numeric" value="${v || ""}" aria-label="${k} ${d}">` : (v || "")}</td>`; };
+  const actIn = d => { const v = (MDAYS.get(dateKey(Y, M, d)) || {}).actual || 0; return `<td>${CAN_EDIT ? `<input class="di ac" data-ac="${d}" inputmode="decimal" autocomplete="off" value="${v || ""}" title="實際訂購的晚餐金額（可輸入算式，例如 =120*5+30）" aria-label="實際訂購金額 ${d} 日">` : (v || "")}</td>`; };
   const foot = `<tr>${day(d => `<td data-sum="${d}"></td>`, "學生小計")}<td colspan="${NC()}" data-tot="stu"></td></tr>
+    <tr>${day(actIn, "實際訂購($)")}<td colspan="${NC()}" data-tot="act"></td></tr>
     <tr>${day(dayIn("extra"), "臨時")}<td colspan="${NC()}"></td></tr>
     <tr>${day(dayIn("teachers"), "老師($)")}<td colspan="${NC()}" data-tot="tea"></td></tr>
     <tr>${day(d => `<td data-all="${d}"></td>`, "合計份數")}<td colspan="${NC()}" data-tot="all"></td></tr>`;
@@ -768,16 +788,17 @@ function updateRow(tr) {
 }
 function updateFoot() {
   const n = dim(Y, M), rowsIds = [...$("grid").querySelectorAll("tbody tr[data-sid]")].map(t => t.dataset.sid);
-  let stuTot = 0, allTot = 0, teaTot = 0;
+  let stuTot = 0, allTot = 0, teaTot = 0, actTot = 0;
   for (let d = 1; d <= n; d++) {
     const dk = dateKey(Y, M, d); let s = 0;
     rowsIds.forEach(id => { s += ORD.get(id + "|" + dk) || 0; });
     const r = MDAYS.get(dk) || {}, all = s + (r.extra || 0);
     const a = $("grid").querySelector(`[data-sum="${d}"]`), b = $("grid").querySelector(`[data-all="${d}"]`);
     if (a) a.textContent = s || ""; if (b) b.textContent = all || "";
-    stuTot += s; allTot += all; teaTot += r.teachers || 0;
+    stuTot += s; allTot += all; teaTot += r.teachers || 0; actTot += r.actual || 0;
   }
   const t1 = $("grid").querySelector('[data-tot="stu"]'), t2 = $("grid").querySelector('[data-tot="all"]');
+  const t4 = $("grid").querySelector('[data-tot="act"]'); if (t4) t4.textContent = `實際訂購共 $${fmt(actTot)}`;
   const t3 = $("grid").querySelector('[data-tot="tea"]'); if (t3) t3.textContent = `老師餐費共 $${fmt(teaTot)}`;
   if (t1) t1.textContent = `學生共 ${stuTot} 份`; if (t2) t2.textContent = `全月共 ${allTot} 份`;
   // 摘要
@@ -818,6 +839,30 @@ async function savePrice() {
     MONTHS.set(ymOf(Y, M), Object.assign({ ym: ymOf(Y, M), note: "" }, MONTHS.get(ymOf(Y, M)), { price: v }));
     $("grid").querySelectorAll("tbody tr[data-sid]").forEach(updateRow); updateFoot(); toast("單價已更新");
   } catch (ex) { toast(friendly(ex), true); $("price").value = priceOf(Y, M); }
+}
+async function saveActual(d, v) {
+  const dk = dateKey(Y, M, d), cur = Object.assign({ day: dk, extra: 0, teachers: 0, note: "", actual: 0 }, MDAYS.get(dk) || {});
+  MDAYS.set(dk, Object.assign({}, cur, { actual: v }));
+  try { await rpc("meal_save_day_actual", { p_day: dk, p_actual: v }); }
+  catch (ex) { MDAYS.set(dk, cur); toast(friendly(ex), true); throw ex; }
+}
+// 整數四則計算（+ − × ÷ 與括號）；結果四捨五入成整數。不使用 eval。
+function calcExpr(src) {
+  const t = String(src).replace(/[＋]/g, "+").replace(/[－−—]/g, "-").replace(/[×＊xX]/g, "*").replace(/[÷／]/g, "/").replace(/[（]/g, "(").replace(/[）]/g, ")").replace(/[=＝\s,，$]/g, "");
+  if (!t) return 0;
+  if (!/^[0-9+\-*/().]+$/.test(t)) throw new Error("算式只能用數字與 + - × ÷ ( )");
+  let i = 0;
+  const peek = () => t[i];
+  function expr() { let v = term(); while (peek() === "+" || peek() === "-") { const op = t[i++]; const r = term(); v = op === "+" ? v + r : v - r; } return v; }
+  function term() { let v = factor(); while (peek() === "*" || peek() === "/") { const op = t[i++]; const r = factor(); if (op === "/" && r === 0) throw new Error("不能除以 0"); v = op === "*" ? v * r : v / r; } return v; }
+  function factor() {
+    if (peek() === "-") { i++; return -factor(); }
+    if (peek() === "+") { i++; return factor(); }
+    if (peek() === "(") { i++; const v = expr(); if (peek() !== ")") throw new Error("括號沒有成對"); i++; return v; }
+    const m = /^\d+(\.\d+)?/.exec(t.slice(i)); if (!m) throw new Error("算式格式不對"); i += m[0].length; return parseFloat(m[0]);
+  }
+  const v = expr(); if (i < t.length) throw new Error("算式格式不對");
+  return Math.round(v);
 }
 async function saveDay(d, patch) {
   const dk = dateKey(Y, M, d), cur = Object.assign({ day: dk, extra: 0, teachers: 0, note: "" }, MDAYS.get(dk) || {});
@@ -1166,12 +1211,61 @@ $("grid").addEventListener("change", async e => {
     t.value = v || "";
     try { await saveLedger(sid, { [t.dataset.k]: v }); t.classList.remove("dirty"); updateRow(t.closest("tr")); updateFoot(); }
     catch (_) { const L = LEDGER.get(sid + "|" + ymOf(Y, M)) || {}; t.value = L[t.dataset.k] || ""; }
-  } else if (t.matches("input.di")) {
+  } else if (t.matches("input.di:not(.ac)")) {
     const v = Math.max(0, num(t.value)); t.value = v || "";
     try { await saveDay(+t.dataset.dd, { [t.dataset.k]: v }); t.classList.remove("dirty"); updateFoot(); }
     catch (_) { const r = MDAYS.get(dateKey(Y, M, +t.dataset.dd)) || {}; t.value = r[t.dataset.k] || ""; }
   }
 });
+
+/* ---------- 實際訂購金額：可輸入算式，或點格子用計算機 ---------- */
+let CALC_IN = null;
+const calcPad = () => $("calcPad");
+function calcShow() {
+  if (!CALC_IN) return; const v = CALC_IN.value;
+  $("calcDisp").textContent = v || "0"; $("calcErr").textContent = "";
+  let sub = ""; try { if (/[+\-*/×÷]/.test(v.replace(/^=/, "").replace(/^-/, ""))) sub = "= " + fmt(calcExpr(v)); } catch (_) {}
+  $("calcSub").textContent = sub;
+}
+function calcOpen(inp) {
+  CALC_IN = inp; const r = inp.getBoundingClientRect(), pad = calcPad();
+  pad.style.display = "block";
+  const w = 236, h = pad.offsetHeight || 330;
+  let left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+  let top = r.top - h - 8; if (top < 8) top = Math.min(r.bottom + 8, innerHeight - h - 8);
+  pad.style.left = left + "px"; pad.style.top = Math.max(8, top) + "px";
+  calcShow();
+}
+function calcClose() { calcPad().style.display = "none"; CALC_IN = null; }
+async function calcCommit(inp) {
+  let v;
+  try { v = Math.max(0, calcExpr(inp.value)); } catch (ex) { $("calcErr").textContent = ex.message; toast(ex.message, true); return false; }
+  inp.value = v || "";
+  try { await saveActual(+inp.dataset.ac, v); inp.classList.remove("dirty"); updateFoot(); return true; }
+  catch (_) { const r = MDAYS.get(dateKey(Y, M, +inp.dataset.ac)) || {}; inp.value = r.actual || ""; return false; }
+}
+$("grid").addEventListener("focusin", e => { if (e.target.matches("input.ac")) calcOpen(e.target); });
+$("grid").addEventListener("input", e => { if (e.target.matches("input.ac")) calcShow(); });
+$("grid").addEventListener("change", e => { if (e.target.matches("input.ac")) calcCommit(e.target); });
+$("grid").addEventListener("keydown", e => {
+  if (!e.target.matches("input.ac")) return;
+  if (e.key === "Enter") { e.preventDefault(); e.target.blur(); }
+  else if (e.key === "Escape") { const r = MDAYS.get(dateKey(Y, M, +e.target.dataset.ac)) || {}; e.target.value = r.actual || ""; e.target.blur(); }
+});
+calcPad().addEventListener("mousedown", e => e.preventDefault());   // 點計算機按鍵時，輸入格不要失去焦點
+calcPad().addEventListener("touchstart", e => { if (e.target.closest("button")) e.preventDefault(); }, { passive: false });
+calcPad().addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b || !CALC_IN) return;
+  const k = b.dataset.k, inp = CALC_IN;
+  if (k === "C") inp.value = "";
+  else if (k === "⌫") inp.value = inp.value.slice(0, -1);
+  else if (k === "=") { try { inp.value = String(calcExpr(inp.value)); } catch (ex) { $("calcErr").textContent = ex.message; } }
+  else if (k === "OK") { calcCommit(inp).then(ok => { if (ok) { inp.blur(); calcClose(); } }); return; }
+  else inp.value += k;
+  inp.classList.add("dirty"); calcShow();
+});
+document.addEventListener("focusout", e => { if (e.target.matches && e.target.matches("input.ac")) setTimeout(() => { if (!document.activeElement || !document.activeElement.matches || !document.activeElement.matches("input.ac")) calcClose(); }, 120); });
+window.addEventListener("scroll", () => { if (CALC_IN) calcOpen(CALC_IN); }, true);
 $("price").addEventListener("change", savePrice);
 $("q").addEventListener("input", () => { clearTimeout(window.__qt); window.__qt = setTimeout(render, 150); });
 $("monSel").addEventListener("change", e => { const [y, m] = e.target.value.split("-").map(Number); gotoMonth(y, m); });
