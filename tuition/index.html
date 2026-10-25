@@ -777,7 +777,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1440</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1620</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -885,7 +885,7 @@ async function load() {
   PROGRAMS = !r[5].error ? (r[5].data || []) : [];
   PRICES = !r[6].error ? (r[6].data || []) : [];
   ENROLLS = !r[7].error ? (r[7].data || []) : [];
-  PRICE_MAP = {}; PRICES.forEach(x => { if (x.amount != null) PRICE_MAP[priceKey(x.grade, x.program_code, x.billing)] = x.amount; });
+  PRICE_MAP = {}; PRICES.forEach(x => { if (x.amount != null) PRICE_MAP[priceKey(x.grade, x.program_code, x.billing, x.subject || "")] = x.amount; });
   await loadGradeList();   // 年級清單與順序以「學生名冊 → 學校・年級設定」為準
   STUDENTS = CAN_EDIT ? (r[8].data || []).slice().sort(cmpStu) : [];
   try { const mk = await sb.from("meal_bill_booking").select("*"); MEALBK = mk.error ? [] : (mk.data || []); } catch (_) { MEALBK = []; }
@@ -2110,8 +2110,16 @@ async function loadGradeList() {
   } catch (_) { /* 沿用內建清單 */ }
   GRADE_ACTIVE = null;
 }
-const priceKey = (g, p, b) => `${g}|${p}|${b}`;
-const priceOf = (g, p, b) => PRICE_MAP[priceKey(g, p, b)];
+const priceKey = (g, p, b, sub) => `${g}|${p}|${b}|${sub || ""}`;
+const priceOf = (g, p, b, sub) => PRICE_MAP[priceKey(g, p, b, sub)];
+// 國中班按科目計價：價目表每個科目一格，學生選幾科就加總
+const SUBJ_PROGS = { junior: ["英文", "數學", "社會", "總複習"] };
+function subjSum(grade, code, billing, subjects) {
+  if (!subjects || !subjects.length) return { amount: null, missing: ["（尚未選科目）"] };
+  let t = 0; const missing = [];
+  subjects.forEach(sb_ => { const v = priceOf(grade, code, billing, sb_); if (v == null) missing.push(sb_); else t += v; });
+  return { amount: missing.length ? null : t, missing, partial: t };
+}
 const monthsOf = r => ((+r.to - +r.from + 12) % 12) + 1;
 const ruleStarting = (p, m) => (p.period_rule || []).find(r => +r.from === m);
 const ruleText = r => `${r.from}~${r.to}月`;
@@ -2123,11 +2131,11 @@ const billingName = b => (b === "period" ? "期繳" : "月繳");
 const enrollsOf = sid => ENROLLS.filter(e => e.student_id === sid && e.active && PROGRAMS.some(p => p.code === e.program_code))
   .sort((a, b) => PROGRAMS.findIndex(p => p.code === a.program_code) - PROGRAMS.findIndex(p => p.code === b.program_code));
 function enrollChips(sid) {
-  const l = enrollsOf(sid).map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `<span class="chip">${esc(p.name)}（${e.amount != null ? fmt(e.amount) + "・" : ""}${billingName(e.billing)}${e.discount ? "，優惠 " + fmt(e.discount) + "/月" : ""}）</span>`; });
+  const l = enrollsOf(sid).map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `<span class="chip">${esc(p.name)}${(e.subjects || []).length && SUBJ_PROGS[p.code] ? " " + esc(e.subjects.join("、")) : ""}（${e.amount != null ? fmt(e.amount) + "・" : ""}${billingName(e.billing)}${e.discount ? "，優惠 " + fmt(e.discount) + "/月" : ""}）</span>`; });
   return l.length ? `<div class="chips" style="max-width:none">${l.join("")}</div>` : "";
 }
 function enrollSummary(sid) {
-  return enrollsOf(sid).map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `${p.name}（${e.amount != null ? fmt(e.amount) + "・" : ""}${billingName(e.billing)}${e.discount ? "，優惠 " + fmt(e.discount) + "/月" : ""}）`; }).join("、");
+  return enrollsOf(sid).map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `${p.name}${(e.subjects || []).length && SUBJ_PROGS[p.code] ? " " + e.subjects.join("、") : ""}（${e.amount != null ? fmt(e.amount) + "・" : ""}${billingName(e.billing)}${e.discount ? "，優惠 " + fmt(e.discount) + "/月" : ""}）`; }).join("、");
 }
 // 依學生的收費設定，算出某個月份要收的明細
 function enrollItems(stu, ym, mealAuto) {
@@ -2136,7 +2144,13 @@ function enrollItems(stu, ym, mealAuto) {
   const discType = TYPES.some(t => t.code === "discount") ? "discount" : "other";
   enrollsOf(stu.id).forEach(e => {
     const p = PROGRAMS.find(x => x.code === e.program_code && x.active); if (!p) return;
-    const own = e.amount != null, mp = own ? e.amount : priceOf(stu.grade, p.code, "month"), pp = own ? null : priceOf(stu.grade, p.code, "period");
+    const bySubj = !!SUBJ_PROGS[p.code], subs = bySubj ? (e.subjects || []) : [];
+    const own = e.amount != null;
+    let mp, pp, subjMiss = [];
+    if (bySubj && !own) {
+      const a = subjSum(stu.grade, p.code, "month", subs), b = subjSum(stu.grade, p.code, "period", subs);
+      mp = a.amount; pp = b.amount; subjMiss = e.billing === "period" ? (pp != null ? [] : (mp != null ? [] : b.missing)) : a.missing;
+    } else { mp = own ? e.amount : priceOf(stu.grade, p.code, "month"); pp = own ? null : priceOf(stu.grade, p.code, "period"); }
     const first = (p.period_rule || [])[0];
     if (p.item_type === "tuition") base += e.billing === "month" ? (mp || 0) : (mp != null ? mp : (pp != null && first ? Math.round(pp / monthsOf(first)) : 0));
     let amount, period, months = 1;
@@ -2147,8 +2161,8 @@ function enrollItems(stu, ym, mealAuto) {
       amount = pp != null ? pp : (mp != null ? mp * months : null);
       if (pp == null && mp != null && !own) warns.push(`${stu.name}　${p.name}：沒有期繳價，暫以月費 × ${months} 個月計算`);
     }
-    if (amount == null) { if (!(mealAuto && p.item_type === "meal")) warns.push(`${stu.name}　${p.name}：價目表沒有「${stu.grade}」的${billingName(e.billing)}金額`); amount = 0; }
-    items.push({ item_type: p.item_type, label: p.name, amount, counted: true, period_text: period, note: "" });
+    if (amount == null) { if (!(mealAuto && p.item_type === "meal")) warns.push(bySubj && !subs.length && !own ? `${stu.name}　${p.name}：還沒選科目（請到學生名冊的班別・收費勾選）` : bySubj ? `${stu.name}　${p.name}：價目表沒有「${stu.grade}」的${subjMiss.join("、")}${billingName(e.billing)}金額` : `${stu.name}　${p.name}：價目表沒有「${stu.grade}」的${billingName(e.billing)}金額`); amount = 0; }
+    items.push({ item_type: p.item_type, label: bySubj && subs.length ? `${p.name}（${subs.join("、")}）` : p.name, amount, counted: true, period_text: period, note: "" });
     if (e.discount > 0 && amount > 0) items.push({ item_type: discType, label: `優惠折扣（${p.name}）`, amount: e.discount * months, counted: true, period_text: period, note: "" });
   });
   return { items, warns, base };
@@ -2195,18 +2209,21 @@ function renderPlanAdmin() {
   const box = $("pAdmin");
   if (!IS_ADMIN) { box.innerHTML = ""; return; }
   const progs = PROGRAMS.filter(p => p.active);
-  const head1 = progs.map(p => `<th class="pm-grp" colspan="2">${esc(p.name)}</th>`).join("");
-  const head2 = progs.map(() => '<th class="pm-grp">月繳／月</th><th>期繳／期</th>').join("");
-  const rows = GRADE_LIST.filter(g => !GRADE_ACTIVE || GRADE_ACTIVE.has(g) || PRICES.some(x => x.grade === g && x.amount != null)).map(g => `<tr><td class="nm" style="white-space:nowrap">${esc(g)}</td>${progs.map(p => ["month", "period"].map(b => {
-    const v = priceOf(g, p.code, b);
-    return `<td${b === "month" ? ' class="pm-grp"' : ""}><input class="pm-in" inputmode="numeric" data-g="${esc(g)}" data-p="${esc(p.code)}" data-b="${b}" value="${v == null ? "" : v}" aria-label="${esc(g + p.name + billingName(b))}"></td>`;
+  // 每個「欄」＝班別（或國中班的某個科目）；各有月繳、期繳兩格
+  const cols = []; progs.forEach(p => (SUBJ_PROGS[p.code] || [""]).forEach(sub => cols.push({ p, sub })));
+  const head1 = progs.map(p => `<th class="pm-grp" colspan="${2 * (SUBJ_PROGS[p.code] || [""]).length}">${esc(p.name)}</th>`).join("");
+  const head0 = cols.map(c => `<th class="pm-grp" colspan="2">${esc(c.sub)}</th>`).join("");
+  const head2 = cols.map(() => '<th class="pm-grp">月繳／月</th><th>期繳／期</th>').join("");
+  const rows = GRADE_LIST.filter(g => !GRADE_ACTIVE || GRADE_ACTIVE.has(g) || PRICES.some(x => x.grade === g && x.amount != null)).map(g => `<tr><td class="nm" style="white-space:nowrap">${esc(g)}</td>${cols.map(c => ["month", "period"].map(b => {
+    const v = priceOf(g, c.p.code, b, c.sub);
+    return `<td${b === "month" ? ' class="pm-grp"' : ""}><input class="pm-in" inputmode="numeric" data-g="${esc(g)}" data-p="${esc(c.p.code)}" data-s="${esc(c.sub)}" data-b="${b}" value="${v == null ? "" : v}" aria-label="${esc(g + c.p.name + c.sub + billingName(b))}"></td>`;
   }).join("")).join("")}</tr>`).join("");
   box.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap">
       <h3 style="margin:0;font-size:17px">價目表（年級 × 班別 × 繳費方式）</h3>
       <button type="button" class="btn primary sm" id="pmSave">儲存價目表</button></div>
-    <p class="help" style="margin:0 0 8px">月繳填「每月」金額；期繳填「一期」總金額。期繳留空時，開單會用月費 × 該期月數計算並提醒您。</p>
-    <div class="pm-wrap"><table><thead><tr><th></th>${head1}</tr><tr><th>年級</th>${head2}</tr></thead><tbody>${rows || ""}</tbody></table></div>
+    <p class="help" style="margin:0 0 8px">月繳填「每月」金額；期繳填「一期」總金額。國中班按科目各填一格，學生選幾科就加總（總複習是國三才會選）。期繳留空時，開單會用月費 × 該期月數計算並提醒您。</p>
+    <div class="pm-wrap"><table><thead><tr><th></th>${head1}</tr>${cols.some(c => c.sub) ? `<tr><th></th>${head0}</tr>` : ""}<tr><th>年級</th>${head2}</tr></thead><tbody>${rows || ""}</tbody></table></div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:26px 0 6px;flex-wrap:wrap">
       <h3 style="margin:0;font-size:17px">班別與期繳期間</h3><button type="button" class="btn primary sm" id="pgAdd">＋ 新增班別</button></div>
     <div class="tbl-wrap" style="margin-top:0"><table><thead><tr><th>名稱</th><th>項目種類</th><th>期繳期間</th><th>狀態</th><th></th></tr></thead><tbody>
@@ -2222,13 +2239,13 @@ async function upsertRows(table, rows, conflict) {
 async function savePrices() {
   const rows = [];
   $("pAdmin").querySelectorAll(".pm-in").forEach(inp => {
-    const raw = inp.value.replace(/[^\d]/g, ""), cur = priceOf(inp.dataset.g, inp.dataset.p, inp.dataset.b);
+    const raw = inp.value.replace(/[^\d]/g, ""), cur = priceOf(inp.dataset.g, inp.dataset.p, inp.dataset.b, inp.dataset.s || "");
     const nv = raw === "" ? null : parseInt(raw, 10);
-    if ((cur == null ? null : cur) !== nv) rows.push({ grade: inp.dataset.g, program_code: inp.dataset.p, billing: inp.dataset.b, amount: nv });
+    if ((cur == null ? null : cur) !== nv) rows.push({ grade: inp.dataset.g, program_code: inp.dataset.p, billing: inp.dataset.b, subject: inp.dataset.s || "", amount: nv });
   });
   if (!rows.length) return toast("價目表沒有變動");
   busy(true);
-  try { await upsertRows("fee_prices", rows, "grade,program_code,billing"); await load(); toast(`價目表已儲存（${rows.length} 格）`); }
+  try { await upsertRows("fee_prices", rows, "grade,program_code,billing,subject"); await load(); toast(`價目表已儲存（${rows.length} 格）`); }
   catch (ex) { toast(friendly(ex), true); } finally { busy(false); }
 }
 async function bulkEnroll(remove) {
@@ -2705,7 +2722,7 @@ $("pAdmin").addEventListener("click", e => {
   if (e.target.id === "pgAdd") return editProgram(null);
   const b = e.target.closest("[data-pg]"); if (b) editProgram(b.dataset.pg);
 });
-$("pAdmin").addEventListener("input", e => { if (e.target.matches(".pm-in")) { const cur = priceOf(e.target.dataset.g, e.target.dataset.p, e.target.dataset.b); const raw = e.target.value.replace(/[^\d]/g, ""); e.target.classList.toggle("dirty", (cur == null ? "" : String(cur)) !== raw); } });
+$("pAdmin").addEventListener("input", e => { if (e.target.matches(".pm-in")) { const cur = priceOf(e.target.dataset.g, e.target.dataset.p, e.target.dataset.b, e.target.dataset.s || ""); const raw = e.target.value.replace(/[^\d]/g, ""); e.target.classList.toggle("dirty", (cur == null ? "" : String(cur)) !== raw); } });
 $("enForm").addEventListener("submit", saveEnroll);
 $("enRows").addEventListener("change", e => { const r = e.target.closest(".enrow"); if (r && e.target.matches(".en-on")) r.classList.toggle("on", e.target.checked); });
 $("pgForm").addEventListener("submit", saveProgram);
