@@ -785,7 +785,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1745</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1850</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -2121,7 +2121,8 @@ async function loadGradeList() {
 const priceKey = (g, p, b, sub) => `${g}|${p}|${b}|${sub || ""}`;
 const priceOf = (g, p, b, sub) => PRICE_MAP[priceKey(g, p, b, sub)];
 // 國中班按「選幾科」計價：單科、雙科、三科、全科（四科）各一個價目（科數越多有優惠，不是單科 × 科數）
-const SUBJ_PROGS = { junior: ["1", "2", "3", "4"] };
+const SUBJ_PROGS = { junior: ["1", "2", "3", "4"], mat_junior: ["1", "2", "3", "4"] };   // 國中教材費的科數，跟著國中班選的科目走
+const juniorSubjects = sid => { const j = ENROLLS.find(x => x.student_id === sid && x.program_code === "junior" && x.active); return (j && j.subjects) || []; };
 const SUBJ_NAME = { "1": "單科", "2": "雙科", "3": "三科", "4": "全科（四科）" };
 function subjSum(grade, code, billing, subjects) {
   if (!subjects || !subjects.length) return { amount: null, missing: ["（尚未選科目）"] };
@@ -2152,7 +2153,7 @@ function enrollItems(stu, ym, mealAuto) {
   const discType = TYPES.some(t => t.code === "discount") ? "discount" : "other";
   enrollsOf(stu.id).forEach(e => {
     const p = PROGRAMS.find(x => x.code === e.program_code && x.active); if (!p) return;
-    const bySubj = !!SUBJ_PROGS[p.code], subs = bySubj ? (e.subjects || []) : [];
+    const bySubj = !!SUBJ_PROGS[p.code], subs = bySubj ? (p.code === "mat_junior" ? juniorSubjects(stu.id) : (e.subjects || [])) : [];
     const own = e.amount != null;
     let mp, pp, subjMiss = [];
     if (bySubj && !own) {
@@ -2305,13 +2306,14 @@ function openEnroll(sid) {
       const c = ((s.fee_choice || {}).programs || []).find(x => x.code === p.code);
       if (c) { e = { billing: c.billing, subjects: c.subjects || [] }; on = true; }
       else if (p.code === "transport" && s.shuttle) { e = { billing: "month" }; on = true; }
+      else if (p.code === "mat_junior" && ((s.fee_choice || {}).programs || []).some(x => x.code === "junior")) { e = { billing: "period" }; on = true; }   // 國中班附帶國中教材費（依科數）
     }
     return `<div class="enrow ${on ? "on" : ""}" data-code="${esc(p.code)}">
       <label class="nm2"><input type="checkbox" class="en-on" ${on ? "checked" : ""} style="width:18px;height:18px;accent-color:var(--blue)">${esc(p.name)}</label>
       <select class="en-b" aria-label="繳費方式"><option value="month" ${e && e.billing === "month" || !e ? "selected" : ""}>月繳</option><option value="period" ${e && e.billing === "period" ? "selected" : ""}>期繳</option></select>
       <input type="text" class="en-a" inputmode="numeric" placeholder="個別月費" value="${e && e.amount != null ? e.amount : ""}" aria-label="個別月費（留空依價目表）" title="個別月費：留空＝依價目表">
       <input type="text" class="en-d" inputmode="numeric" placeholder="每月優惠" value="${e && e.discount ? e.discount : ""}" aria-label="每月優惠">
-      ${SUBJ_PROGS[p.code] ? `<div class="ensub" style="${on ? "" : "display:none"}"><span class="help">科目</span>${["英文", "數學", "自然"].concat(s.grade === "國三" ? ["總複習"] : []).map(n => `<label><input type="checkbox" class="en-sub" value="${n}" ${((e && e.subjects) || []).includes(n) ? "checked" : ""}> ${n}</label>`).join("")}</div>` : ""}
+      ${p.code === "junior" ? `<div class="ensub" style="${on ? "" : "display:none"}"><span class="help">科目</span>${["英文", "數學", "自然"].concat(s.grade === "國三" ? ["總複習"] : []).map(n => `<label><input type="checkbox" class="en-sub" value="${n}" ${((e && e.subjects) || []).includes(n) ? "checked" : ""}> ${n}</label>`).join("")}</div>` : ""}
     </div>`;
   }).join("") || '<p class="empty">還沒有班別，請管理員先在下方新增</p>';
   $("enErr").classList.add("hidden");
