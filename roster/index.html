@@ -430,7 +430,7 @@
 
 <div id="toast" class="hidden" role="status"></div>
 <div id="busy" class="busy hidden">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1835</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1900</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -507,6 +507,7 @@ function fillGrades(cur) {
 }
 // 班別：幼稚園→英文班；國小→安親／數學／英文；國中→國中班（再選科目：英文、數學、自然；國三另有總複習；收費依選幾科）
 let FEE_STATE = null; const FEE_TOUCHED = new Set();
+const CLASS_CODES = ["care", "math", "english", "junior"];
 const LEVEL_PROGS = { k: ["english"], p: ["care", "math", "english"], j: ["junior"] };
 const JR_SUBJECTS = ["英文", "數學", "自然"];
 function feeSnapshot() {
@@ -533,8 +534,8 @@ function renderFee() {
   const isJ3 = $("sGrade").value === "國三";
   if (curLevel() === "j" && !FEE_TOUCHED.has("junior") && !(editing && ((editing.fee_choice || {}).programs || []).length)) { const o = snap.get("junior") || {}; snap.set("junior", Object.assign({ billing: "month", amount: "", discount: "", subjects: [] }, o, { on: true })); }   // 國中只有國中班：直接帶出，再選科目
   // 換了學校類型：新勾的、不屬於這個類型的班別取消（原本就有的舊報名保留，讓你自己決定要不要停）
-  snap.forEach((v, k) => { const p = PROGRAMS.find(x => x.code === k); if (v.on && allowed && p && p.item_type === "tuition" && !allowed.includes(k) && !(editing && ENROLLS.some(e => e.student_id === editing.id && e.program_code === k && e.active))) v.on = false; });
-  const ps = PROGRAMS.filter(p => (p.active && p.item_type === "tuition" && (!allowed || allowed.includes(p.code))) || (snap.get(p.code) && snap.get(p.code).on));
+  snap.forEach((v, k) => { const p = PROGRAMS.find(x => x.code === k); if (v.on && allowed && p && CLASS_CODES.includes(k) && !allowed.includes(k) && !(editing && ENROLLS.some(e => e.student_id === editing.id && e.program_code === k && e.active))) v.on = false; });
+  const ps = PROGRAMS.filter(p => (p.active && CLASS_CODES.includes(p.code) && (!allowed || allowed.includes(p.code))) || (snap.get(p.code) && snap.get(p.code).on));   // 班別以代碼判斷，不看「項目種類」（種類可由管理員改）
   const shOk = !!$("sSchool").value && $("sSchool").value !== "板橋國小" && curLevel() !== "j" && curLevel() !== "h";   // 非板橋國小才問要不要接送（車資）
   $("sShuttleWrap").classList.toggle("hidden", !shOk);
   $("sFeeBox").classList.toggle("hidden", !ps.length && !shOk);
