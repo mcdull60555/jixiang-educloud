@@ -777,7 +777,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1400</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1420</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1349,6 +1349,7 @@ async function openMeal() {
 function batMode() { return document.querySelector('input[name="batMode"]:checked').value; }
 function itemSummary(b) { return sortedItems(b).filter(i => !isBlank(i)).map(i => `${i.label}${i.amount ? " " + fmt(i.amount) : ""}`).join("、"); }
 function openBatch() {
+  batMealKey = ""; batMealMap = null; batSetKey = ""; batSetMap = null;   // 每次開啟都重新向晚餐管理取最新的預收／結算金額，避免用到舊快取
   $("batTerm").innerHTML = TERMS.filter(t => t.active).map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
   const termsWithBills = TERMS.filter(t => BILLS.some(b => b.term_id === t.id && b.status !== "void"));
   $("batSrc").innerHTML = termsWithBills.length ? termsWithBills.map(t => `<option value="${esc(t.id)}">${esc(t.name)}（${BILLS.filter(b => b.term_id === t.id && b.status !== "void").length} 張）</option>`).join("") : '<option value="">（還沒有任何梯次有學費單）</option>';
