@@ -163,6 +163,9 @@
   table.mt { border-collapse: separate; border-spacing: 0; font-size: 13px; width: max-content; min-width: 100%; }
   .mt th, .mt td { border-bottom: 1px solid var(--line); border-right: 1px solid #EEF2F7; padding: 0; text-align: center; background: #fff; }
   .mt thead th { position: sticky; top: 0; z-index: 3; background: #F8FAFC; font-size: 12px; color: var(--muted-2); height: 46px; line-height: 1.25; padding: 2px 0; }
+  .mt thead th.bt { cursor: pointer; }
+  .mt thead th.bst { background: #E6F4EA; color: #0E7A3E; box-shadow: inset 0 -3px 0 #16A34A; font-weight: 700; }
+  .mt thead th.bst small { color: #0E7A3E; font-size: 10px; }
   .mt thead th small { display: block; font-weight: 400; color: var(--muted); }
   .mt .nm-c { position: sticky; left: 0; z-index: 2; text-align: left; padding: 0 10px; min-width: 104px; max-width: 120px; white-space: nowrap; box-shadow: 1px 0 0 var(--line); background: #fff; cursor: pointer; }
   .mt thead .nm-c { z-index: 4; background: #F8FAFC; cursor: default; }
@@ -334,6 +337,7 @@
       <span><i style="background:var(--blue)"></i>已訂（深色＝2 份）</span>
       <span><i style="background:#F4F6FA"></i>週末</span>
       <span><i style="background:#FFF1E0"></i>放假／停課（雲點名設定）</span>
+      <span><i style="background:#E6F4EA;border-color:#16A34A"></i>日期綠底＝假日加強（點上排日期標示／取消）</span>
       <span><i style="background:#FFE4E6;border-color:#FDA4AF"></i>✕ 原本固定要訂、後來取消</span>
       <span><i style="background:#fff;border:3px solid #F59E0B"></i>原本不訂、後來加訂</span>
       <span>點日期格可切換 空白 → 1 份 → 2 份；點姓名可改用餐星期與備註</span>
@@ -515,7 +519,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2110</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2125</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -747,7 +751,8 @@ function render() {
   let th = `<th class="nm-c">姓名</th><th title="目前固定訂餐星期，點下去可直接修改">用餐星期</th>`;
   for (let d = 1; d <= n; d++) {
     const dk = dateKey(Y, M, d), dow = new Date(Y, M - 1, d).getDay();
-    th += `<th class="${(dow === 0 || dow === 6) ? "we" : ""} ${HOL.has(dk) ? "hol" : ""}" title="${esc(HOL.get(dk) || "")}">${d}<small>${HOL.has(dk) ? "休" : WD[dow]}</small></th>`;
+    const bst = !!(MDAYS.get(dk) || {}).boost;
+    th += `<th class="${(dow === 0 || dow === 6) ? "we" : ""} ${HOL.has(dk) ? "hol" : ""}${bst ? " bst" : ""}${CAN_EDIT && !HOL.has(dk) ? " bt" : ""}" data-bd="${d}" title="${esc(HOL.get(dk) || (bst ? "假日加強（點一下取消）" : CAN_EDIT ? "點一下標示為假日加強" : ""))}">${d}<small>${HOL.has(dk) ? "休" : WD[dow]}${bst ? "<br>加強" : ""}</small></th>`;
   }
   th += `<th>次數</th><th>餐費</th><th>假日加強</th><th>已繳</th>${isSettle(Y, M) ? `<th title="上個月（奇數月）的溢繳／補繳，自動併入">上月轉入</th>` : ""}<th>溢繳／補繳</th>`;
   const day = (f, lbl, cls) => { let t = `<th>${lbl}</th><td></td>`; for (let d = 1; d <= n; d++) t += f(d); return t; };
@@ -1054,7 +1059,7 @@ function dayCardHtml(dk) {
   const body = names.length ? names.map(x => `<span>${esc(x.s.name)}${x.q > 1 ? `<em>×${x.q}</em>` : ""}</span>`).join("") : `<span class="none">這天沒有人訂餐</span>`;
   const hol = HOL.get(dk);
   return `<div class="dc">${cardHead(SETTINGS.card_title ? SETTINGS.card_title.replace(/單$/, "") + "名單" : "晚餐訂購名單")}
-    <div class="dt">${mm} 月 ${dd} 日（週${WD[dow]}）<small>${hol ? "放假／停課：" + esc(hol) : `學生 ${names.length} 人`}</small></div>
+    <div class="dt">${mm} 月 ${dd} 日（週${WD[dow]}）<small>${hol ? "放假／停課：" + esc(hol) : `學生 ${names.length} 人`}${r.boost && !hol ? "　★假日加強" : ""}</small></div>
     <div class="names">${body}</div>
     <div class="cnt"><span>學生</span><b>${stu} 份</b></div>
     ${ex ? `<div class="cnt"><span>臨時加餐${r.extra_names ? "（" + esc(r.extra_names) + "）" : ""}</span><b>${ex} 份</b></div>` : ""}
@@ -1267,6 +1272,16 @@ $("exSave").addEventListener("click", async () => {
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && EX_D) exClose(); });
 document.addEventListener("mousedown", e => { if (EX_D && !e.target.closest("#exPad") && !e.target.matches("input.ex")) exClose(); });
+
+/* ---------- 假日加強：點上排日期標示 ---------- */
+$("grid").addEventListener("click", async e => {
+  const th = e.target.closest("thead th[data-bd]"); if (!th || !CAN_EDIT) return;
+  const d = +th.dataset.bd, dk = dateKey(Y, M, d); if (HOL.has(dk)) return;
+  const cur = Object.assign({ day: dk, extra: 0, teachers: 0, note: "", actual: 0, boost: false }, MDAYS.get(dk) || {}), on = !cur.boost;
+  MDAYS.set(dk, Object.assign({}, cur, { boost: on }));
+  try { await rpc("meal_save_day_boost", { p_day: dk, p_on: on }); render(); }
+  catch (ex) { MDAYS.set(dk, cur); toast(friendly(ex), true); }
+});
 $("price").addEventListener("change", savePrice);
 $("q").addEventListener("input", () => { clearTimeout(window.__qt); window.__qt = setTimeout(render, 150); });
 $("monSel").addEventListener("change", e => { const [y, m] = e.target.value.split("-").map(Number); gotoMonth(y, m); });
