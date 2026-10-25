@@ -499,10 +499,10 @@ function fillGrades(cur) {
   $("sGrade").value = opts.includes(cur) ? cur : (opts.length === 1 ? opts[0] : "");
   syncRc();
 }
-// 班別：幼稚園→英文班；國小→安親／數學／英文；國中→國中班（再選科目：英文、數學、社會；國三另有總複習）
+// 班別：幼稚園→英文班；國小→安親／數學／英文；國中→國中班（再選科目：英文、數學、自然；國三另有總複習；收費依選幾科）
 let FEE_STATE = null;
 const LEVEL_PROGS = { k: ["english"], p: ["care", "math", "english"], j: ["junior"] };
-const JR_SUBJECTS = ["英文", "數學", "社會"];
+const JR_SUBJECTS = ["英文", "數學", "自然"];
 function feeSnapshot() {
   const m = new Map();
   if (FEE_STATE) FEE_STATE.forEach((v, k) => m.set(k, v));

@@ -777,7 +777,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1620</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1650</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -2112,13 +2112,13 @@ async function loadGradeList() {
 }
 const priceKey = (g, p, b, sub) => `${g}|${p}|${b}|${sub || ""}`;
 const priceOf = (g, p, b, sub) => PRICE_MAP[priceKey(g, p, b, sub)];
-// 國中班按科目計價：價目表每個科目一格，學生選幾科就加總
-const SUBJ_PROGS = { junior: ["英文", "數學", "社會", "總複習"] };
+// 國中班按「選幾科」計價：單科、雙科、三科、全科（四科）各一個價目（科數越多有優惠，不是單科 × 科數）
+const SUBJ_PROGS = { junior: ["1", "2", "3", "4"] };
+const SUBJ_NAME = { "1": "單科", "2": "雙科", "3": "三科", "4": "全科（四科）" };
 function subjSum(grade, code, billing, subjects) {
   if (!subjects || !subjects.length) return { amount: null, missing: ["（尚未選科目）"] };
-  let t = 0; const missing = [];
-  subjects.forEach(sb_ => { const v = priceOf(grade, code, billing, sb_); if (v == null) missing.push(sb_); else t += v; });
-  return { amount: missing.length ? null : t, missing, partial: t };
+  const n = Math.min(subjects.length, 4), v = priceOf(grade, code, billing, String(n));
+  return { amount: v == null ? null : v, missing: v == null ? [SUBJ_NAME[n]] : [] };
 }
 const monthsOf = r => ((+r.to - +r.from + 12) % 12) + 1;
 const ruleStarting = (p, m) => (p.period_rule || []).find(r => +r.from === m);
@@ -2212,17 +2212,17 @@ function renderPlanAdmin() {
   // 每個「欄」＝班別（或國中班的某個科目）；各有月繳、期繳兩格
   const cols = []; progs.forEach(p => (SUBJ_PROGS[p.code] || [""]).forEach(sub => cols.push({ p, sub })));
   const head1 = progs.map(p => `<th class="pm-grp" colspan="${2 * (SUBJ_PROGS[p.code] || [""]).length}">${esc(p.name)}</th>`).join("");
-  const head0 = cols.map(c => `<th class="pm-grp" colspan="2">${esc(c.sub)}</th>`).join("");
+  const head0 = cols.map(c => `<th class="pm-grp" colspan="2">${esc(SUBJ_NAME[c.sub] || c.sub)}</th>`).join("");
   const head2 = cols.map(() => '<th class="pm-grp">月繳／月</th><th>期繳／期</th>').join("");
   const rows = GRADE_LIST.filter(g => !GRADE_ACTIVE || GRADE_ACTIVE.has(g) || PRICES.some(x => x.grade === g && x.amount != null)).map(g => `<tr><td class="nm" style="white-space:nowrap">${esc(g)}</td>${cols.map(c => ["month", "period"].map(b => {
     const v = priceOf(g, c.p.code, b, c.sub);
-    return `<td${b === "month" ? ' class="pm-grp"' : ""}><input class="pm-in" inputmode="numeric" data-g="${esc(g)}" data-p="${esc(c.p.code)}" data-s="${esc(c.sub)}" data-b="${b}" value="${v == null ? "" : v}" aria-label="${esc(g + c.p.name + c.sub + billingName(b))}"></td>`;
+    return `<td${b === "month" ? ' class="pm-grp"' : ""}><input class="pm-in" inputmode="numeric" data-g="${esc(g)}" data-p="${esc(c.p.code)}" data-s="${esc(c.sub)}" data-b="${b}" value="${v == null ? "" : v}" aria-label="${esc(g + c.p.name + (SUBJ_NAME[c.sub] || c.sub) + billingName(b))}"></td>`;
   }).join("")).join("")}</tr>`).join("");
   box.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap">
       <h3 style="margin:0;font-size:17px">價目表（年級 × 班別 × 繳費方式）</h3>
       <button type="button" class="btn primary sm" id="pmSave">儲存價目表</button></div>
-    <p class="help" style="margin:0 0 8px">月繳填「每月」金額；期繳填「一期」總金額。國中班按科目各填一格，學生選幾科就加總（總複習是國三才會選）。期繳留空時，開單會用月費 × 該期月數計算並提醒您。</p>
+    <p class="help" style="margin:0 0 8px">月繳填「每月」金額；期繳填「一期」總金額。國中班依「選幾科」各填一格（單科、雙科、三科、全科），填的是該科數的總價，不是單科 × 科數。期繳留空時，開單會用月費 × 該期月數計算並提醒您。</p>
     <div class="pm-wrap"><table><thead><tr><th></th>${head1}</tr>${cols.some(c => c.sub) ? `<tr><th></th>${head0}</tr>` : ""}<tr><th>年級</th>${head2}</tr></thead><tbody>${rows || ""}</tbody></table></div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:26px 0 6px;flex-wrap:wrap">
       <h3 style="margin:0;font-size:17px">班別與期繳期間</h3><button type="button" class="btn primary sm" id="pgAdd">＋ 新增班別</button></div>
