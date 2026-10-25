@@ -519,7 +519,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2430</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2445</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -655,6 +655,12 @@ function calcStu(sid, y, m, noPair) {
   let cin = 0;
   if (!noPair && isSettle(y, m)) { const [py, pm] = prevYM(y, m); cin = calcStu(sid, py, pm, true).own; if (ym === SHORT_ONLY_YM) cin = Math.min(cin, 0); }
   return { cnt, price, amount, paid, extra, extra_note: L.extra_note || "", note: L.note || "", own, cin, bal: own + cin };
+}
+// 臨時加訂的學生姓名（這個月與上個月）：姓名 + 天數
+function tempNamesText() {
+  const cnt = new Map(), mons = isSettle(Y, M) ? [prevYM(Y, M), [Y, M]] : [[Y, M]];
+  mons.forEach(([yy, mm]) => { for (let d = 1, n = dim(yy, mm); d <= n; d++) { const r = MDAYS.get(dateKey(yy, mm, d)) || {}; String(r.extra_names || "").split(/[、,，\n]+/).map(x => x.trim()).filter(Boolean).forEach(nm => cnt.set(nm, (cnt.get(nm) || 0) + 1)); } });
+  return [...cnt].map(([nm, n]) => `${nm} ${n} 天`).join("、");
 }
 function monthRows() {
   const ym = ymOf(Y, M), ids = new Set();
@@ -1317,11 +1323,13 @@ let STL = [];
 async function openSettle() {
   const [py, pm] = prevYM(Y, M);
   STL = monthRows().map(s => ({ s, c: calcStu(s.id, Y, M) })).filter(x => x.c.bal !== 0 || x.c.cin !== 0);
+  { const tc = calcStu(TEMP, Y, M);   // 臨時加訂也列進結算：一列「臨時加訂」，底下附學生姓名與天數
+    if (tc.bal !== 0 || tc.cin !== 0 || tc.cnt) STL.push({ s: { id: TEMP, name: "臨時加訂", grade: tempNamesText() }, c: tc }); }
   const paired = isSettle(Y, M);
   $("stlTitle").textContent = paired ? `${pm}～${M} 月結算` : `${M} 月結算`;
   $("stlHelp").textContent = (paired ? `${pm} 月（奇數月）的餘額已併入 ${M} 月。` : "") + "溢繳折抵下一期學費單；補繳併入學費單的餐費一起收。（學費單批次建立時會自動帶入，這裡的「帶入學費單」是給已建立的草稿補帶用。）";
   const lab = v => v > 0 ? `<span style="color:var(--green)">溢 ${fmt(v)}</span>` : v < 0 ? `<span style="color:var(--rose)">補 ${fmt(-v)}</span>` : "";
-  $("stlBody").innerHTML = STL.length ? STL.map(({ s, c }) => `<tr><td class="nm-c" style="position:static;cursor:default"><b>${esc(s.name)}</b><small>${esc(s.grade || "")}</small></td><td class="n">${c.cin < 0 ? lab(c.cin) : ""}</td><td class="n">${lab(c.cin > 0 ? c.bal : c.own)}</td><td class="n bal ${c.bal > 0 ? "pos" : c.bal < 0 ? "neg" : ""}">${c.bal > 0 ? "溢 " + fmt(c.bal) : c.bal < 0 ? "補 " + fmt(-c.bal) : "0"}</td><td style="text-align:left;padding:0 10px">${c.bal > 0 ? "溢繳折抵下月學費單" : c.bal < 0 ? "併入下月餐費，一起收" : "已結清"}</td></tr>`).join("") : `<tr><td colspan="5" class="empty" style="padding:24px">沒有需要處理的學生</td></tr>`;
+  $("stlBody").innerHTML = STL.length ? STL.map(({ s, c }) => `<tr><td class="nm-c" style="position:static;cursor:default"><b>${esc(s.name)}</b><small>${esc(s.grade || "")}</small></td><td class="n">${c.cin < 0 ? lab(c.cin) : ""}</td><td class="n">${lab(c.cin > 0 ? c.bal : c.own)}</td><td class="n bal ${c.bal > 0 ? "pos" : c.bal < 0 ? "neg" : ""}">${c.bal > 0 ? "溢 " + fmt(c.bal) : c.bal < 0 ? "補 " + fmt(-c.bal) : "0"}</td><td style="text-align:left;padding:0 10px">${s.id === TEMP ? (c.bal === 0 ? "已結清" : "臨時學生另外收退（不帶入學費單；有名冊的請在學費管理開單時帶入）") : c.bal > 0 ? "溢繳折抵下月學費單" : c.bal < 0 ? "併入下月餐費，一起收" : "已結清"}</td></tr>`).join("") : `<tr><td colspan="5" class="empty" style="padding:24px">沒有需要處理的學生</td></tr>`;
   const ow = STL.filter(x => x.c.bal < 0), ov = STL.filter(x => x.c.bal > 0);
   $("stlSum").innerHTML = `<span class="${ow.length ? "bad" : ""}">補繳 <b>${ow.length}</b> 位，共 <b>$${fmt(ow.reduce((t, x) => t - x.c.bal, 0))}</b></span><span>溢繳 <b>${ov.length}</b> 位，共 <b>$${fmt(ov.reduce((t, x) => t + x.c.bal, 0))}</b></span>`;
   $("stlErr").classList.add("hidden");
@@ -1334,13 +1342,13 @@ async function openSettle() {
 $("settleBtn").addEventListener("click", openSettle);
 $("stlCopy").addEventListener("click", async () => {
   const pm = prevYM(Y, M)[1], ow = STL.filter(x => x.c.bal < 0);
-  const t = `${pm}～${M} 月晚餐補繳名單\n` + (ow.length ? ow.map(x => `${x.s.name}　$${fmt(-x.c.bal)}（${x.c.cin > 0 ? `${M}月 補${fmt(-x.c.bal)}` : `${pm}月 ${x.c.cin < 0 ? "補" + fmt(-x.c.cin) : "0"}、${M}月 ${x.c.own < 0 ? "補" + fmt(-x.c.own) : x.c.own > 0 ? "溢" + fmt(x.c.own) : "0"}`}）`).join("\n") + `\n合計 $${fmt(ow.reduce((a, x) => a - x.c.bal, 0))}` : "無");
+  const t = `${pm}～${M} 月晚餐補繳名單\n` + (ow.length ? ow.map(x => `${x.s.id === TEMP ? "臨時加訂（" + (x.s.grade || "未登記姓名") + "）" : x.s.name}　$${fmt(-x.c.bal)}（${x.c.cin > 0 ? `${M}月 補${fmt(-x.c.bal)}` : `${pm}月 ${x.c.cin < 0 ? "補" + fmt(-x.c.cin) : "0"}、${M}月 ${x.c.own < 0 ? "補" + fmt(-x.c.own) : x.c.own > 0 ? "溢" + fmt(x.c.own) : "0"}`}）`).join("\n") + `\n合計 $${fmt(ow.reduce((a, x) => a - x.c.bal, 0))}` : "無");
   try { await navigator.clipboard.writeText(t); toast("已複製補繳名單"); } catch (_) { toast("無法複製", true); }
 });
 $("stlPush").addEventListener("click", async () => {
   const term = $("stlTerm").value, pm = prevYM(Y, M)[1], per = isSettle(Y, M) ? `${pm}～${M}月` : `${M}月`;
   if (!term) return;
-  const rows = STL.filter(x => x.c.bal !== 0 || true).map(x => ({ student_id: x.s.id, credit: Math.max(0, x.c.bal), short: Math.max(0, -x.c.bal), period: per }));
+  const rows = STL.filter(x => x.s.id !== TEMP).map(x => ({ student_id: x.s.id, credit: Math.max(0, x.c.bal), short: Math.max(0, -x.c.bal), period: per }));
   if (!confirm(`要把 ${per} 的結算（${rows.filter(r => r.credit).length} 位溢繳、${rows.filter(r => r.short).length} 位補繳）帶入「${$("stlTerm").selectedOptions[0].textContent}」的草稿學費單嗎？`)) return;
   try {
     const r = await rpc("meal_push_to_bills", { p_term: term, p_rows: rows });
