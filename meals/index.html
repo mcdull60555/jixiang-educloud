@@ -192,15 +192,6 @@
   .mt tfoot td, .mt tfoot th { position: sticky; background: #F8FAFC; font-weight: 700; z-index: 2; border-top: 1px solid var(--line); }
   .mt tfoot th { left: 0; z-index: 3; text-align: left; padding: 0 10px; box-shadow: 1px 0 0 var(--line); }
   .mt tfoot input.di { width: 29px; padding: 0; font-size: 11.5px; min-height: 26px; border: 1px solid #D5DEEA; border-radius: 6px; text-align: center; font-size: 12.5px; padding: 0; margin: 2px 0; background: #fff; }
-  #calcPad { position: fixed; z-index: 9000; width: 236px; background: #fff; border: 1px solid #D5DEEA; border-radius: 14px; box-shadow: 0 14px 36px rgba(15,23,42,.28); padding: 10px; display: none; }
-  #calcPad .cd { background: #F1F5F9; border-radius: 10px; padding: 8px 10px; min-height: 42px; text-align: right; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; word-break: break-all; }
-  #calcPad .cd small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); min-height: 16px; }
-  #calcPad .ck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
-  #calcPad .ck button { min-height: 42px; border: 1px solid #D5DEEA; border-radius: 10px; background: #fff; font-size: 18px; font-weight: 700; cursor: pointer; padding: 0; }
-  #calcPad .ck button.op { background: #EEF4FF; color: #1660D6; }
-  #calcPad .ck button.ok { background: #1660D6; color: #fff; border-color: #1660D6; grid-column: span 2; font-size: 16px; }
-  #calcPad .ck button:active { transform: scale(.95); }
-  #calcPad .cerr { color: var(--rose); font-size: 12.5px; min-height: 16px; margin-top: 4px; }
   .mt tfoot input.ac { width: 29px; font-size: 10.5px; }
   .mt tfoot td { height: 32px; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
@@ -325,14 +316,6 @@
       <button type="button" class="btn admin-only" id="setBtn">小卡設定</button>
     </div>
     <div class="sums" id="sums"></div>
-    <div id="calcPad" role="dialog" aria-label="計算機"><div class="cd"><small id="calcSub"></small><span id="calcDisp">0</span></div><div class="cerr" id="calcErr"></div>
-      <div class="ck" id="calcKeys">
-        <button type="button" data-k="C" class="op">C</button><button type="button" data-k="⌫" class="op">⌫</button><button type="button" data-k="(" class="op">(</button><button type="button" data-k=")" class="op">)</button>
-        <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="/" class="op">÷</button>
-        <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k="*" class="op">×</button>
-        <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k="-" class="op">−</button>
-        <button type="button" data-k="0">0</button><button type="button" data-k="=" class="op">=</button><button type="button" data-k="+" class="op">+</button><button type="button" data-k="OK" class="ok">確定</button>
-      </div></div>
     <div class="grid-wrap"><table class="mt" id="grid"></table></div>
     <div class="holnote" id="holnote"></div>
     <div class="holnote" id="pairnote" style="background:#EFF6FF;border-color:#BFDBFE;color:#1E3A8A"></div>
@@ -520,7 +503,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2000</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2010</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1218,54 +1201,20 @@ $("grid").addEventListener("change", async e => {
   }
 });
 
-/* ---------- 實際訂購金額：可輸入算式，或點格子用計算機 ---------- */
-let CALC_IN = null;
-const calcPad = () => $("calcPad");
-function calcShow() {
-  if (!CALC_IN) return; const v = CALC_IN.value;
-  $("calcDisp").textContent = v || "0"; $("calcErr").textContent = "";
-  let sub = ""; try { if (/[+\-*/×÷]/.test(v.replace(/^=/, "").replace(/^-/, ""))) sub = "= " + fmt(calcExpr(v)); } catch (_) {}
-  $("calcSub").textContent = sub;
-}
-function calcOpen(inp) {
-  CALC_IN = inp; const r = inp.getBoundingClientRect(), pad = calcPad();
-  pad.style.display = "block";
-  const w = 236, h = pad.offsetHeight || 330;
-  let left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
-  let top = r.top - h - 8; if (top < 8) top = Math.min(r.bottom + 8, innerHeight - h - 8);
-  pad.style.left = left + "px"; pad.style.top = Math.max(8, top) + "px";
-  calcShow();
-}
-function calcClose() { calcPad().style.display = "none"; CALC_IN = null; }
+/* ---------- 實際訂購金額：可直接輸入算式（例如 =120*5+30） ---------- */
 async function calcCommit(inp) {
   let v;
-  try { v = Math.max(0, calcExpr(inp.value)); } catch (ex) { $("calcErr").textContent = ex.message; toast(ex.message, true); return false; }
+  try { v = Math.max(0, calcExpr(inp.value)); } catch (ex) { toast(ex.message, true); return false; }
   inp.value = v || "";
-  try { await saveActual(+inp.dataset.ac, v); inp.classList.remove("dirty"); updateFoot(); return true; }
+  try { await saveActual(+inp.dataset.ac, v); updateFoot(); return true; }
   catch (_) { const r = MDAYS.get(dateKey(Y, M, +inp.dataset.ac)) || {}; inp.value = r.actual || ""; return false; }
 }
-$("grid").addEventListener("focusin", e => { if (e.target.matches("input.ac")) calcOpen(e.target); });
-$("grid").addEventListener("input", e => { if (e.target.matches("input.ac")) calcShow(); });
 $("grid").addEventListener("change", e => { if (e.target.matches("input.ac")) calcCommit(e.target); });
 $("grid").addEventListener("keydown", e => {
   if (!e.target.matches("input.ac")) return;
   if (e.key === "Enter") { e.preventDefault(); e.target.blur(); }
   else if (e.key === "Escape") { const r = MDAYS.get(dateKey(Y, M, +e.target.dataset.ac)) || {}; e.target.value = r.actual || ""; e.target.blur(); }
 });
-calcPad().addEventListener("mousedown", e => e.preventDefault());   // 點計算機按鍵時，輸入格不要失去焦點
-calcPad().addEventListener("touchstart", e => { if (e.target.closest("button")) e.preventDefault(); }, { passive: false });
-calcPad().addEventListener("click", e => {
-  const b = e.target.closest("button"); if (!b || !CALC_IN) return;
-  const k = b.dataset.k, inp = CALC_IN;
-  if (k === "C") inp.value = "";
-  else if (k === "⌫") inp.value = inp.value.slice(0, -1);
-  else if (k === "=") { try { inp.value = String(calcExpr(inp.value)); } catch (ex) { $("calcErr").textContent = ex.message; } }
-  else if (k === "OK") { calcCommit(inp).then(ok => { if (ok) { inp.blur(); calcClose(); } }); return; }
-  else inp.value += k;
-  inp.classList.add("dirty"); calcShow();
-});
-document.addEventListener("focusout", e => { if (e.target.matches && e.target.matches("input.ac")) setTimeout(() => { if (!document.activeElement || !document.activeElement.matches || !document.activeElement.matches("input.ac")) calcClose(); }, 120); });
-window.addEventListener("scroll", () => { if (CALC_IN) calcOpen(CALC_IN); }, true);
 $("price").addEventListener("change", savePrice);
 $("q").addEventListener("input", () => { clearTimeout(window.__qt); window.__qt = setTimeout(render, 150); });
 $("monSel").addEventListener("change", e => { const [y, m] = e.target.value.split("-").map(Number); gotoMonth(y, m); });
