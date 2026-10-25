@@ -519,7 +519,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2210</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2215</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1321,7 +1321,7 @@ async function openSettle() {
 $("settleBtn").addEventListener("click", openSettle);
 $("stlCopy").addEventListener("click", async () => {
   const pm = prevYM(Y, M)[1], ow = STL.filter(x => x.c.bal < 0);
-  const t = `${pm}～${M} 月晚餐補繳名單\n` + (ow.length ? ow.map(x => `${x.s.name}　$${fmt(-x.c.bal)}（${x.c.cin > 0 ? `${M}月 補${fmt(-x.c.own)}，已扣${pm}月溢繳${fmt(x.c.cin)}` : `${pm}月 ${x.c.cin < 0 ? "補" + fmt(-x.c.cin) : "0"}、${M}月 ${x.c.own < 0 ? "補" + fmt(-x.c.own) : x.c.own > 0 ? "溢" + fmt(x.c.own) : "0"}`}）`).join("\n") + `\n合計 $${fmt(ow.reduce((a, x) => a - x.c.bal, 0))}` : "無");
+  const t = `${pm}～${M} 月晚餐補繳名單\n` + (ow.length ? ow.map(x => `${x.s.name}　$${fmt(-x.c.bal)}（${x.c.cin > 0 ? `${M}月 補${fmt(-x.c.bal)}` : `${pm}月 ${x.c.cin < 0 ? "補" + fmt(-x.c.cin) : "0"}、${M}月 ${x.c.own < 0 ? "補" + fmt(-x.c.own) : x.c.own > 0 ? "溢" + fmt(x.c.own) : "0"}`}）`).join("\n") + `\n合計 $${fmt(ow.reduce((a, x) => a - x.c.bal, 0))}` : "無");
   try { await navigator.clipboard.writeText(t); toast("已複製補繳名單"); } catch (_) { toast("無法複製", true); }
 });
 $("stlPush").addEventListener("click", async () => {
