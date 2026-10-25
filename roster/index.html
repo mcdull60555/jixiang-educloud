@@ -294,7 +294,7 @@
 
       <div class="switches">
         <label class="sw">在學<input type="checkbox" id="sActive" role="switch"></label>
-        <label class="sw">進點名<input type="checkbox" id="sRc" role="switch"></label>
+        <label class="sw">進點名<input type="checkbox" id="sRc" role="switch"></label><span class="help" id="sRcHelp" style="display:none">國中以上沒有接回需求，不進點名</span>
         <label class="sw">學習通<input type="checkbox" id="sLn" role="switch"></label>
       </div>
       <label class="field hidden" id="sPinWrap">學習通初始密碼（4 位數字）
@@ -485,6 +485,13 @@ async function goPortal(msg) {
   location.replace(PORTAL_URL);
 }
 const gradeNo = g => { const i = GRADE_ROWS.findIndex(r => r.name === g); return i < 0 ? 99 : i; };
+// 國中以上沒有接回需求，不進雲點名
+const noRollcall = g => /^(國|高)/.test(g || "");
+function syncRc() {
+  const no = noRollcall($("sGrade").value);
+  if (no) $("sRc").checked = false;
+  $("sRc").disabled = no; $("sRcHelp").style.display = no ? "" : "none";
+}
 const gradeText = s => (s.grade || "") + (s.school_class ? ` ${s.school_class} 班` : "");
 const primaryContact = s => { const c = Array.isArray(s.contacts) ? s.contacts : []; return c.find(x => x.primary) || c[0] || null; };
 const fmtBday = d => d ? d.replace(/-/g, "/") : "";
@@ -687,6 +694,7 @@ function openEdit(s) {
   $("sContacts").innerHTML = cs.map(contactRow).join("");
   $("sActive").checked = s ? !!s.active : true;
   $("sRc").checked = s ? !!s.in_rollcall : true;
+  syncRc();
   $("sLn").checked = s ? !!s.learning_enabled : true;
   $("sPin").value = "";
   updatePinField();
@@ -752,7 +760,7 @@ async function saveStudent(e) {
     fixed_off_days: [...$("sDays").querySelectorAll("input:checked")].map(i => +i.value),
     class_ids: [...$("sClasses").querySelectorAll("input:checked")].map(i => i.value),
     note: $("sNote").value.trim(),
-    active: $("sActive").checked, in_rollcall: $("sRc").checked, learning_enabled: $("sLn").checked,
+    active: $("sActive").checked, in_rollcall: noRollcall($("sGrade").value) ? false : $("sRc").checked, learning_enabled: $("sLn").checked,
     pin: pinNeeded ? pin : ""
   };
   busy(true);
@@ -1140,6 +1148,7 @@ $("gsSchoolAdd").addEventListener("click", async () => {
     $("gsSchoolNew").value = ""; await load(); gsRender(); toast("已新增學校");
   } catch (ex) { gsErr(friendly(ex)); } finally { busy(false); }
 });
+$("sGrade").addEventListener("change", syncRc);
 $("gsGradeAdd").addEventListener("click", async () => { const v = $("gsGradeNew").value.trim(); if (!v) return gsErr("請輸入年級名稱"); if (await gsCall("admin_add_grade", { p_name: v }, "已新增年級")) $("gsGradeNew").value = ""; });
 ["gsSchoolNew", "gsGradeNew"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $(id === "gsSchoolNew" ? "gsSchoolAdd" : "gsGradeAdd").click(); } }));
 
