@@ -519,7 +519,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2305</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2310</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -760,10 +760,9 @@ function render() {
   const actIn = d => { const v = (MDAYS.get(dateKey(Y, M, d)) || {}).actual || 0; return `<td>${CAN_EDIT ? `<input class="di ac" data-ac="${d}" inputmode="decimal" autocomplete="off" value="${v || ""}" title="實際訂購的晚餐金額（可輸入算式，例如 =120*5+30）" aria-label="實際訂購金額 ${d} 日">` : (v || "")}</td>`; };
   const exIn = d => { const r = MDAYS.get(dateKey(Y, M, d)) || {}, v = r.extra || 0, nm = r.extra_names || ""; return `<td class="exc${nm ? " hasn" : ""}" data-exd="${d}">${CAN_EDIT ? `<input class="di ex" data-ex="${d}" readonly value="${v || ""}" title="${esc(nm ? "臨時加訂：" + nm : "點一下登記臨時加訂（份數、學生姓名）")}" aria-label="臨時 ${d} 日">` : `<span title="${esc(nm)}">${v || ""}</span>`}</td>`; };
   const foot = `<tr>${day(exIn, "臨時")}<td colspan="${NC()}" data-tot="ext"></td></tr>
-    <tr>${day(d => `<td data-sum="${d}"></td>`, "學生小計")}<td colspan="${NC()}" data-tot="stu"></td></tr>
+    <tr>${day(d => `<td data-sum="${d}"></td>`, "學生合計份數")}<td colspan="${NC()}" data-tot="stu"></td></tr>
     <tr>${day(actIn, "實際訂購($)")}<td colspan="${NC()}" data-tot="act"></td></tr>
-    <tr>${day(dayIn("teachers"), "老師($)")}<td colspan="${NC()}" data-tot="tea"></td></tr>
-    <tr>${day(d => `<td data-all="${d}"></td>`, "合計份數")}<td colspan="${NC()}" data-tot="all"></td></tr>`;
+    <tr>${day(dayIn("teachers"), "老師($)")}<td colspan="${NC()}" data-tot="tea"></td></tr>`;
   $("grid").className = "mt" + (CAN_EDIT ? "" : " ro");
   $("grid").innerHTML = `<thead><tr>${th}</tr></thead><tbody>${rows.length ? rows.map(rowHtml).join("") : `<tr><td class="empty" style="padding:36px" colspan="${n + 8}">${q ? "找不到符合的學生" : "這個月還沒有學生，請先「加入學生」"}</td></tr>`}</tbody><tfoot>${foot}</tfoot>`;
   $("price").value = priceOf(Y, M);
