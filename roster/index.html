@@ -506,7 +506,7 @@ function fillGrades(cur) {
   syncRc();
 }
 // 班別：幼稚園→英文班；國小→安親／數學／英文；國中→國中班（再選科目：英文、數學、自然；國三另有總複習；收費依選幾科）
-let FEE_STATE = null;
+let FEE_STATE = null; const FEE_TOUCHED = new Set();
 const LEVEL_PROGS = { k: ["english"], p: ["care", "math", "english"], j: ["junior"] };
 const JR_SUBJECTS = ["英文", "數學", "自然"];
 function feeSnapshot() {
@@ -531,7 +531,7 @@ function renderFee() {
   FEE_STATE = snap;
   const allowed = LEVEL_PROGS[curLevel()];
   const isJ3 = $("sGrade").value === "國三";
-  if (curLevel() === "j" && !snap.has("junior")) snap.set("junior", { on: true, billing: "month", amount: "", discount: "", subjects: [] });   // 國中只有國中班：直接帶出，再選科目
+  if (curLevel() === "j" && !FEE_TOUCHED.has("junior") && !(editing && ((editing.fee_choice || {}).programs || []).length)) { const o = snap.get("junior") || {}; snap.set("junior", Object.assign({ billing: "month", amount: "", discount: "", subjects: [] }, o, { on: true })); }   // 國中只有國中班：直接帶出，再選科目
   // 換了學校類型：新勾的、不屬於這個類型的班別取消（原本就有的舊報名保留，讓你自己決定要不要停）
   snap.forEach((v, k) => { const p = PROGRAMS.find(x => x.code === k); if (v.on && allowed && p && p.item_type === "tuition" && !allowed.includes(k) && !(editing && ENROLLS.some(e => e.student_id === editing.id && e.program_code === k && e.active))) v.on = false; });
   const ps = PROGRAMS.filter(p => (p.active && p.item_type === "tuition" && (!allowed || allowed.includes(p.code))) || (snap.get(p.code) && snap.get(p.code).on));
@@ -776,7 +776,7 @@ function openEdit(s) {
   $("sDays").innerHTML = DOW.map((d, i) => `<label><input type="checkbox" value="${i + 1}" ${days.includes(i + 1) ? "checked" : ""}>${d}</label>`).join("");
   $("sNote").value = s ? (s.note || "") : "";
   syncOpen();
-  $("sFee").innerHTML = ""; FEE_STATE = null; $("sShuttle").checked = !!(s && s.shuttle); renderFee();
+  $("sFee").innerHTML = ""; FEE_STATE = null; FEE_TOUCHED.clear(); $("sShuttle").checked = !!(s && s.shuttle); renderFee();
   const m = s && MEALS ? MEALS.get(s.id) : null;
   $("sMealBox").classList.toggle("hidden", !MEALS);
   $("sMeal").checked = !!(m && m.active);
@@ -1212,7 +1212,7 @@ $("gsSchoolAdd").addEventListener("click", async () => {
 $("sGrade").addEventListener("change", syncRc);
 $("sSchool").addEventListener("change", () => { fillGrades($("sGrade").value); renderFee(); });
 $("sGrade").addEventListener("change", renderFee);
-$("sFee").addEventListener("change", e => { if (e.target.classList.contains("fe-on")) { const r = e.target.closest(".feerow"), b = r.querySelector(".fe-subs"); if (b) b.style.display = e.target.checked ? "" : "none"; } });
+$("sFee").addEventListener("change", e => { if (e.target.classList.contains("fe-on")) { FEE_TOUCHED.add(e.target.closest(".feerow").dataset.code); const r = e.target.closest(".feerow"), b = r.querySelector(".fe-subs"); if (b) b.style.display = e.target.checked ? "" : "none"; } });
 $("sLn").addEventListener("change", () => { updatePinField(); syncOpen(); });
 $("sRc").addEventListener("change", syncOpen);
 $("sShuttle").addEventListener("change", () => {});
