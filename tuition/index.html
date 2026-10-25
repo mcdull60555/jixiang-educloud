@@ -629,6 +629,7 @@
         <label class="field" style="flex-direction:row;align-items:center;gap:8px;font-weight:400">從哪個月開始<input type="month" id="batMealMonth" style="width:160px;min-height:36px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px"></label>
         <label><input type="checkbox" id="batSettle">自動帶入上期晚餐結算（溢繳折抵、補繳併入餐費）</label>
         <label class="field" style="flex-direction:row;align-items:center;gap:8px;font-weight:400">結算月份<input type="month" id="batSettleMonth" style="width:160px;min-height:36px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px"></label>
+        <div id="batTmpBox" style="display:none;flex-basis:100%;white-space:pre-line;background:#FFF7E6;border:1px solid #F59E0B;border-radius:10px;padding:8px 12px;font-size:13px;color:#7A4B00"></div>
         <p class="help" style="margin:0;flex-basis:100%">結算月份是偶數月（兩個月結一次，例如 10 月、12 月）；溢繳 → 加一列「溢繳折抵（晚餐）」，補繳 → 加進餐費金額並備註收了多少。起始月的前一個月如果是奇數月，就沒有結算可帶。</p>
         <p class="help" style="margin:0;flex-basis:100%">餐費 = 該月依「用餐星期」算出的預計次數 × 單價 × 2，不扣放假日；單上只顯示金額，不標次數。晚餐管理沒有訂餐的學生不加。多退少補在兩個月結算時處理。</p>
       </div>
@@ -793,7 +794,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2440</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2450</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1436,14 +1437,15 @@ function batModeChanged() {
   buildCands();
 }
 /* 批次預覽：把晚餐預收餐費也算進去（和實際建立時一致） */
-let batMealMap = null, batMealKey = "", batSetMap = null, batSetKey = "";
+let batMealMap = null, batMealKey = "", batSetMap = null, batSetKey = "", batTmp = null;
 function planSub(s, ym) {
   const r = enrollItems(s, ym);
   if (!r.items.length) return "這個月沒有要收的項目（期繳還沒到收費月份）";
   const items = r.items.map(i => Object.assign({}, i));
   const sm = $("batSettle").checked ? $("batSettleMonth").value : "";
-  const est = $("batMeal").checked && batMealMap && batMealMap.get(s.id) ? batMealMap.get(s.id).amount : 0, bal = sm && batSetMap ? (batSetMap.get(s.id) || 0) : 0;
-  if (est > 0 || bal) applyMeal(items, est, bal, sm, $("batMealMonth").value);
+  const tmp = sm && batTmp ? (batTmp.matched.get(s.id) || null) : null;
+  const est = $("batMeal").checked && batMealMap && batMealMap.get(s.id) ? batMealMap.get(s.id).amount : 0, bal = (sm && batSetMap ? (batSetMap.get(s.id) || 0) : 0) - (tmp ? tmp.amount : 0);
+  if (est > 0 || bal || tmp) { applyMeal(items, est, bal, sm, $("batMealMonth").value); tempNote(items, tmp); }
   return items.map(i => `${i.label}${i.amount ? " " + fmt(i.amount) : (i.item_type === "meal" && $("batMeal").checked ? " ⚠晚餐管理沒有訂餐設定" : " ⚠無金額")}${i.item_type === "meal" && i.note ? "（" + i.note + "）" : ""}`).join("、");
 }
 async function refreshBatMeal() {
@@ -1454,12 +1456,14 @@ async function refreshBatMeal() {
     try { batMealMap = await mealEstimate(m); } catch (_) { batMealMap = null; }
     if (batMealKey !== m) return;
   }
-  if (!sm) { batSetMap = null; batSetKey = ""; }
+  if (!sm) { batSetMap = null; batSetKey = ""; batTmp = null; }
   else if (batSetKey !== sm) {
     batSetKey = sm;
     try { batSetMap = await settleBalances(sm); } catch (_) { batSetMap = null; }
+    try { batTmp = await tempOwed(sm); } catch (_) { batTmp = null; }
     if (batSetKey !== sm) return;
   }
+  { const box = $("batTmpBox"); if (box) { const t = sm && batTmp ? tempText(sm, batTmp) : ""; box.textContent = t; box.style.display = t ? "block" : "none"; } }
   if (batMode() === "plan" && $("batMonth").value) { batCands.forEach(c => { if (c.stu) c.sub = planSub(c.stu, $("batMonth").value); }); renderBat(); }
 }
 $("batMeal").addEventListener("change", refreshBatMeal);
