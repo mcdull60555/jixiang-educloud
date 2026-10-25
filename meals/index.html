@@ -504,7 +504,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2025</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2050</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -522,7 +522,7 @@ const pad = n => String(n).padStart(2, "0");
 const WD = "日一二三四五六";
 
 let ME = null, IS_ADMIN = false, CAN_EDIT = false;
-let Y = 2026, M = new Date().getMonth() + 1;
+let Y = new Date().getFullYear(), M = new Date().getMonth() + 1;
 let ROSTER = [], RMAP = new Map();
 let SCHED = new Map();         // student_id -> [{effective_from, weekdays}] 由早到晚
 let MS = new Map();            // student_id -> meal_students
@@ -649,7 +649,10 @@ function monthRows() {
     ORD.forEach((q, k) => { if (q > 0 && k.indexOf("|" + pym + "-") > 0) ids.add(k.split("|")[0]); });
     LEDGER.forEach(L => { if (L.ym === pym && (L.paid || L.extra)) ids.add(L.student_id); });
   }
-  return [...ids].map(id => RMAP.get(id)).filter(Boolean).sort(cmpStu);
+  // 年級由高到低；同年級訂購天數（本月）多的在上；再比姓名
+  const cnt = id => { let c = 0; for (let d = 1, n = dim(Y, M); d <= n; d++) c += ORD.get(id + "|" + dateKey(Y, M, d)) ? 1 : 0; return c; };
+  const cn = new Map([...ids].map(id => [id, cnt(id)]));
+  return [...ids].map(id => RMAP.get(id)).filter(Boolean).sort((a, b) => gradeNo(b.grade) - gradeNo(a.grade) || cn.get(b.id) - cn.get(a.id) || zh(a.name, b.name));
 }
 
 /* ---------- 讀資料 ---------- */
@@ -694,15 +697,18 @@ async function reload() {
 }
 
 /* ---------- 月份選單 ---------- */
+const MIN_MI = 2026 * 12 + 8;   // 最早 2026-09（民國 115/9）
+const maxMI = () => { const n = new Date(); return n.getFullYear() * 12 + n.getMonth() + 2; };   // 現在 10 月 → 到 12 月；11 月 → 到隔年 1 月
 function buildMonthSelect() {
   const sel = $("monSel"), now = new Date();
-  let a = 2026 * 12 + 0, b = now.getFullYear() * 12 + now.getMonth() + 24;   // 往後 2 年
-  MONTHS.forEach((_, k) => { const [yy, mm] = k.split("-").map(Number); a = Math.min(a, yy * 12 + mm - 1); b = Math.max(b, yy * 12 + mm - 1); });
+  const a = MIN_MI, b = maxMI();   // 2026/9（115/9）～ 現在這個月再往後 2 個月
   let h = "";
   for (let i = a; i <= b; i++) { const yy = Math.floor(i / 12), mm = i % 12 + 1; h += `<option value="${ymOf(yy, mm)}">${rocLabel(yy, mm)}</option>`; }
   sel.innerHTML = h; sel.value = ymOf(Y, M);
 }
 function gotoMonth(y, m) {
+  const mi = Math.min(Math.max(y * 12 + m - 1, MIN_MI), maxMI());
+  y = Math.floor(mi / 12); m = mi % 12 + 1;
   Y = y; M = m; $("monSel").value = ymOf(Y, M);
   if (![...$("monSel").options].some(o => o.value === ymOf(Y, M))) buildMonthSelect();
   reload();
