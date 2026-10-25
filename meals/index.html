@@ -519,7 +519,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2320</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2335</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -816,11 +816,10 @@ function updateFoot() {
   const oddM = isOddBefore(Y, M), [nY, nM] = nextYM(Y, M);
   if (oddM) rowsIds.forEach(id => { const c = calcStu(id, nY, nM, true); nextDue += c.amount + c.extra; });
   rowsIds.forEach(id => { const c = calcStu(id, Y, M); amt += c.amount + c.extra; paid += c.paid + Math.max(c.cin, 0);   // 偶數月：上月轉入的溢繳是提前預繳的，視同本月已繳
-    const cur = c.own + Math.max(c.cin, 0);   // 上月轉入的溢繳視同本月已繳；上月補繳另外列出，不混進本月金額
-    if (cur < 0) { owe += -cur; oweN++; } else over += cur;
-    if (c.cin < 0) { prevOwe += -c.cin; prevN++; } });
+    const cur = c.own + c.cin;   // 上月轉入的溢繳視同本月已繳；上月補繳也算進尚需補繳（＝兩月結算名單的合計）
+    if (cur < 0) { owe += -cur; oweN++; } else over += cur; });
   const bal = paid - actTot - nextDue;
-  $("sums").innerHTML = `<span>學生 <b>${rowsIds.length}</b> 位</span><span>應收（含加強） <b>$${fmt(amt)}</b></span><span>已繳 <b>$${fmt(paid)}</b></span><span class="${owe ? "bad" : ""}">尚需補繳 <b>$${fmt(owe)}</b>（${oweN} 位）</span><span>溢繳 <b>$${fmt(over)}</b></span>${prevN ? `<span class="bad">上月補繳 <b>$${fmt(prevOwe)}</b>（${prevN} 位）</span>` : ""}<span>實際訂購 <b>$${fmt(actTot)}</b></span>${oddM ? `<span title="${nM} 月預計餐費＋假日加強（預繳的費用留給下個月用）">${nM} 月應收 <b>$${fmt(nextDue)}</b></span>` : ""}<span class="${bal < 0 ? "bad" : "good"}" title="全部學生已繳 − 實際訂購${oddM ? " − 下個月應收" : ""}">本月結餘 <b>${bal < 0 ? "−" : "+"}$${fmt(Math.abs(bal))}</b></span>`;
+  $("sums").innerHTML = `<span>學生 <b>${rowsIds.length}</b> 位</span><span>應收（含加強） <b>$${fmt(amt)}</b></span><span>已繳 <b>$${fmt(paid)}</b></span><span class="${owe ? "bad" : ""}">尚需補繳 <b>$${fmt(owe)}</b>（${oweN} 位）</span><span>溢繳 <b>$${fmt(over)}</b></span><span>實際訂購 <b>$${fmt(actTot)}</b></span>${oddM ? `<span title="${nM} 月預計餐費＋假日加強（預繳的費用留給下個月用）">${nM} 月應收 <b>$${fmt(nextDue)}</b></span>` : ""}<span class="${bal < 0 ? "bad" : "good"}" title="全部學生已繳 − 實際訂購${oddM ? " − 下個月應收" : ""}">本月結餘 <b>${bal < 0 ? "−" : "+"}$${fmt(Math.abs(bal))}</b></span>`;
 }
 
 /* ---------- 寫入 ---------- */
