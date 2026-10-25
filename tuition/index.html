@@ -793,7 +793,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1940</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2405</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1142,9 +1142,10 @@ async function autoFillForStudent() {
   let mealAmt = 0;
   let bal = 0; const sm = settleMonthFor(ym);
   try { const e = (await mealEstimate(ym)).get(s.id); if (e && e.amount > 0) mealAmt = e.amount; bal = (await settleBalances(sm)).get(s.id) || 0; } catch (_) { /* 沒晚餐權限或讀不到就略過 */ }
+  let tmp = null; try { tmp = (await tempOwed(sm)).matched.get(s.id) || null; } catch (_) { /* 略過 */ }
   if (seq !== autoSeq || editing || editStudentId !== s.id) return;
   const items = r.items.map(x => Object.assign({}, x));
-  if (mealAmt || bal) applyMeal(items, mealAmt, bal, sm, ym);
+  if (mealAmt || bal || tmp) { applyMeal(items, mealAmt, bal - (tmp ? tmp.amount : 0), sm, ym); tempNote(items, tmp); }
   if (!items.length) { $("bStudentHelp").textContent += "（這位學生還沒有收費設定，請手動填或套用範本）"; return; }
   $("irows").innerHTML = "";
   items.forEach(it => addRow({ item_type: TYPES.some(x => x.code === it.item_type) ? it.item_type : "other", label: it.label, amount: it.amount, counted: it.counted !== false, period_text: it.period_text || "", note: it.note || "" }));
@@ -1336,6 +1337,28 @@ async function settleBalances(sm) {
   if (!sm) return new Map();
   const rows = await rpc("meal_settle_balance", { p_ym: sm });
   return new Map((rows || []).map(r => [r.student_id, r.bal]));
+}
+/* 臨時加訂（晚餐單「臨時」列登記的學生姓名）：依姓名對應名冊學生，把兩個月（結算月與前一個月）的臨時餐費算成補繳 */
+async function tempOwed(sm) {
+  const res = { matched: new Map(), unmatched: [] };
+  if (!sm) return res;
+  let rows = []; try { rows = (await rpc("meal_temp_owed", { p_ym: sm })) || []; } catch (_) { return res; }
+  rows.forEach(r => {
+    const hit = STUDENTS.filter(x => String(x.name || "").trim() === r.name);
+    if (hit.length === 1) { const o = res.matched.get(hit[0].id) || { name: r.name, days: 0, amount: 0 }; o.days += r.days; o.amount += r.amount; res.matched.set(hit[0].id, o); }
+    else res.unmatched.push(Object.assign({ why: hit.length ? "名冊有 " + hit.length + " 位同名" : "名冊找不到" }, r));
+  });
+  return res;
+}
+function tempNote(items, tmp) {
+  const m = items.find(x => x.item_type === "meal");
+  if (m && tmp) m.note = (String(m.note || "") + `（含臨時加訂 ${tmp.days} 天 $${tmp.amount}）`).trim();
+}
+function tempText(sm, t) {
+  const L = [];
+  t.matched.forEach(v => L.push(`✓ ${v.name}　${v.days} 天　$${v.amount}　→ 自動加進餐費（補繳）`));
+  t.unmatched.forEach(v => L.push(`✗ ${v.name}　${v.days} 天　$${v.amount}　→ ${v.why}，請自行處理`));
+  return L.length ? `【${+sm.slice(5) - 1}、${+sm.slice(5)} 月臨時加訂】\n` + L.join("\n") + "\n（臨時列已繳的金額不會自動扣，請自行確認）" : "";
 }
 function mealPeriodText(startYm) {   // 與單上其他期間同格式：115/11~12、跨年 115/12~116/1
   if (!startYm) return "";
@@ -1532,8 +1555,11 @@ async function runBatch(e) {
   batWarns = [];
   let mealMap = null, mealMiss = 0, setMap = null;
   if (o.settle && o.settleMonth) { try { setMap = await settleBalances(o.settleMonth); } catch (ex) { return err("讀不到晚餐結算資料：" + friendly(ex)); } }
+  let tmpRes = null;
+  if (o.settle && o.settleMonth) { tmpRes = await tempOwed(o.settleMonth); }
   if (o.meal) { try { mealMap = await mealEstimate(o.mealMonth); } catch (ex) { return err("讀不到晚餐管理的資料：" + friendly(ex)); } }
-  if (!confirm(`要建立 ${picked.length} 張草稿嗎？建立後可以逐張微調，確認沒問題再一起發布。`)) return;
+  const tmpTxt = tmpRes ? tempText(o.settleMonth, tmpRes) : "";
+  if (!confirm(`要建立 ${picked.length} 張草稿嗎？建立後可以逐張微調，確認沒問題再一起發布。` + (tmpTxt ? "\n\n" + tmpTxt : ""))) return;
   busy(true);
   $("batGo").disabled = true;
   const ok = [], fail = [];
@@ -1555,8 +1581,8 @@ async function runBatch(e) {
       }
       delete payload._base;
       if ((mealMap || setMap) && payload.student_id) {
-        const e = mealMap ? mealMap.get(payload.student_id) : null, est = e && e.amount > 0 ? e.amount : 0, bal = setMap ? (setMap.get(payload.student_id) || 0) : 0;
-        if (est > 0 || bal) applyMeal(payload.items, est, bal, setMap ? o.settleMonth : "", o.mealMonth);
+        const e = mealMap ? mealMap.get(payload.student_id) : null, est = e && e.amount > 0 ? e.amount : 0, tmp = tmpRes ? (tmpRes.matched.get(payload.student_id) || null) : null, bal = (setMap ? (setMap.get(payload.student_id) || 0) : 0) - (tmp ? tmp.amount : 0);
+        if (est > 0 || bal || tmp) { applyMeal(payload.items, est, bal, setMap ? o.settleMonth : "", o.mealMonth); tempNote(payload.items, tmp); }
         if (mealMap && !est) mealMiss++;
       }
       const r = await rpc("fee_save_bill", { p: payload }); ok.push(r.id);
