@@ -302,16 +302,16 @@
         <span class="help">第一次開啟學習通會建立帳號，請把帳號和密碼交給家長</span>
       </label>
 
-      <fieldset>
-        <legend>學習通班級</legend>
+      <fieldset id="sClassesBox">
+        <legend>學習通班級 <span class="help" id="sClassesHelp"></span></legend>
         <div class="checks" id="sClasses"></div>
       </fieldset>
-      <fieldset>
-        <legend>固定不進班（雲點名）</legend>
+      <fieldset id="sDaysBox">
+        <legend>固定不進班（雲點名） <span class="help" id="sDaysHelp"></span></legend>
         <div class="checks" id="sDays"></div>
       </fieldset>
       <fieldset id="sFeeBox" class="hidden">
-        <legend>收費設定 <span class="help">勾選上的班，並選月繳或期繳；批次建立學費單時會依此帶入</span></legend>
+        <legend>班別・收費 <span class="help">勾選上課的班別（與學習通無關），並選月繳或期繳；批次建立學費單時會依此帶入</span></legend>
         <div id="sFee" style="display:flex;flex-direction:column;gap:8px"></div>
       </fieldset>
       <fieldset id="sMealBox" class="hidden">
@@ -486,11 +486,33 @@ async function goPortal(msg) {
 }
 const gradeNo = g => { const i = GRADE_ROWS.findIndex(r => r.name === g); return i < 0 ? 99 : i; };
 // 國中以上沒有接回需求，不進雲點名
+// 依學校類型限制年級：幼稚園→大班；國小→一～六年級；國中→國一～國三
+function schoolLevel(n) { n = n || ""; if (/幼/.test(n)) return "k"; if (/國中|中學|國民中/.test(n)) return "j"; if (/高中|高職|高工|商職/.test(n)) return "h"; if (/國小|小學|國民小/.test(n)) return "p"; return ""; }
+const LEVEL_RE = { k: /^大班$|^中班$|^小班$|^幼/, p: /^[一二三四五六]年級$/, j: /^國[一二三]$/, h: /^高[一二三]$/ };
+function fillGrades(cur) {
+  const lv = schoolLevel($("sSchool").value), re = LEVEL_RE[lv];
+  const keep = editing && editing.school === $("sSchool").value ? editing.grade : "";   // 沒換學校時，保留原本的年級
+  let opts = GRADE_ROWS.filter(g => g.active || g.name === keep).map(g => g.name);
+  if (re) opts = opts.filter(g => re.test(g) || g === keep);
+  if (keep && !opts.includes(keep)) opts.push(keep);
+  $("sGrade").innerHTML = '<option value="">請選擇</option>' + opts.map(g => `<option>${esc(g)}</option>`).join("");
+  $("sGrade").value = opts.includes(cur) ? cur : (opts.length === 1 ? opts[0] : "");
+  syncRc();
+}
+// 學習通、雲點名沒開通時，相關欄位不能選
+function syncOpen() {
+  const ln = $("sLn").checked, rc = $("sRc").checked && !$("sRc").disabled;
+  $("sClasses").querySelectorAll("input").forEach(i => i.disabled = !ln);
+  $("sDays").querySelectorAll("input").forEach(i => { i.disabled = !rc; if (!rc) i.checked = false; });
+  $("sClassesBox").style.opacity = ln ? "" : ".5"; $("sDaysBox").style.opacity = rc ? "" : ".5";
+  $("sClassesHelp").textContent = ln ? "" : "（先開啟學習通才能選）"; $("sDaysHelp").textContent = rc ? "" : "（先開啟進點名才能選）";
+}
 const noRollcall = g => /^(國|高)/.test(g || "");
 function syncRc() {
   const no = noRollcall($("sGrade").value);
   if (no) $("sRc").checked = false;
   $("sRc").disabled = no; $("sRcHelp").style.display = no ? "" : "none";
+  if ($("sDays").firstChild) syncOpen();
 }
 const gradeText = s => (s.grade || "") + (s.school_class ? ` ${s.school_class} 班` : "");
 const primaryContact = s => { const c = Array.isArray(s.contacts) ? s.contacts : []; return c.find(x => x.primary) || c[0] || null; };
@@ -684,18 +706,16 @@ function openEdit(s) {
   const schools = SCHOOLS.filter(x => x.active || (s && x.name === s.school));
   $("sSchool").innerHTML = '<option value="">請選擇</option>' + schools.map(x => `<option>${esc(x.name)}</option>`).join("");
   $("sSchool").value = s ? s.school : "";
-  { const opts = GRADE_ROWS.filter(g => g.active || (s && g.name === s.grade)).map(g => g.name); if (s && s.grade && !opts.includes(s.grade)) opts.push(s.grade);
-    $("sGrade").innerHTML = '<option value="">請選擇</option>' + opts.map(g => `<option>${esc(g)}</option>`).join(""); }
-  $("sGrade").value = s ? s.grade : "";
+  fillGrades(s ? s.grade : "");
   $("sCls").value = s && s.school_class ? s.school_class : "";
   const cs = (s && Array.isArray(s.contacts) ? s.contacts : []).slice(0, 3);
   while (cs.length < 3) cs.push({});
   if (!cs.some(c => c.primary)) cs[0].primary = true;
   $("sContacts").innerHTML = cs.map(contactRow).join("");
   $("sActive").checked = s ? !!s.active : true;
-  $("sRc").checked = s ? !!s.in_rollcall : true;
+  $("sRc").checked = s ? !!s.in_rollcall : false;
   syncRc();
-  $("sLn").checked = s ? !!s.learning_enabled : true;
+  $("sLn").checked = s ? !!s.learning_enabled : false;
   $("sPin").value = "";
   updatePinField();
   const myClasses = s ? (s.class_ids || []) : [];
@@ -704,6 +724,7 @@ function openEdit(s) {
   const days = s ? (s.fixed_off_days || []) : [];
   $("sDays").innerHTML = DOW.map((d, i) => `<label><input type="checkbox" value="${i + 1}" ${days.includes(i + 1) ? "checked" : ""}>${d}</label>`).join("");
   $("sNote").value = s ? (s.note || "") : "";
+  syncOpen();
   const ps = PROGRAMS.filter(p => p.active || (s && ENROLLS.some(e => e.student_id === s.id && e.program_code === p.code && e.active)));
   $("sFeeBox").classList.toggle("hidden", !ps.length);
   $("sFee").innerHTML = ps.map(p => {
@@ -1149,6 +1170,9 @@ $("gsSchoolAdd").addEventListener("click", async () => {
   } catch (ex) { gsErr(friendly(ex)); } finally { busy(false); }
 });
 $("sGrade").addEventListener("change", syncRc);
+$("sSchool").addEventListener("change", () => fillGrades($("sGrade").value));
+$("sLn").addEventListener("change", () => { updatePinField(); syncOpen(); });
+$("sRc").addEventListener("change", syncOpen);
 $("gsGradeAdd").addEventListener("click", async () => { const v = $("gsGradeNew").value.trim(); if (!v) return gsErr("請輸入年級名稱"); if (await gsCall("admin_add_grade", { p_name: v }, "已新增年級")) $("gsGradeNew").value = ""; });
 ["gsSchoolNew", "gsGradeNew"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $(id === "gsSchoolNew" ? "gsSchoolAdd" : "gsGradeAdd").click(); } }));
 
