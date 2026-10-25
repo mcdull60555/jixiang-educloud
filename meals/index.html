@@ -519,7 +519,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2345</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2355</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -643,9 +643,11 @@ const SHORT_ONLY_YM = "";   // 10 月：9 月的溢繳 Excel 已併入 10 月「
 const isClose = (y, m) => m % 2 === 0 && ymOf(y, m) >= "2026-10";   // 偶數月結帳（10 月起；10 月單獨結，12 月起併入奇數月）
 const isOddBefore = (y, m) => m % 2 === 1 && ymOf(...(nextYM(y, m))) >= PAIR_FROM;
 function nextYM(y, m) { return m === 12 ? [y + 1, 1] : [y, m + 1]; }
+const TEMP = "__temp";
 function calcStu(sid, y, m, noPair) {
   const ym = ymOf(y, m); let cnt = 0;
-  for (let d = 1, n = dim(y, m); d <= n; d++) cnt += ORD.get(sid + "|" + dateKey(y, m, d)) || 0;
+  if (sid === TEMP) { for (let d = 1, n = dim(y, m); d <= n; d++) cnt += (MDAYS.get(dateKey(y, m, d)) || {}).extra || 0; }   // 臨時加訂：把每天的臨時份數當成一位學生來算
+  else for (let d = 1, n = dim(y, m); d <= n; d++) cnt += ORD.get(sid + "|" + dateKey(y, m, d)) || 0;
   const L = LEDGER.get(sid + "|" + ym) || {};
   const price = priceOf(y, m), paid = L.paid || 0, extra = L.extra || 0;
   const amount = cnt * price;
@@ -693,6 +695,8 @@ async function loadMonth() {
   const [py, pm] = prevYM(Y, M);
   const odd = isOddBefore(Y, M), [ny, nm] = nextYM(Y, M);   // 奇數月要扣下個月的應收餐費，所以多讀下個月
   const start = dateKey(py, pm, 1), end = odd ? dateKey(ny, nm, dim(ny, nm)) : dateKey(Y, M, dim(Y, M));
+  const yms = odd ? [ymOf(py, pm), ymOf(Y, M), ymOf(ny, nm)] : [ymOf(py, pm), ymOf(Y, M)];
+  const tl = await sb.from("meal_temp_ledger").select("*").in("ym", yms);
   const [ords, led, days, hol] = await Promise.all([
     fetchAll(() => sb.from("meal_orders").select("student_id,day,qty").gte("day", start).lte("day", end).order("day").order("student_id")),
     sb.from("meal_ledger").select("*").in("ym", odd ? [ymOf(py, pm), ymOf(Y, M), ymOf(ny, nm)] : [ymOf(py, pm), ymOf(Y, M)]),
@@ -703,6 +707,7 @@ async function loadMonth() {
   HOL = new Map((hol.data || []).map(r => [r.day, r.reason || (r.type === "holiday" ? "放假" : "停課")]));
   ORD = new Map(ords.filter(r => !HOL.has(r.day)).map(r => [r.student_id + "|" + r.day, r.qty]));   // 放假日一律視為不訂
   LEDGER = new Map((led.data || []).map(r => [r.student_id + "|" + r.ym, r]));
+  (tl.data || []).forEach(r => LEDGER.set(TEMP + "|" + r.ym, { student_id: TEMP, ym: r.ym, paid: r.paid, extra: r.extra, extra_note: "", carry: 0, note: "" }));
   MDAYS = new Map((days.data || []).map(r => [r.day, r]));
 }
 async function reload() {
@@ -760,7 +765,9 @@ function render() {
   const dayIn = k => d => { const r = MDAYS.get(dateKey(Y, M, d)) || {}; const v = r[k] || 0; return `<td>${CAN_EDIT ? `<input class="di" data-dd="${d}" data-k="${k}" inputmode="numeric" value="${v || ""}" aria-label="${k} ${d}">` : (v || "")}</td>`; };
   const actIn = d => { const v = (MDAYS.get(dateKey(Y, M, d)) || {}).actual || 0; return `<td>${CAN_EDIT ? `<input class="di ac" data-ac="${d}" inputmode="decimal" autocomplete="off" value="${v || ""}" title="實際訂購的晚餐金額（可輸入算式，例如 =120*5+30）" aria-label="實際訂購金額 ${d} 日">` : (v || "")}</td>`; };
   const exIn = d => { const r = MDAYS.get(dateKey(Y, M, d)) || {}, v = r.extra || 0, nm = r.extra_names || ""; return `<td class="exc${nm ? " hasn" : ""}" data-exd="${d}">${CAN_EDIT ? `<input class="di ex" data-ex="${d}" readonly value="${v || ""}" title="${esc(nm ? "臨時加訂：" + nm : "點一下登記臨時加訂（份數、學生姓名）")}" aria-label="臨時 ${d} 日">` : `<span title="${esc(nm)}">${v || ""}</span>`}</td>`; };
-  const foot = `<tr>${day(exIn, "臨時")}<td colspan="${NC()}" data-tot="ext"></td></tr>
+  const TL = LEDGER.get(TEMP + "|" + ymOf(Y, M)) || {};
+  const tin = (k, v) => CAN_EDIT ? `<input class="mi" data-k="${k}" inputmode="numeric" value="${v ? v : ""}" aria-label="臨時 ${k}">` : `<span>${v ? fmt(v) : ""}</span>`;
+  const foot = `<tr data-sid="${TEMP}" data-temp="1">${day(exIn, "臨時")}<td class="n" data-f="cnt"></td><td class="n amt" data-f="amount"></td><td class="n">${tin("extra", TL.extra)}</td><td class="n">${tin("paid", TL.paid)}</td>${isSettle(Y, M) ? `<td class="n" data-f="cin"></td>` : ""}<td class="n bal" data-f="bal"></td></tr>
     <tr>${day(d => `<td data-sum="${d}"></td>`, "學生合計份數")}<td colspan="${NC()}" data-tot="stu"></td></tr>
     <tr>${day(actIn, "實際訂購($)")}<td colspan="${NC()}" data-tot="act"></td></tr>
     <tr>${day(dayIn("teachers"), "老師($)")}<td colspan="${NC()}" data-tot="tea"></td></tr>`;
@@ -794,6 +801,7 @@ function updateRow(tr) {
   });
 }
 function updateFoot() {
+  { const tt = $("grid").querySelector("tr[data-temp]"); if (tt) updateRow(tt); }
   const n = dim(Y, M), rowsIds = [...$("grid").querySelectorAll("tbody tr[data-sid]")].map(t => t.dataset.sid);
   let stuTot = 0, allTot = 0, teaTot = 0, actTot = 0, exTot = 0;
   for (let d = 1; d <= n; d++) {
@@ -814,8 +822,8 @@ function updateFoot() {
   // 摘要
   let amt = 0, paid = 0, owe = 0, over = 0, oweN = 0, prevOwe = 0, prevN = 0, nextDue = 0;
   const oddM = isOddBefore(Y, M), [nY, nM] = nextYM(Y, M);
-  if (oddM) rowsIds.forEach(id => { const c = calcStu(id, nY, nM, true); nextDue += c.amount + c.extra; });
-  rowsIds.forEach(id => { const c = calcStu(id, Y, M); amt += c.amount + c.extra; paid += c.paid + Math.max(c.cin, 0);   // 偶數月：上月轉入的溢繳是提前預繳的，視同本月已繳
+  if (oddM) [...rowsIds, TEMP].forEach(id => { const c = calcStu(id, nY, nM, true); nextDue += c.amount + c.extra; });
+  [...rowsIds, TEMP].forEach(id => { const c = calcStu(id, Y, M); amt += c.amount + c.extra; paid += c.paid + Math.max(c.cin, 0);   // 偶數月：上月轉入的溢繳是提前預繳的，視同本月已繳
     const cur = c.own + c.cin;   // 上月轉入的溢繳視同本月已繳；上月補繳也算進尚需補繳（＝兩月結算名單的合計）
     if (cur < 0) { owe += -cur; oweN++; } else over += cur; });
   const bal = paid - actTot - nextDue;
@@ -844,7 +852,7 @@ async function saveLedger(sid, patch) {
   const cur = Object.assign({ student_id: sid, ym, paid: 0, extra: 0, extra_note: "", carry: 0, note: "" }, LEDGER.get(key) || {});
   const next = Object.assign({}, cur, patch);
   LEDGER.set(key, next);
-  try { await rpc("meal_save_ledger", { p: { student_id: sid, ym, paid: next.paid, extra: next.extra, extra_note: next.extra_note, carry: next.carry, note: next.note } }); }
+  try { if (sid === TEMP) await rpc("meal_save_temp_ledger", { p_ym: ym, p_paid: next.paid, p_extra: next.extra }); else await rpc("meal_save_ledger", { p: { student_id: sid, ym, paid: next.paid, extra: next.extra, extra_note: next.extra_note, carry: next.carry, note: next.note } }); }
   catch (ex) { LEDGER.set(key, cur); toast(friendly(ex), true); throw ex; }
 }
 async function savePrice() {
