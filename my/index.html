@@ -568,6 +568,10 @@ async function start() {
     if (role === "admin") {
       // 管理員檢視：選一位學生（?sid=），看到的和家長一樣
       const want = new URLSearchParams(location.search).get("sid") || "";
+      try {   // 年級順序以「學生名冊 → 學校・年級設定」為準
+        const gl = await sb.from("grade_list").select("name,sort_order").order("sort_order");
+        if (!gl.error && gl.data && gl.data.length) GRADE_LIST.splice(0, GRADE_LIST.length, ...gl.data.map(x => x.name));
+      } catch (_) { /* 沿用內建順序 */ }
       const r = await sb.rpc("admin_list_students");
       if (r.error) throw r.error;
       const all = (r.data || []).slice().sort(cmpStu);

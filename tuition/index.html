@@ -777,7 +777,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1420</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1440</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -886,6 +886,7 @@ async function load() {
   PRICES = !r[6].error ? (r[6].data || []) : [];
   ENROLLS = !r[7].error ? (r[7].data || []) : [];
   PRICE_MAP = {}; PRICES.forEach(x => { if (x.amount != null) PRICE_MAP[priceKey(x.grade, x.program_code, x.billing)] = x.amount; });
+  await loadGradeList();   // 年級清單與順序以「學生名冊 → 學校・年級設定」為準
   STUDENTS = CAN_EDIT ? (r[8].data || []).slice().sort(cmpStu) : [];
   try { const mk = await sb.from("meal_bill_booking").select("*"); MEALBK = mk.error ? [] : (mk.data || []); } catch (_) { MEALBK = []; }
   try { const py = await sb.from("fee_payments").select("*").order("reported_at", { ascending: false }); PAYS = py.error ? [] : (py.data || []); } catch (_) { PAYS = []; }
@@ -2096,6 +2097,19 @@ const gradeNo = g => { const i = GRADE_LIST.indexOf(g); return i < 0 ? 99 : i; }
 const zh = (a, b) => String(a || "").localeCompare(String(b || ""), "zh-Hant");
 const cmpStu = (a, b) => gradeNo(a.grade) - gradeNo(b.grade) || zh(a.school, b.school) || zh(a.name, b.name);
 const GRADE_LIST = ["大班", "一年級", "二年級", "三年級", "四年級", "五年級", "六年級", "國一", "國二", "國三"];
+let GRADE_ACTIVE = null;   // 啟用中的年級；null＝讀不到年級清單，沿用內建
+async function loadGradeList() {
+  try {
+    const g = await sb.from("grade_list").select("name,sort_order,active").order("sort_order");
+    if (!g.error && g.data && g.data.length) {
+      const names = g.data.map(x => x.name);
+      GRADE_LIST.splice(0, GRADE_LIST.length, ...names); GRADE_ORDER.splice(0, GRADE_ORDER.length, ...names);
+      GRADE_ACTIVE = new Set(g.data.filter(x => x.active).map(x => x.name));
+      return;
+    }
+  } catch (_) { /* 沿用內建清單 */ }
+  GRADE_ACTIVE = null;
+}
 const priceKey = (g, p, b) => `${g}|${p}|${b}`;
 const priceOf = (g, p, b) => PRICE_MAP[priceKey(g, p, b)];
 const monthsOf = r => ((+r.to - +r.from + 12) % 12) + 1;
@@ -2183,7 +2197,7 @@ function renderPlanAdmin() {
   const progs = PROGRAMS.filter(p => p.active);
   const head1 = progs.map(p => `<th class="pm-grp" colspan="2">${esc(p.name)}</th>`).join("");
   const head2 = progs.map(() => '<th class="pm-grp">月繳／月</th><th>期繳／期</th>').join("");
-  const rows = GRADE_LIST.map(g => `<tr><td class="nm" style="white-space:nowrap">${esc(g)}</td>${progs.map(p => ["month", "period"].map(b => {
+  const rows = GRADE_LIST.filter(g => !GRADE_ACTIVE || GRADE_ACTIVE.has(g) || PRICES.some(x => x.grade === g && x.amount != null)).map(g => `<tr><td class="nm" style="white-space:nowrap">${esc(g)}</td>${progs.map(p => ["month", "period"].map(b => {
     const v = priceOf(g, p.code, b);
     return `<td${b === "month" ? ' class="pm-grp"' : ""}><input class="pm-in" inputmode="numeric" data-g="${esc(g)}" data-p="${esc(p.code)}" data-b="${b}" value="${v == null ? "" : v}" aria-label="${esc(g + p.name + billingName(b))}"></td>`;
   }).join("")).join("")}</tr>`).join("");
