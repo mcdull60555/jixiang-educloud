@@ -385,8 +385,8 @@ async function loadMe() {
     me.fee_access = !!(f.data && f.data.fee_access);
   } catch (_) { me.fee_access = false; }
   if (me.role === "student") {
-    const st = await sb.from("students").select("name,grade,school,account_code").eq("id", me.student_id).maybeSingle();
-    if (st.data) Object.assign(me, { name: st.data.name, grade: st.data.grade, school: st.data.school, account: st.data.account_code });
+    const st = await sb.from("students").select("name,grade,school,account_code,learning_enabled").eq("id", me.student_id).maybeSingle();
+    if (st.data) Object.assign(me, { learning_enabled: st.data.learning_enabled !== false, name: st.data.name, grade: st.data.grade, school: st.data.school, account: st.data.account_code });
   }
   return me;
 }
@@ -482,7 +482,7 @@ function showPortal(me) {
     $("greetTitle").textContent = `您好，${me.role === "admin" ? "管理員" : (me.display_name || "老師")}`;
     $("greetSub").textContent = "選擇要進入的系統";
   }
-  const keys = (BY_ROLE[me.role] || []).slice();
+  const keys = (BY_ROLE[me.role] || []).slice().filter(k => !(k === "learningFamily" && me.learning_enabled === false));   // 沒開通學習通的學生只看到學費單
   if (me.role === "teacher" && (me.title === "主任" || me.fee_access)) keys.push("tuition", "meals");   // 主任、被開通的老師可進學費管理、晚餐管理
   $("cards").innerHTML = keys.map(cardHtml).join("");
   $("loginView").classList.add("hidden");

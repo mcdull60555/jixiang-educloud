@@ -297,9 +297,9 @@
         <label class="sw">進點名<input type="checkbox" id="sRc" role="switch"></label><span class="help" id="sRcHelp" style="display:none">國中以上沒有接回需求，不進點名</span>
         <label class="sw">學習通<input type="checkbox" id="sLn" role="switch"></label>
       </div>
-      <label class="field hidden" id="sPinWrap">學習通初始密碼（4 位數字）
+      <label class="field hidden" id="sPinWrap">學生登入密碼（4 位數字）
         <input type="text" id="sPin" maxlength="4" inputmode="numeric" autocomplete="off">
-        <span class="help">第一次開啟學習通會建立帳號，請把帳號和密碼交給家長</span>
+        <span class="help">在學就會建立學生帳號（家長用它登入看學費單；有開通學習通才能進學習通），請把帳號和密碼交給家長</span>
       </label>
 
       <fieldset id="sClassesBox">
@@ -681,7 +681,7 @@ function openDetail(s) {
   $("dAcct").textContent = s.account_code || "尚無帳號";
   $("dPills").innerHTML = (s.active ? "" : '<span class="pill left">已離班</span> ')
     + `<span class="pill ${s.in_rollcall ? "on" : "offp"}">點名</span> <span class="pill ${s.learning_enabled ? "on" : "offp"}">學習通</span>`;
-  const pinHtml = !s.has_login ? '<span class="help">尚未開通學習通帳號</span>'
+  const pinHtml = !s.has_login ? '<span class="help">尚未建立帳號</span>'
     : !s.pin_viewable ? '<span class="help">舊密碼無法還原，按下方「重設密碼」後就能查看</span>'
     : `<span class="dpin"><code data-pin="${esc(s.id)}">••••</code><button type="button" class="btn sm" data-act="pin" data-id="${esc(s.id)}" aria-pressed="false">顯示</button></span>`;
   $("dBody").innerHTML = `
@@ -723,7 +723,7 @@ function contactRow(c, i) {
 }
 function randomPin() { return String(Math.floor(Math.random() * 10000)).padStart(4, "0"); }
 function updatePinField() {
-  const need = $("sLn").checked && !(editing && editing.has_login);
+  const need = ($("sLn").checked || $("sActive").checked) && !(editing && editing.has_login);
   $("sPinWrap").classList.toggle("hidden", !need);
   if (need && !$("sPin").value) $("sPin").value = randomPin();
 }
@@ -798,7 +798,7 @@ async function saveStudent(e) {
   if (contacts.length && !contacts.some(c => c.primary)) contacts[0].primary = true;
   const pinNeeded = !$("sPinWrap").classList.contains("hidden");
   const pin = $("sPin").value.trim();
-  if (pinNeeded && !/^\d{4}$/.test(pin)) return err("學習通初始密碼必須是 4 位數字");
+  if (pinNeeded && !/^\d{4}$/.test(pin)) return err("學生登入密碼必須是 4 位數字");
   const payload = {
     id: editing ? editing.id : "",
     name, school: $("sSchool").value, grade: $("sGrade").value, school_class: cls,
@@ -1201,6 +1201,7 @@ $("sGrade").addEventListener("change", renderFee);
 $("sFee").addEventListener("change", e => { if (e.target.classList.contains("fe-on")) { const r = e.target.closest(".feerow"), b = r.querySelector(".fe-subs"); if (b) b.style.display = e.target.checked ? "" : "none"; } });
 $("sLn").addEventListener("change", () => { updatePinField(); syncOpen(); });
 $("sRc").addEventListener("change", syncOpen);
+$("sActive").addEventListener("change", updatePinField);
 $("gsGradeAdd").addEventListener("click", async () => { const v = $("gsGradeNew").value.trim(); if (!v) return gsErr("請輸入年級名稱"); if (await gsCall("admin_add_grade", { p_name: v }, "已新增年級")) $("gsGradeNew").value = ""; });
 ["gsSchoolNew", "gsGradeNew"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $(id === "gsSchoolNew" ? "gsSchoolAdd" : "gsGradeAdd").click(); } }));
 
