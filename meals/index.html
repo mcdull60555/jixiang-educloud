@@ -158,7 +158,7 @@
   .sums { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 12px 0 0; font-size: 13.5px; color: var(--muted); }
   .sums b { color: var(--text); font-size: 16px; font-variant-numeric: tabular-nums; }
   .sums .bad b { color: var(--rose); }
-  .grid-wrap { margin-top: 12px; border: 1px solid var(--line); border-radius: 14px; overflow: auto; max-height: calc(100vh - 140px); background: #fff; }
+  .grid-wrap { margin-top: 12px; border: 1px solid var(--line); border-radius: 14px; overflow: auto; max-height: calc(100vh - 24px); position: sticky; top: 8px; background: #fff; }   /* 表格本身釘在畫面上方，裡面的橫排標題與姓名欄再各自固定 */
   table.mt { border-collapse: separate; border-spacing: 0; font-size: 13px; width: max-content; min-width: 100%; }
   .mt th, .mt td { border-bottom: 1px solid var(--line); border-right: 1px solid #EEF2F7; padding: 0; text-align: center; background: #fff; }
   .mt thead th { position: sticky; top: 0; z-index: 3; background: #F8FAFC; font-size: 12px; color: var(--muted-2); height: 46px; line-height: 1.25; padding: 2px 0; }
@@ -266,7 +266,6 @@
     #printArea .names span em { background: #000 !important; }
   }
   @media (max-width: 760px) {
-    .grid-wrap { max-height: none; }
     .page-title h1 { font-size: 24px; }
   }
 </style>
@@ -503,7 +502,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1445</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1950</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
