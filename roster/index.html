@@ -311,7 +311,7 @@
         <div class="checks" id="sDays"></div>
       </fieldset>
       <fieldset id="sFeeBox" class="hidden">
-        <legend>班別・收費 <span class="help">勾選上課的班別（與學習通無關），並選月繳或期繳；批次建立學費單時會依此帶入</span></legend>
+        <legend>班別・收費 <span class="help">勾選上課的班別（與學習通無關），並選月繳或期繳；國中班再選科目</span></legend>
         <div id="sFee" style="display:flex;flex-direction:column;gap:8px"></div>
       </fieldset>
       <fieldset id="sMealBox" class="hidden">
@@ -498,6 +498,39 @@ function fillGrades(cur) {
   $("sGrade").innerHTML = '<option value="">請選擇</option>' + opts.map(g => `<option>${esc(g)}</option>`).join("");
   $("sGrade").value = opts.includes(cur) ? cur : (opts.length === 1 ? opts[0] : "");
   syncRc();
+}
+// 班別：幼稚園→英文班；國小→安親／數學／英文；國中→國中班（再選科目：英文、數學、社會；國三另有總複習）
+let FEE_STATE = null;
+const LEVEL_PROGS = { k: ["english"], p: ["care", "math", "english"], j: ["junior"] };
+const JR_SUBJECTS = ["英文", "數學", "社會"];
+function feeSnapshot() {
+  const m = new Map();
+  if (FEE_STATE) FEE_STATE.forEach((v, k) => m.set(k, v));
+  $("sFee").querySelectorAll(".feerow").forEach(r => m.set(r.dataset.code, {
+    on: r.querySelector(".fe-on").checked, billing: r.querySelector(".fe-b").value, amount: r.querySelector(".fe-a").value, discount: r.querySelector(".fe-d").value,
+    subjects: [...r.querySelectorAll(".fe-sub:checked")].map(i => i.value) }));
+  return m;
+}
+function renderFee() {
+  const snap = FEE_STATE ? FEE_STATE : (() => { const m = new Map(); if (editing) ENROLLS.filter(e => e.student_id === editing.id).forEach(e => m.set(e.program_code, { on: !!e.active, billing: e.billing, amount: e.amount != null ? e.amount : "", discount: e.discount || "", subjects: e.subjects || [] })); return m; })();
+  const cur = feeSnapshot(); cur.forEach((v, k) => snap.set(k, v));
+  FEE_STATE = snap;
+  const allowed = LEVEL_PROGS[schoolLevel($("sSchool").value)];
+  const isJ3 = $("sGrade").value === "國三";
+  // 換了學校類型：新勾的、不屬於這個類型的班別取消（原本就有的舊報名保留，讓你自己決定要不要停）
+  snap.forEach((v, k) => { const p = PROGRAMS.find(x => x.code === k); if (v.on && allowed && p && p.item_type === "tuition" && !allowed.includes(k) && !(editing && ENROLLS.some(e => e.student_id === editing.id && e.program_code === k && e.active))) v.on = false; });
+  const ps = PROGRAMS.filter(p => (p.active && p.item_type === "tuition" && (!allowed || allowed.includes(p.code))) || (snap.get(p.code) && snap.get(p.code).on));
+  $("sFeeBox").classList.toggle("hidden", !ps.length);
+  const sel = "min-height:38px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px";
+  $("sFee").innerHTML = ps.map(p => {
+    const e = snap.get(p.code) || {}, on = !!e.on;
+    const subs = p.code === "junior" ? JR_SUBJECTS.concat(isJ3 ? ["總複習"] : []) : [];
+    return `<div class="feerow" data-code="${esc(p.code)}" style="display:grid;grid-template-columns:1fr 110px;gap:8px;align-items:center">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:700"><input type="checkbox" class="fe-on" ${on ? "checked" : ""} style="width:18px;height:18px">${esc(p.name)}</label>
+      <select class="fe-b" style="${sel}" aria-label="繳費方式"><option value="month">月繳</option><option value="period" ${e.billing === "period" ? "selected" : ""}>期繳</option></select>
+      ${subs.length ? `<div class="checks fe-subs" style="grid-column:1/-1;${on ? "" : "display:none"}"><span class="help">科目</span>${subs.map(n => `<label><input type="checkbox" class="fe-sub" value="${n}" ${(e.subjects || []).includes(n) ? "checked" : ""}>${n}</label>`).join("")}</div>` : ""}
+      <input type="hidden" class="fe-a" value="${esc(e.amount == null ? "" : e.amount)}"><input type="hidden" class="fe-d" value="${esc(e.discount == null ? "" : e.discount)}"></div>`;
+  }).join("");
 }
 // 學習通、雲點名沒開通時，相關欄位不能選
 function syncOpen() {
@@ -725,16 +758,7 @@ function openEdit(s) {
   $("sDays").innerHTML = DOW.map((d, i) => `<label><input type="checkbox" value="${i + 1}" ${days.includes(i + 1) ? "checked" : ""}>${d}</label>`).join("");
   $("sNote").value = s ? (s.note || "") : "";
   syncOpen();
-  const ps = PROGRAMS.filter(p => p.active || (s && ENROLLS.some(e => e.student_id === s.id && e.program_code === p.code && e.active)));
-  $("sFeeBox").classList.toggle("hidden", !ps.length);
-  $("sFee").innerHTML = ps.map(p => {
-    const e = s && ENROLLS.find(x => x.student_id === s.id && x.program_code === p.code), on = !!(e && e.active);
-    return `<div class="feerow" data-code="${esc(p.code)}" style="display:grid;grid-template-columns:1.2fr 90px 100px 100px;gap:8px;align-items:center">
-      <label style="display:flex;align-items:center;gap:8px;font-weight:700"><input type="checkbox" class="fe-on" ${on ? "checked" : ""} style="width:18px;height:18px">${esc(p.name)}</label>
-      <select class="fe-b" style="min-height:38px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px" aria-label="繳費方式"><option value="month">月繳</option><option value="period" ${e && e.billing === "period" ? "selected" : ""}>期繳</option></select>
-      <input type="text" class="fe-a" inputmode="numeric" placeholder="個別月費" value="${e && e.amount != null ? e.amount : ""}" title="個別月費：留空＝依價目表" style="min-height:38px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px" aria-label="個別月費">
-      <input type="text" class="fe-d" inputmode="numeric" placeholder="每月優惠" value="${e && e.discount ? e.discount : ""}" style="min-height:38px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px" aria-label="每月優惠"></div>`;
-  }).join("");
+  $("sFee").innerHTML = ""; FEE_STATE = null; renderFee();
   const m = s && MEALS ? MEALS.get(s.id) : null;
   $("sMealBox").classList.toggle("hidden", !MEALS);
   $("sMeal").checked = !!(m && m.active);
@@ -761,6 +785,7 @@ async function saveStudent(e) {
   if (!name) return err("請輸入姓名");
   if (!$("sSchool").value) return err("請選擇學校");
   if (!$("sGrade").value) return err("請選擇年級");
+  { const jr = $("sFee").querySelector('.feerow[data-code="junior"]'); if (jr && jr.querySelector(".fe-on").checked && !jr.querySelector(".fe-sub:checked")) return err("國中班請至少選一個科目"); }
   const cls = $("sCls").value.trim();
   if (cls && !(+cls >= 1 && +cls <= 99)) return err("班級請填 1～99");
   const primaryIdx = +((document.querySelector('input[name="sPrimary"]:checked') || {}).value || 0);
@@ -795,7 +820,8 @@ async function saveStudent(e) {
         const code = r.dataset.code, on = r.querySelector(".fe-on").checked;
         const ex = ENROLLS.find(x => x.student_id === sid && x.program_code === code);
         if (!on && !(ex && ex.active)) return;
-        rows.push({ student_id: sid, program_code: code, billing: r.querySelector(".fe-b").value, amount: r.querySelector(".fe-a").value.trim() === "" ? null : parseInt(r.querySelector(".fe-a").value.replace(/\D/g, ""), 10) || 0, discount: parseInt(r.querySelector(".fe-d").value.replace(/\D/g, ""), 10) || 0, active: on });
+        const subj = [...r.querySelectorAll(".fe-sub:checked")].map(i => i.value);
+        rows.push({ student_id: sid, program_code: code, subjects: r.querySelector(".fe-subs") ? subj : [], billing: r.querySelector(".fe-b").value, amount: r.querySelector(".fe-a").value.trim() === "" ? null : parseInt(r.querySelector(".fe-a").value.replace(/\D/g, ""), 10) || 0, discount: parseInt(r.querySelector(".fe-d").value.replace(/\D/g, ""), 10) || 0, active: on });
       });
       if (rows.length) { const { error } = await sb.from("fee_enrollments").upsert(rows, { onConflict: "student_id,program_code" }); if (error) feeWarn = true; }
     }
@@ -1170,7 +1196,9 @@ $("gsSchoolAdd").addEventListener("click", async () => {
   } catch (ex) { gsErr(friendly(ex)); } finally { busy(false); }
 });
 $("sGrade").addEventListener("change", syncRc);
-$("sSchool").addEventListener("change", () => fillGrades($("sGrade").value));
+$("sSchool").addEventListener("change", () => { fillGrades($("sGrade").value); renderFee(); });
+$("sGrade").addEventListener("change", renderFee);
+$("sFee").addEventListener("change", e => { if (e.target.classList.contains("fe-on")) { const r = e.target.closest(".feerow"), b = r.querySelector(".fe-subs"); if (b) b.style.display = e.target.checked ? "" : "none"; } });
 $("sLn").addEventListener("change", () => { updatePinField(); syncOpen(); });
 $("sRc").addEventListener("change", syncOpen);
 $("gsGradeAdd").addEventListener("click", async () => { const v = $("gsGradeNew").value.trim(); if (!v) return gsErr("請輸入年級名稱"); if (await gsCall("admin_add_grade", { p_name: v }, "已新增年級")) $("gsGradeNew").value = ""; });
