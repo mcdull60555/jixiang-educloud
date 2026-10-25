@@ -756,7 +756,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1150</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1215</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1101,7 +1101,7 @@ async function autoFillForStudent() {
   try { const e = (await mealEstimate(ym)).get(s.id); if (e && e.amount > 0) mealAmt = e.amount; bal = (await settleBalances(sm)).get(s.id) || 0; } catch (_) { /* 沒晚餐權限或讀不到就略過 */ }
   if (seq !== autoSeq || editing || editStudentId !== s.id) return;
   const items = r.items.map(x => Object.assign({}, x));
-  if (mealAmt || bal) applyMeal(items, mealAmt, bal, sm);
+  if (mealAmt || bal) applyMeal(items, mealAmt, bal, sm, ym);
   if (!items.length) { $("bStudentHelp").textContent += "（這位學生還沒有收費設定，請手動填或套用範本）"; return; }
   $("irows").innerHTML = "";
   items.forEach(it => addRow({ item_type: TYPES.some(x => x.code === it.item_type) ? it.item_type : "other", label: it.label, amount: it.amount, counted: it.counted !== false, period_text: it.period_text || "", note: it.note || "" }));
@@ -1294,10 +1294,15 @@ async function settleBalances(sm) {
   const rows = await rpc("meal_settle_balance", { p_ym: sm });
   return new Map((rows || []).map(r => [r.student_id, r.bal]));
 }
-function applyMeal(items, est, bal, sm) {
+function mealPeriodText(startYm) {
+  if (!startYm) return "";
+  const [y, m] = startYm.split("-").map(Number), n = m === 12 ? 1 : m + 1;
+  return `${m}～${n}月`;
+}
+function applyMeal(items, est, bal, sm, startYm) {
   for (let i = items.length - 1; i >= 0; i--) if (items[i].item_type === "carry" && /^晚餐結算/.test(items[i].note || "")) items.splice(i, 1);
   const per = sm ? `${+sm.slice(5)}月` : "", short = bal < 0 ? -bal : 0;
-  if (est > 0) setMealRow(items, est + short);
+  if (est > 0) { setMealRow(items, est + short); const mi = items.find(x => x.item_type === "meal"); if (mi && startYm) mi.period_text = mealPeriodText(startYm); }
   else if (short > 0) { const it = items.find(x => x.item_type === "meal"); if (it) it.amount = (it.amount || 0) + short; else setMealRow(items, short); }
   const m = items.find(x => x.item_type === "meal");
   if (m) m.note = short > 0 ? `含晚餐補繳 $${short}（${per}結算）` : String(m.note || "").replace(/含晚餐補繳 \$\d+（[^）]*）/, "").trim();
@@ -1310,7 +1315,7 @@ async function openMeal() {
     const sm = settleMonthFor(m), mp = await mealEstimate(m), e = mp.get(editStudentId), bal = (await settleBalances(sm)).get(editStudentId) || 0;
     const est = e && e.amount > 0 ? e.amount : 0;
     if (!est && !bal) return toast("這位學生在晚餐管理沒有訂餐設定（或預計次數為 0），上期也沒有要結算的金額", true);
-    const items = readRows(); applyMeal(items, est, bal, sm);
+    const items = readRows(); applyMeal(items, est, bal, sm, m);
     $("irows").innerHTML = ""; items.forEach(it => addRow(it)); calcTotal();
     toast(`已帶入餐費 ${fmt(est)} 元（預收 2 個月）` + (bal > 0 ? `，溢繳折抵 ${fmt(bal)}` : bal < 0 ? `，含補繳 ${fmt(-bal)}` : "") + "，可再手動調整");
   } catch (ex) { toast(friendly(ex), true); }
@@ -1366,7 +1371,7 @@ function planSub(s, ym) {
   const items = r.items.map(i => Object.assign({}, i));
   const sm = $("batSettle").checked ? $("batSettleMonth").value : "";
   const est = $("batMeal").checked && batMealMap && batMealMap.get(s.id) ? batMealMap.get(s.id).amount : 0, bal = sm && batSetMap ? (batSetMap.get(s.id) || 0) : 0;
-  if (est > 0 || bal) applyMeal(items, est, bal, sm);
+  if (est > 0 || bal) applyMeal(items, est, bal, sm, $("batMealMonth").value);
   return items.map(i => `${i.label}${i.amount ? " " + fmt(i.amount) : (i.item_type === "meal" && $("batMeal").checked ? " ⚠晚餐管理沒有訂餐設定" : " ⚠無金額")}${i.item_type === "meal" && i.note ? "（" + i.note + "）" : ""}`).join("、");
 }
 async function refreshBatMeal() {
@@ -1507,7 +1512,7 @@ async function runBatch(e) {
       delete payload._base;
       if ((mealMap || setMap) && payload.student_id) {
         const e = mealMap ? mealMap.get(payload.student_id) : null, est = e && e.amount > 0 ? e.amount : 0, bal = setMap ? (setMap.get(payload.student_id) || 0) : 0;
-        if (est > 0 || bal) applyMeal(payload.items, est, bal, setMap ? o.settleMonth : "");
+        if (est > 0 || bal) applyMeal(payload.items, est, bal, setMap ? o.settleMonth : "", o.mealMonth);
         if (mealMap && !est) mealMiss++;
       }
       const r = await rpc("fee_save_bill", { p: payload }); ok.push(r.id);
@@ -1571,7 +1576,7 @@ async function mealSelected() {
       $("busy").textContent = `帶入餐費 ${i + 1} / ${list.length}…`;
       const e = list[i].student_id ? mp.get(list[i].student_id) : null, est = e && e.amount > 0 ? e.amount : 0, bal = list[i].student_id ? (sb2.get(list[i].student_id) || 0) : 0;
       if (!est && !bal) { miss.push(list[i].student_name); continue; }
-      try { const pl = billPayload(list[i], "draft"); applyMeal(pl.items, est, bal, sm); await rpc("fee_save_bill", { p: pl }); ok++; }
+      try { const pl = billPayload(list[i], "draft"); applyMeal(pl.items, est, bal, sm, m); await rpc("fee_save_bill", { p: pl }); ok++; }
       catch (ex) { fail.push(list[i].student_name + "：" + friendly(ex)); }
     }
   } catch (ex) { fail.push(friendly(ex)); }
@@ -1637,7 +1642,7 @@ function renderPvPay(b) {
   box.classList.remove("hidden");
   box.innerHTML = `<h4>繳款紀錄 <span class="pay ${pi.key}">${esc(pi.text)}</span></h4>
     <div class="sumline"><span>應繳 <b>${fmt(pi.total)}</b></span><span>已確認 <b>${fmt(pi.paid)}</b></span><span>尚欠 <b>${fmt(pi.remain)}</b></span>${pi.pendSum ? `<span>待確認 <b>${fmt(pi.pendSum)}</b></span>` : ""}</div>
-    ${(() => { const mb = MEALBK.find(x => x.bill_id === b.id); if (mb) return `<p class="help" style="margin:0 0 8px;color:var(--green,#0F7B4F)">✓ 單上「晚餐補繳」${fmt(mb.amount)} 元已記入晚餐管理 ${+mb.ym.slice(5)} 月的「已繳」。</p>`; return /含晚餐補繳/.test((b.fee_bill_items || []).map(i => i.note || "").join(" ")) && pi.key !== "paid" ? `<p class="help" style="margin:0 0 8px">單上含晚餐補繳，整張繳清後會自動記入晚餐管理該月的「已繳」。</p>` : ""; })()}
+    ${(() => { const mbs = MEALBK.filter(x => x.bill_id === b.id); if (mbs.length) return `<p class="help" style="margin:0 0 8px;color:var(--green,#0F7B4F)">✓ 已記入晚餐管理「已繳」：${mbs.slice().sort((a, c) => a.ym.localeCompare(c.ym)).map(x => `${+x.ym.slice(5)} 月 ${fmt(x.amount)} 元（${x.kind === "short" ? "補繳" : "預收餐費"}）`).join("、")}</p>`; return (b.fee_bill_items || []).some(i => i.item_type === "meal" && (i.amount || 0) > 0) && pi.key !== "paid" ? `<p class="help" style="margin:0 0 8px">單上的餐費（含補繳）整張繳清後，會自動記入晚餐管理的「已繳」。</p>` : ""; })()}
     ${pi.paid > pi.total && pi.total > 0 ? `<p class="warn" style="margin:0 0 8px">多繳 ${fmt(pi.paid - pi.total)} 元，請在下一期學費單加一列「溢繳折抵」。</p>` : ""}
     ${hist.length ? hist.map(x => histRow(x, true)).join("") : '<p class="help" style="margin:0 0 8px">還沒有繳款紀錄。</p>'}
     ${CAN_EDIT && pi.key !== "paid" ? `<button type="button" class="btn sm" id="regOpen">＋ 登記收款（現金、面交、家長沒回報）</button>
