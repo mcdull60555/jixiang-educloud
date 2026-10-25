@@ -194,6 +194,12 @@
   .mt tfoot th { left: 0; z-index: 3; text-align: left; padding: 0 10px; box-shadow: 1px 0 0 var(--line); }
   .mt tfoot input.di { width: 29px; padding: 0; font-size: 11.5px; min-height: 26px; border: 1px solid #D5DEEA; border-radius: 6px; text-align: center; font-size: 12.5px; padding: 0; margin: 2px 0; background: #fff; }
   .mt tfoot input.ac { width: 29px; font-size: 10.5px; }
+  .mt tfoot input.ex { cursor: pointer; }
+  .mt tfoot td.hasn input.ex { border-color: #F59E0B; background: #FFF7E6; box-shadow: inset 0 0 0 1px #F59E0B; }
+  #exPad { position: fixed; z-index: 9000; width: 260px; background: #fff; border: 1px solid #D5DEEA; border-radius: 14px; box-shadow: 0 14px 36px rgba(15,23,42,.28); padding: 12px; display: none; }
+  #exPad label { display: block; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+  #exPad input, #exPad textarea { display: block; width: 100%; box-sizing: border-box; border: 1px solid #D5DEEA; border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 14px; color: var(--ink, #111); margin-top: 3px; }
+  #exPad .exb { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
   .mt tfoot td { height: 32px; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
   .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 4px; border: 1px solid var(--line-2); }
@@ -317,6 +323,10 @@
       <button type="button" class="btn admin-only" id="setBtn">小卡設定</button>
     </div>
     <div class="sums" id="sums"></div>
+    <div id="exPad" role="dialog" aria-label="臨時加訂"><b id="exTitle"></b>
+      <label>份數 <input id="exCnt" inputmode="numeric" autocomplete="off"></label>
+      <label>學生姓名（不在名單的學生，多位請一行一位或用「、」分隔）<textarea id="exNames" rows="4" placeholder="例如：王小明&#10;李小華"></textarea></label>
+      <div class="exb"><button type="button" class="btn" id="exCancel">取消</button><button type="button" class="btn primary" id="exSave">儲存</button></div></div>
     <div class="grid-wrap"><table class="mt" id="grid"></table></div>
     <div class="holnote" id="holnote"></div>
     <div class="holnote" id="pairnote" style="background:#EFF6FF;border-color:#BFDBFE;color:#1E3A8A"></div>
@@ -472,6 +482,7 @@
     </div>
     <div class="mbar edit-only" style="justify-content:center">
       <label class="pricebox">臨時加餐 <input type="text" inputmode="numeric" id="dayExtra" style="width:56px"> 份</label>
+      <label class="pricebox">臨時學生姓名 <input type="text" id="dayExtraNames" placeholder="多位用「、」分隔" style="width:170px;min-height:40px;border:1px solid #D5DEEA;border-radius:10px;padding:0 8px"></label>
       <label class="pricebox">老師餐費 <input type="text" inputmode="numeric" id="dayTeach" style="width:70px"> 元（實際金額，不計入份數）</label>
       <label class="pricebox">備註 <input type="text" id="dayNote" style="width:150px;min-height:40px;border:1px solid #D5DEEA;border-radius:10px;padding:0 8px"></label>
       <button type="button" class="btn sm" id="daySave">儲存份數</button>
@@ -504,7 +515,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2050</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2110</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -742,9 +753,10 @@ function render() {
   const day = (f, lbl, cls) => { let t = `<th>${lbl}</th><td></td>`; for (let d = 1; d <= n; d++) t += f(d); return t; };
   const dayIn = k => d => { const r = MDAYS.get(dateKey(Y, M, d)) || {}; const v = r[k] || 0; return `<td>${CAN_EDIT ? `<input class="di" data-dd="${d}" data-k="${k}" inputmode="numeric" value="${v || ""}" aria-label="${k} ${d}">` : (v || "")}</td>`; };
   const actIn = d => { const v = (MDAYS.get(dateKey(Y, M, d)) || {}).actual || 0; return `<td>${CAN_EDIT ? `<input class="di ac" data-ac="${d}" inputmode="decimal" autocomplete="off" value="${v || ""}" title="實際訂購的晚餐金額（可輸入算式，例如 =120*5+30）" aria-label="實際訂購金額 ${d} 日">` : (v || "")}</td>`; };
-  const foot = `<tr>${day(d => `<td data-sum="${d}"></td>`, "學生小計")}<td colspan="${NC()}" data-tot="stu"></td></tr>
+  const exIn = d => { const r = MDAYS.get(dateKey(Y, M, d)) || {}, v = r.extra || 0, nm = r.extra_names || ""; return `<td class="exc${nm ? " hasn" : ""}" data-exd="${d}">${CAN_EDIT ? `<input class="di ex" data-ex="${d}" readonly value="${v || ""}" title="${esc(nm ? "臨時加訂：" + nm : "點一下登記臨時加訂（份數、學生姓名）")}" aria-label="臨時 ${d} 日">` : `<span title="${esc(nm)}">${v || ""}</span>`}</td>`; };
+  const foot = `<tr>${day(exIn, "臨時")}<td colspan="${NC()}" data-tot="ext"></td></tr>
+    <tr>${day(d => `<td data-sum="${d}"></td>`, "學生小計")}<td colspan="${NC()}" data-tot="stu"></td></tr>
     <tr>${day(actIn, "實際訂購($)")}<td colspan="${NC()}" data-tot="act"></td></tr>
-    <tr>${day(dayIn("extra"), "臨時")}<td colspan="${NC()}"></td></tr>
     <tr>${day(dayIn("teachers"), "老師($)")}<td colspan="${NC()}" data-tot="tea"></td></tr>
     <tr>${day(d => `<td data-all="${d}"></td>`, "合計份數")}<td colspan="${NC()}" data-tot="all"></td></tr>`;
   $("grid").className = "mt" + (CAN_EDIT ? "" : " ro");
@@ -778,11 +790,12 @@ function updateRow(tr) {
 }
 function updateFoot() {
   const n = dim(Y, M), rowsIds = [...$("grid").querySelectorAll("tbody tr[data-sid]")].map(t => t.dataset.sid);
-  let stuTot = 0, allTot = 0, teaTot = 0, actTot = 0;
+  let stuTot = 0, allTot = 0, teaTot = 0, actTot = 0, exTot = 0;
   for (let d = 1; d <= n; d++) {
     const dk = dateKey(Y, M, d); let s = 0;
     rowsIds.forEach(id => { s += ORD.get(id + "|" + dk) || 0; });
     const r = MDAYS.get(dk) || {}, all = s + (r.extra || 0);
+    s = all; exTot += r.extra || 0;
     const a = $("grid").querySelector(`[data-sum="${d}"]`), b = $("grid").querySelector(`[data-all="${d}"]`);
     if (a) a.textContent = s || ""; if (b) b.textContent = all || "";
     stuTot += s; allTot += all; teaTot += r.teachers || 0; actTot += r.actual || 0;
@@ -790,7 +803,9 @@ function updateFoot() {
   const t1 = $("grid").querySelector('[data-tot="stu"]'), t2 = $("grid").querySelector('[data-tot="all"]');
   const t4 = $("grid").querySelector('[data-tot="act"]'); if (t4) t4.textContent = `實際訂購共 $${fmt(actTot)}`;
   const t3 = $("grid").querySelector('[data-tot="tea"]'); if (t3) t3.textContent = `老師餐費共 $${fmt(teaTot)}`;
-  if (t1) t1.textContent = `學生共 ${stuTot} 份`; if (t2) t2.textContent = `全月共 ${allTot} 份`;
+  const t5 = $("grid").querySelector('[data-tot="ext"]'); if (t5) t5.textContent = `臨時共 ${exTot} 份`;
+  stuTot -= exTot;   // 摘要的「學生餐數」只算名單內學生
+  if (t1) t1.textContent = `學生共 ${stuTot + exTot} 份（含臨時 ${exTot}）`; if (t2) t2.textContent = `全月共 ${allTot} 份`;
   // 摘要
   let amt = 0, paid = 0, owe = 0, over = 0, oweN = 0;
   rowsIds.forEach(id => { const c = calcStu(id, Y, M); amt += c.amount + c.extra; paid += c.paid; if (c.bal < 0) { owe += -c.bal; oweN++; } else over += c.bal; });
@@ -1042,7 +1057,7 @@ function dayCardHtml(dk) {
     <div class="dt">${mm} 月 ${dd} 日（週${WD[dow]}）<small>${hol ? "放假／停課：" + esc(hol) : `學生 ${names.length} 人`}</small></div>
     <div class="names">${body}</div>
     <div class="cnt"><span>學生</span><b>${stu} 份</b></div>
-    ${ex ? `<div class="cnt"><span>臨時加餐</span><b>${ex} 份</b></div>` : ""}
+    ${ex ? `<div class="cnt"><span>臨時加餐${r.extra_names ? "（" + esc(r.extra_names) + "）" : ""}</span><b>${ex} 份</b></div>` : ""}
     <div class="cnt tot"><span>合計</span><b>${stu + ex} 份</b></div>
     ${te ? `<div class="cnt"><span>老師餐費（另計）</span><b>$${fmt(te)}</b></div>` : ""}
     ${r.note ? `<div class="nt">備註：${esc(r.note)}</div>` : ""}</div>`;
@@ -1146,7 +1161,7 @@ function showDay(dk) {
   dayKey = clampDay(dk); $("dayInput").value = dayKey;
   $("dayCard").innerHTML = dayCardHtml(dayKey);
   const r = MDAYS.get(dayKey) || {};
-  $("dayExtra").value = r.extra || ""; $("dayTeach").value = r.teachers || ""; $("dayNote").value = r.note || "";
+  $("dayExtra").value = r.extra || ""; $("dayTeach").value = r.teachers || ""; $("dayNote").value = r.note || ""; $("dayExtraNames").value = r.extra_names || "";
   document.querySelectorAll("#dayDlg .edit-only input, #dayDlg .edit-only button").forEach(e => e.disabled = !CAN_EDIT);
 }
 const shiftDay = n => { const [y, m, d] = dayKey.split("-").map(Number); const t = new Date(y, m - 1, d + n); return dateKey(t.getFullYear(), t.getMonth() + 1, t.getDate()); };
@@ -1155,7 +1170,7 @@ $("dayNext").addEventListener("click", () => showDay(shiftDay(1)));
 $("dayInput").addEventListener("change", e => e.target.value && showDay(e.target.value));
 $("dayToday").addEventListener("click", () => { const t = new Date(); showDay(dateKey(t.getFullYear(), t.getMonth() + 1, t.getDate())); });
 $("daySave").addEventListener("click", async () => {
-  try { await saveDay(+dayKey.slice(8), { extra: Math.max(0, num($("dayExtra").value)), teachers: Math.max(0, num($("dayTeach").value)), note: $("dayNote").value.trim() }); showDay(dayKey); render(); toast("已儲存"); } catch (_) { /* 已提示 */ }
+  try { await saveDay(+dayKey.slice(8), { extra: Math.max(0, num($("dayExtra").value)), teachers: Math.max(0, num($("dayTeach").value)), note: $("dayNote").value.trim() }); { const ex = Math.max(0, num($("dayExtra").value)), nm = parseNames($("dayExtraNames").value); await saveExtra(+dayKey.slice(8), Math.max(ex, nm.length), nm.join("、")); } showDay(dayKey); render(); toast("已儲存"); } catch (_) { /* 已提示 */ }
 });
 const dayName = () => `晚餐名單_${dayKey}`;
 $("dayDown").addEventListener("click", () => imgAct("down", $("dayCard").firstElementChild, dayName()));
@@ -1201,7 +1216,7 @@ $("grid").addEventListener("change", async e => {
     t.value = v || "";
     try { await saveLedger(sid, { [t.dataset.k]: v }); t.classList.remove("dirty"); updateRow(t.closest("tr")); updateFoot(); }
     catch (_) { const L = LEDGER.get(sid + "|" + ymOf(Y, M)) || {}; t.value = L[t.dataset.k] || ""; }
-  } else if (t.matches("input.di:not(.ac)")) {
+  } else if (t.matches("input.di:not(.ac):not(.ex)")) {
     const v = Math.max(0, num(t.value)); t.value = v || "";
     try { await saveDay(+t.dataset.dd, { [t.dataset.k]: v }); t.classList.remove("dirty"); updateFoot(); }
     catch (_) { const r = MDAYS.get(dateKey(Y, M, +t.dataset.dd)) || {}; t.value = r[t.dataset.k] || ""; }
@@ -1222,6 +1237,36 @@ $("grid").addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); e.target.blur(); }
   else if (e.key === "Escape") { const r = MDAYS.get(dateKey(Y, M, +e.target.dataset.ac)) || {}; e.target.value = r.actual || ""; e.target.blur(); }
 });
+
+/* ---------- 臨時加訂：份數 ＋ 不在名單的學生姓名（可多位） ---------- */
+const parseNames = t => [...new Set(String(t || "").split(/[\n、,，;；]+/).map(x => x.trim()).filter(Boolean))];
+async function saveExtra(d, cnt, names) {
+  const dk = dateKey(Y, M, d), cur = Object.assign({ day: dk, extra: 0, teachers: 0, note: "", actual: 0, extra_names: "" }, MDAYS.get(dk) || {});
+  MDAYS.set(dk, Object.assign({}, cur, { extra: cnt, extra_names: names }));
+  try { await rpc("meal_save_day_extra", { p_day: dk, p_extra: cnt, p_names: names }); }
+  catch (ex) { MDAYS.set(dk, cur); toast(friendly(ex), true); throw ex; }
+}
+let EX_D = 0;
+function exOpen(inp) {
+  EX_D = +inp.dataset.ex; const r = MDAYS.get(dateKey(Y, M, EX_D)) || {};
+  $("exTitle").textContent = `${M} 月 ${EX_D} 日　臨時加訂`;
+  $("exCnt").value = r.extra || ""; $("exNames").value = parseNames((r.extra_names || "").replace(/、/g, "\n")).join("\n");
+  const pad = $("exPad"), b = inp.getBoundingClientRect(); pad.style.display = "block";
+  const w = 260, h = pad.offsetHeight || 260;
+  pad.style.left = Math.min(Math.max(8, b.left + b.width / 2 - w / 2), innerWidth - w - 8) + "px";
+  let top = b.top - h - 8; if (top < 8) top = Math.min(b.bottom + 8, innerHeight - h - 8); pad.style.top = Math.max(8, top) + "px";
+  $("exNames").focus();
+}
+const exClose = () => { $("exPad").style.display = "none"; EX_D = 0; };
+$("grid").addEventListener("click", e => { if (e.target.matches("input.ex")) exOpen(e.target); });
+$("exCancel").addEventListener("click", exClose);
+$("exSave").addEventListener("click", async () => {
+  const names = parseNames($("exNames").value); let cnt = Math.max(0, num($("exCnt").value));
+  if (cnt < names.length) cnt = names.length;     // 每位至少 1 份
+  try { await saveExtra(EX_D, cnt, names.join("、")); exClose(); render(); toast("已儲存"); } catch (_) { /* 已提示 */ }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && EX_D) exClose(); });
+document.addEventListener("mousedown", e => { if (EX_D && !e.target.closest("#exPad") && !e.target.matches("input.ex")) exClose(); });
 $("price").addEventListener("change", savePrice);
 $("q").addEventListener("input", () => { clearTimeout(window.__qt); window.__qt = setTimeout(render, 150); });
 $("monSel").addEventListener("change", e => { const [y, m] = e.target.value.split("-").map(Number); gotoMonth(y, m); });
