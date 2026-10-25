@@ -756,7 +756,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1024-1610</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1120</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1528,14 +1528,14 @@ async function runBatch(e) {
 }
 async function deleteBills(ids, label) {
   if (!ids.length) return;
-  if (!confirm(`確定要刪除${label}嗎？\n刪除後無法復原（只有草稿與已作廢的單能刪除；已發布的要先作廢）。`)) return;
+  if (!confirm(`確定要刪除${label}嗎？\n刪除後無法復原（只有草稿與已作廢的單能刪除；已發布的要先作廢；已有確認收款紀錄的單不能刪除）。`)) return;
   busy(true);
   try {
     const r = await rpc("fee_delete_bills", { p_ids: ids });
     ids.forEach(id => SELECTED.delete(id));
     if ($("pvDlg").open) $("pvDlg").close();
     await load();
-    toast(`已刪除 ${r.deleted} 張` + (r.skipped ? `，略過 ${r.skipped} 張（已發布的請先作廢）` : ""), !!r.skipped && !r.deleted);
+    toast(`已刪除 ${r.deleted} 張` + (r.skipped ? `，略過 ${r.skipped} 張（已發布的請先作廢；已有確認收款紀錄的單不能刪除）` : ""), !!r.skipped && !r.deleted);
   } catch (ex) { toast(friendly(ex), true); } finally { busy(false); }
 }
 async function issueSelected() {
