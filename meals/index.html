@@ -519,7 +519,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2255</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2300</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -817,7 +817,7 @@ function updateFoot() {
     const cur = c.own + Math.max(c.cin, 0);   // 上月轉入的溢繳視同本月已繳；上月補繳另外列出，不混進本月金額
     if (cur < 0) { owe += -cur; oweN++; } else over += cur;
     if (c.cin < 0) { prevOwe += -c.cin; prevN++; } });
-  $("sums").innerHTML = `<span>學生 <b>${rowsIds.length}</b> 位</span><span>學生餐數 <b>${stuTot}</b> 份</span><span>應收（含加強） <b>$${fmt(amt)}</b></span><span>已繳 <b>$${fmt(paid)}</b></span><span class="${owe ? "bad" : ""}">尚需補繳 <b>$${fmt(owe)}</b>（${oweN} 位）</span><span>溢繳 <b>$${fmt(over)}</b></span>${prevN ? `<span class="bad">上月補繳 <b>$${fmt(prevOwe)}</b>（${prevN} 位）</span>` : ""}<span>實際訂購 <b>$${fmt(actTot)}</b></span><span class="${paid - actTot < 0 ? "bad" : "good"}" title="全部學生已繳 − 實際訂購">本月損益 <b>${paid - actTot < 0 ? "−" : "+"}$${fmt(Math.abs(paid - actTot))}</b></span>`;
+  $("sums").innerHTML = `<span>學生 <b>${rowsIds.length}</b> 位</span><span>學生餐數 <b>${stuTot}</b> 份</span><span>應收（含加強） <b>$${fmt(amt)}</b></span><span>已繳 <b>$${fmt(paid)}</b></span><span class="${owe ? "bad" : ""}">尚需補繳 <b>$${fmt(owe)}</b>（${oweN} 位）</span><span>溢繳 <b>$${fmt(over)}</b></span>${prevN ? `<span class="bad">上月補繳 <b>$${fmt(prevOwe)}</b>（${prevN} 位）</span>` : ""}<span>實際訂購 <b>$${fmt(actTot)}</b></span><span class="${paid - actTot < 0 ? "bad" : "good"}" title="全部學生已繳 − 實際訂購">本月結餘 <b>${paid - actTot < 0 ? "−" : "+"}$${fmt(Math.abs(paid - actTot))}</b></span>`;
 }
 
 /* ---------- 寫入 ---------- */
