@@ -395,6 +395,7 @@
         <button type="button" class="btn sm" id="mealSel" title="把勾選的草稿帶入晚餐餐費（預收 2 個月）">帶入餐費</button>
         <button type="button" class="btn sm" id="editSel" title="把勾選的學費單放在同一張表裡，一次修改收費項目、金額與期間">批次修改</button>
         <span class="selgap"></span>
+        <button type="button" class="btn sm" id="restoreSel" title="把勾選的已作廢學費單恢復成已發布">恢復</button>
         <button type="button" class="btn sm danger" id="voidSel" title="把勾選的已發布學費單作廢（家長端立刻看不到）">作廢</button>
         <button type="button" class="btn sm danger" id="delSel" title="刪除勾選的草稿或已作廢的學費單">刪除</button>
         <button type="button" class="btn sm" id="selClear">取消選取</button>
@@ -776,7 +777,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1345</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1400</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -951,6 +952,7 @@ function render() {
   show("mealSel", nDraft, "帶入餐費");
   show("editSel", nEd, "批次修改");
   show("voidSel", nVoid, "作廢");
+  show("restoreSel", sel.filter(b => b.status === "void").length, "恢復");
   show("delSel", nDel, "刪除");
   $("printSel").textContent = SELECTED.size ? `列印（${SELECTED.size}）` : "列印";
   $("chkAll").checked = list.length > 0 && list.every(b => SELECTED.has(b.id));
@@ -991,7 +993,8 @@ function openPreview(b) {
   w.textContent = "這是草稿，家長還看不到；發布後才會出現在家長端。";
   renderPvPay(b);
   $("pvEdit").classList.toggle("hidden", !CAN_EDIT);
-  $("pvIssue").classList.toggle("hidden", !(CAN_EDIT && b.status === "draft"));
+  $("pvIssue").classList.toggle("hidden", !(CAN_EDIT && (b.status === "draft" || b.status === "void")));
+  $("pvIssue").textContent = b.status === "void" ? "恢復（重新發布）" : "發布";
   $("pvVoid").classList.toggle("hidden", !(CAN_EDIT && b.status !== "void"));
   $("pvDel").classList.toggle("hidden", !(CAN_EDIT && b.status !== "issued"));
   if (!$("pvDlg").open) $("pvDlg").showModal();
@@ -1659,8 +1662,8 @@ function histRow(x, withAct) {
 }
 function renderPvPay(b) {
   const box = $("pvPay");
-  if (!b || b.status !== "issued") { box.classList.add("hidden"); box.innerHTML = ""; return; }
-  const pi = payInfo(b);
+  if (!b || (b.status !== "issued" && !(b.status === "void" && paysOf(b).length))) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+  const pi = payInfo(b), isVoid = b.status === "void";
   const hist = pi.ps.slice().sort((a, c) => String(c.reported_at).localeCompare(String(a.reported_at)));
   box.classList.remove("hidden");
   box.innerHTML = `<h4>繳款紀錄 <span class="pay ${pi.key}">${esc(pi.text)}</span></h4>
@@ -1668,7 +1671,8 @@ function renderPvPay(b) {
     ${(() => { const mbs = MEALBK.filter(x => x.bill_id === b.id); if (mbs.length) return `<p class="help" style="margin:0 0 8px;color:var(--green,#0F7B4F)">✓ 已記入晚餐管理「已繳」：${mbs.slice().sort((a, c) => a.ym.localeCompare(c.ym)).map(x => `${+x.ym.slice(5)} 月 ${fmt(x.amount)} 元（${x.kind === "short" ? "補繳" : "預收餐費"}）`).join("、")}</p>`; return (b.fee_bill_items || []).some(i => i.item_type === "meal" && (i.amount || 0) > 0) && pi.key !== "paid" ? `<p class="help" style="margin:0 0 8px">單上的餐費（含補繳）整張繳清後，會自動記入晚餐管理的「已繳」。</p>` : ""; })()}
     ${pi.paid > pi.total && pi.total > 0 ? `<p class="warn" style="margin:0 0 8px">多繳 ${fmt(pi.paid - pi.total)} 元，請在下一期學費單加一列「溢繳折抵」。</p>` : ""}
     ${hist.length ? hist.map(x => histRow(x, true)).join("") : '<p class="help" style="margin:0 0 8px">還沒有繳款紀錄。</p>'}
-    ${CAN_EDIT && pi.key !== "paid" ? `<button type="button" class="btn sm" id="regOpen">＋ 登記收款（現金、面交、家長沒回報）</button>
+    ${isVoid ? `<p class="warn" style="margin:0 0 8px">這張單已作廢。要刪除它，請先把上面「已確認」的收款按「撤銷」；或按下方「恢復（重新發布）」讓它回到已發布。</p>` : ""}
+    ${CAN_EDIT && !isVoid && pi.key !== "paid" ? `<button type="button" class="btn sm" id="regOpen">＋ 登記收款（現金、面交、家長沒回報）</button>
     <form class="regform hidden" id="regForm" novalidate>
       <div class="r3">
         <label>金額（元）<input type="number" id="rgAmt" min="1" step="1" value="${esc(pi.remain || pi.total)}"></label>
@@ -2527,6 +2531,23 @@ $("beWrap").addEventListener("click", e => {
     beDelCol(ci); return;
   }
 });
+$("restoreSel").addEventListener("click", async () => {
+  const l = BILLS.filter(b => SELECTED.has(b.id) && b.status === "void");
+  if (!l.length || !CAN_EDIT) return;
+  if (!confirm(`要恢復勾選的 ${l.length} 張已作廢學費單嗎？恢復後會重新發布，家長端又看得到。`)) return;
+  busy(true);
+  let ok = 0; const fail = [];
+  try {
+    for (let i = 0; i < l.length; i++) {
+      $("busy").textContent = `恢復中 ${i + 1} / ${l.length}…`;
+      try { await rpc("fee_save_bill", { p: billPayload(l[i], "issued") }); ok++; } catch (ex) { fail.push(l[i].student_name + "：" + friendly(ex)); }
+    }
+    l.forEach(b => SELECTED.delete(b.id));
+    await load();
+  } finally { busy(false); }
+  toast(`已恢復 ${ok} 張` + (fail.length ? `，失敗 ${fail.length} 張` : ""), !!fail.length && !ok);
+  if (fail.length) alert("這些沒有恢復成功：\n" + fail.slice(0, 10).join("\n"));
+});
 $("voidSel").addEventListener("click", async () => {
   const l = BILLS.filter(b => SELECTED.has(b.id) && b.status === "issued");
   if (!l.length || !CAN_EDIT) return;
@@ -2557,7 +2578,10 @@ $("batList").addEventListener("change", e => { const k = e.target.dataset.k; if 
 $("batForm").addEventListener("submit", runBatch);
 $("bSaveNext").addEventListener("click", () => saveBill("draft", true));
 $("pvEdit").addEventListener("click", () => { const b = pvBill; $("pvDlg").close(); openEdit(b); });
-$("pvIssue").addEventListener("click", () => setStatus(pvBill, "issued"));
+$("pvIssue").addEventListener("click", () => {
+  if (pvBill && pvBill.status === "void" && !confirm("要恢復這張已作廢的學費單嗎？恢復後會重新發布，家長端又看得到。")) return;
+  setStatus(pvBill, "issued");
+});
 $("pvVoid").addEventListener("click", () => { if (confirm("確定要作廢這張學費單嗎？作廢後家長端看不到，列表仍會保留紀錄。")) setStatus(pvBill, "void"); });
 $("pvPrint").addEventListener("click", () => printBills([pvBill]));
 $("pvDown").addEventListener("click", () => imgAct("down"));
