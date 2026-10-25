@@ -157,6 +157,13 @@
   .bulkbar { border: 1px dashed var(--line-2); border-radius: 12px; padding: 10px 12px; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; background: #FAFCFF; }
   .bulkbar .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .enrow { display: grid; grid-template-columns: 1.3fr 90px 100px 100px; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .fpend { border: 1.5px solid #F59E0B; background: #FFFBEB; border-radius: 12px; padding: 12px 14px; margin: 0 0 12px; }
+  .fpend h4 { margin: 0 0 6px; font-size: 15px; color: #92400E; }
+  .fprow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 0; border-top: 1px dashed #FCD34D; }
+  .fprow:first-of-type { border-top: 0; }
+  .fpnm { font-weight: 700; min-width: 90px; }
+  .fpsug { flex: 1; min-width: 200px; font-size: 13px; color: #475569; }
+  .enrow .ensub { grid-column: 1 / -1; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 14px; }
   .enrow.on { border-color: var(--blue); background: #F5F9FF; }
   .enrow label.nm2 { display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; }
   .enrow select, .enrow input[type=text] { min-height: 38px; border: 1px solid #D5DEEA; border-radius: 9px; padding: 0 8px; font-size: 14px; width: 100%; background: #fff; }
@@ -418,6 +425,7 @@
         <label class="tog"><input type="checkbox" id="pNone">只看還沒設定的</label>
         <span class="count" id="pCount"></span>
       </div>
+      <div id="pPending"></div>
       <div class="bulkbar" id="pBulk"></div>
       <div class="tbl-wrap">
         <table>
@@ -777,7 +785,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1650</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1720</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1699,7 +1707,7 @@ function renderPending() {
       const diff = pi && x.amount !== pi.remain ? `<span class="hint">金額與尚欠（${fmt(pi.remain)}）不同，請核對</span>` : "";
       const via = (x.source === "staff" ? "班上登記" : "家長回報") + `（${METHOD[x.method] || "其他"}）`;
       const cashHint = x.method === "cash" ? '<span class="hint">現金：請確認已收到款項再按確認</span>' : "";
-      return `<div class="prow">
+      return `<div class="fprow">
         <div class="p1"><span><b>${esc(b ? b.student_name : "（已刪除的單）")}</b> <span class="sub">${esc(b ? b.grade_text : "")}・${esc(b ? b.title : "")}</span></span><b>${fmt(x.amount)} 元</b></div>
         <div class="p2">${fmtDate(x.paid_date)}・${via}${x.last5 ? `・末五碼 ${esc(x.last5)}` : ""}${pi ? `・應繳 ${fmt(pi.total)}／已確認 ${fmt(pi.paid)}／尚欠 ${fmt(pi.remain)}` : ""}${x.parent_note ? `<br>家長備註：${esc(x.parent_note)}` : ""} ${diff} ${cashHint}</div>
         <div class="p3">
@@ -2180,6 +2188,7 @@ function renderPlan() {
   const cur = $("pGrade").value;
   $("pGrade").innerHTML = '<option value="">全部年級</option>' + grades.map(g => `<option>${esc(g)}</option>`).join("");
   $("pGrade").value = cur;
+  renderPending();
   const progs = PROGRAMS.filter(p => p.active);
   $("pBulk").innerHTML = `<div class="row"><b style="font-size:14px">批次設定選取的學生：</b>
       ${progs.length ? progs.map(p => `<label class="tog"><input type="checkbox" data-bp="${esc(p.code)}">${esc(p.name)}</label>`).join("") : '<span class="help">還沒有班別（管理員可在下方「班別與期繳期間」新增）</span>'}</div>
@@ -2267,6 +2276,22 @@ async function bulkEnroll(remove) {
   try { await upsertRows("fee_enrollments", rows, "student_id,program_code"); await load(); toast("已更新收費設定"); }
   catch (ex) { toast(friendly(ex), true); } finally { busy(false); }
 }
+// 新增學生後，要管理員確認收費設定（班別、月繳／期繳；國中班再選科目）
+const LEVEL_PROG_HINT = { k: "幼稚園：英文班", p: "國小：安親班、數學班、英文班", j: "國中：國中班（再選科目）" };
+function levelOfSchool(n) { n = n || ""; if (/幼/.test(n)) return "k"; if (/國中|中學|國民中/.test(n)) return "j"; if (/國小|小學|國民小/.test(n)) return "p"; return ""; }
+function pendingStudents() { return CAN_EDIT ? STUDENTS.filter(s => s.fee_confirmed === false) : []; }
+function renderPending() {
+  const box = $("pPending"); if (!box) return;
+  const list = pendingStudents();
+  if (!list.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="fpend"><h4>有 ${list.length} 位新學生還沒設定收費</h4>${list.map(s => {
+    const es = enrollsOf(s.id);
+    const chosen = es.length ? "名冊已選：" + es.map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `${p.name}${(e.subjects || []).length && SUBJ_PROGS[p.code] ? "（" + e.subjects.join("、") + "）" : ""}・${billingName(e.billing)}`; }).join("、") : "名冊沒有選班別，請補上";
+    const hint = LEVEL_PROG_HINT[levelOfSchool(s.school)] || "";
+    return `<div class="fprow"><span class="fpnm">${esc(s.name)}</span><span class="fpsug">${esc(s.school || "")} ${esc(s.grade || "")}｜${esc(chosen)}${hint ? "<br><small>" + esc(hint) + "</small>" : ""}</span><button type="button" class="btn primary sm" data-pend="${esc(s.id)}">設定收費</button></div>`;
+  }).join("")}</div>`;
+}
+$("pPending").addEventListener("click", e => { const b = e.target.closest("[data-pend]"); if (b) openEnroll(b.dataset.pend); });
 let enStudent = null;
 function openEnroll(sid) {
   const s = STUDENTS.find(x => x.id === sid); if (!s) return;
@@ -2280,6 +2305,7 @@ function openEnroll(sid) {
       <select class="en-b" aria-label="繳費方式"><option value="month" ${e && e.billing === "month" || !e ? "selected" : ""}>月繳</option><option value="period" ${e && e.billing === "period" ? "selected" : ""}>期繳</option></select>
       <input type="text" class="en-a" inputmode="numeric" placeholder="個別月費" value="${e && e.amount != null ? e.amount : ""}" aria-label="個別月費（留空依價目表）" title="個別月費：留空＝依價目表">
       <input type="text" class="en-d" inputmode="numeric" placeholder="每月優惠" value="${e && e.discount ? e.discount : ""}" aria-label="每月優惠">
+      ${SUBJ_PROGS[p.code] ? `<div class="ensub" style="${on ? "" : "display:none"}"><span class="help">科目</span>${["英文", "數學", "自然"].concat(s.grade === "國三" ? ["總複習"] : []).map(n => `<label><input type="checkbox" class="en-sub" value="${n}" ${((e && e.subjects) || []).includes(n) ? "checked" : ""}> ${n}</label>`).join("")}</div>` : ""}
     </div>`;
   }).join("") || '<p class="empty">還沒有班別，請管理員先在下方新增</p>';
   $("enErr").classList.add("hidden");
@@ -2288,15 +2314,18 @@ function openEnroll(sid) {
 async function saveEnroll(e) {
   e.preventDefault();
   if (!enStudent) return;
-  const rows = [];
+  const rows = []; let bad = "";
   $("enRows").querySelectorAll(".enrow").forEach(r => {
     const code = r.dataset.code, on = r.querySelector(".en-on").checked;
     const ex = ENROLLS.find(x => x.student_id === enStudent.id && x.program_code === code);
     if (!on && !(ex && ex.active)) return;
-    rows.push({ student_id: enStudent.id, program_code: code, billing: r.querySelector(".en-b").value, amount: r.querySelector(".en-a").value.trim() === "" ? null : parseInt(r.querySelector(".en-a").value.replace(/[^\d]/g, ""), 10) || 0, discount: parseInt(r.querySelector(".en-d").value.replace(/[^\d]/g, ""), 10) || 0, active: on });
+    const subj = [...r.querySelectorAll(".en-sub:checked")].map(i => i.value);
+    if (on && r.querySelector(".ensub") && !subj.length) { bad = "國中班請至少選一個科目"; return; }
+    rows.push({ student_id: enStudent.id, program_code: code, subjects: r.querySelector(".ensub") ? subj : [], billing: r.querySelector(".en-b").value, amount: r.querySelector(".en-a").value.trim() === "" ? null : parseInt(r.querySelector(".en-a").value.replace(/[^\d]/g, ""), 10) || 0, discount: parseInt(r.querySelector(".en-d").value.replace(/[^\d]/g, ""), 10) || 0, active: on });
   });
+  if (bad) { $("enErr").textContent = bad; $("enErr").classList.remove("hidden"); return; }
   busy(true);
-  try { if (rows.length) await upsertRows("fee_enrollments", rows, "student_id,program_code"); $("enDlg").close(); await load(); toast("已儲存"); }
+  try { if (rows.length) await upsertRows("fee_enrollments", rows, "student_id,program_code"); if (enStudent.fee_confirmed === false) { const c = await sb.rpc("fee_confirm_student", { p_id: enStudent.id }); if (c.error) throw c.error; } $("enDlg").close(); await load(); toast("已儲存"); }
   catch (ex) { $("enErr").textContent = friendly(ex); $("enErr").classList.remove("hidden"); } finally { busy(false); }
 }
 let editingProg = null;
@@ -2722,6 +2751,7 @@ $("pAdmin").addEventListener("click", e => {
   if (e.target.id === "pgAdd") return editProgram(null);
   const b = e.target.closest("[data-pg]"); if (b) editProgram(b.dataset.pg);
 });
+$("enRows").addEventListener("change", e => { if (e.target.classList.contains("en-on")) { const r = e.target.closest(".enrow"); r.classList.toggle("on", e.target.checked); const b = r.querySelector(".ensub"); if (b) b.style.display = e.target.checked ? "" : "none"; } });
 $("pAdmin").addEventListener("input", e => { if (e.target.matches(".pm-in")) { const cur = priceOf(e.target.dataset.g, e.target.dataset.p, e.target.dataset.b, e.target.dataset.s || ""); const raw = e.target.value.replace(/[^\d]/g, ""); e.target.classList.toggle("dirty", (cur == null ? "" : String(cur)) !== raw); } });
 $("enForm").addEventListener("submit", saveEnroll);
 $("enRows").addEventListener("change", e => { const r = e.target.closest(".enrow"); if (r && e.target.matches(".en-on")) r.classList.toggle("on", e.target.checked); });

@@ -572,7 +572,7 @@ async function load() {
   ]);
   for (const r of [st, sc, cl]) if (r.error) throw r.error;
   try {
-    const [pg, en] = await Promise.all([sb.from("fee_programs").select("code,name,active,sort_order").order("sort_order"), sb.from("fee_enrollments").select("*")]);
+    const [pg, en] = await Promise.all([sb.from("fee_programs").select("code,name,active,item_type,sort_order").order("sort_order"), sb.from("fee_enrollments").select("*")]);
     PROGRAMS = pg.error ? [] : (pg.data || []); ENROLLS = en.error ? [] : (en.data || []);
   } catch (_) { PROGRAMS = []; ENROLLS = []; }
   try {
