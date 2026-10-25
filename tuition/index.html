@@ -393,6 +393,7 @@
         <select class="sel" id="fPay" aria-label="繳款狀態">
           <option value="">全部繳款</option><option value="pending">待確認</option><option value="unpaid">未繳</option><option value="overdue">逾期</option><option value="partial">部分繳</option><option value="paid">已繳清</option>
         </select>
+        <button type="button" class="btn" id="creditBtn" title="列出多繳、還沒折抵到學費單的學生">溢繳餘額</button>
         <button type="button" class="btn dun-btn" id="dunBtn" title="列出未繳、逾期的學生，一鍵複製催繳訊息">催繳名單</button>
         <details class="addmenu hidden" id="addMenu">
           <summary class="btn primary">＋ 新增 ▾</summary>
@@ -470,6 +471,13 @@
     <button type="button" class="btn hidden" id="pvIssue">發布</button>
     <button type="button" class="btn primary hidden" id="pvEdit">編輯</button>
   </div>
+</dialog>
+
+<!-- 溢繳餘額 -->
+<dialog id="crDlg" class="wide" aria-labelledby="crTitle">
+  <div class="dlg-head"><h3 id="crTitle">溢繳餘額</h3><span class="help">家長多繳、還沒折抵到學費單的金額（只算已發布單上已確認的收款）</span></div>
+  <div class="dlg-body"><p class="dun-sum" id="crSum"></p><div id="crList"></div></div>
+  <div class="dlg-foot"><button type="button" class="btn" data-close>關閉</button></div>
 </dialog>
 
 <!-- 催繳名單 -->
@@ -560,6 +568,7 @@
           <button type="button" class="btn sm" id="tplTerm" title="使用「梯次」設定裡的範本">這個梯次的範本</button>
           <button type="button" class="btn sm" id="addRow">＋ 加一列</button>
           <button type="button" class="btn sm" id="calcLeave" style="border-color:var(--blue);color:var(--blue)">計算請假折抵</button>
+          <button type="button" class="btn sm" id="calcCredit" title="把這位學生上期多繳、還沒折抵的金額，加成一列「溢繳折抵」">帶入溢繳折抵</button>
           <button type="button" class="btn sm" id="calcMeal" style="border-color:#C2410C;color:#C2410C" title="預收 2 個月：預計次數 × 單價 × 2，不扣放假日（來自晚餐管理）">帶入晚餐餐費</button>
           <input type="month" id="mealMonth" aria-label="餐費從哪個月開始" title="預收餐費的第一個月（共 2 個月）。例：收 1 月的學費單，就選 1 月（帶入 1、2 月餐費）" style="width:150px;min-height:32px;border:1px solid #D5DEEA;border-radius:9px;padding:0 6px">
         </div>
@@ -632,6 +641,9 @@
         <div id="batTmpBox" style="display:none;flex-basis:100%;white-space:pre-line;background:#FFF7E6;border:1px solid #F59E0B;border-radius:10px;padding:8px 12px;font-size:13px;color:#7A4B00"></div>
         <p class="help" style="margin:0;flex-basis:100%">結算月份是偶數月（兩個月結一次，例如 10 月、12 月）；溢繳 → 加一列「溢繳折抵（晚餐）」，補繳 → 加進餐費金額並備註收了多少。起始月的前一個月如果是奇數月，就沒有結算可帶。</p>
         <p class="help" style="margin:0;flex-basis:100%">餐費 = 該月依「用餐星期」算出的預計次數 × 單價 × 2，不扣放假日；單上只顯示金額，不標次數。晚餐管理沒有訂餐的學生不加。多退少補在兩個月結算時處理。</p>
+      </div>
+      <div id="batCreditOpts" class="checks">
+        <label><input type="checkbox" id="batCredit" checked>自動折抵上期溢繳（學生多繳、還沒折抵的金額，加一列「溢繳折抵」；折到總計 0 為止）</label>
       </div>
       <div id="batLeaveOpts" class="checks">
         <label><input type="checkbox" id="batLeave">自動計入請假折抵（依雲點名請假紀錄）</label>
@@ -837,6 +849,10 @@ function friendly(err) {
   if (/name required/.test(m)) return "請輸入學生姓名";
   if (/unknown item type/.test(m)) return "有一列的項目種類不存在，請重新選擇";
   if (/bill not found/.test(m)) return "找不到這張學費單，請重新整理";
+  if (/credit exceeds overpaid/.test(m)) return "溢繳折抵超過可折抵的餘額（可能已被別張單用掉），請按「帶入溢繳折抵」重新帶入";
+  if (/credit already carried/.test(m)) return "這張單的溢繳已經折抵到別張學費單了，不能再減少收款或降低金額；請先把那張單的折抵拿掉";
+  if (/bad credit source|credit row must be/.test(m)) return "溢繳折抵的來源不正確，請刪掉那一列後重新按「帶入溢繳折抵」";
+  if (/bill has confirmed payments/.test(m)) return "這張單已有確認收款，不能作廢；請先到預覽的「繳款紀錄」把收款撤銷，再作廢";
   if (/Failed to fetch|NetworkError/i.test(m)) return "無法連線，請檢查網路後再試一次";
   return "發生錯誤：" + m;
 }
@@ -1084,7 +1100,7 @@ function addRow(it, box) {
     <input type="text" class="ip" maxlength="40" placeholder="期間（例：115/10）" aria-label="期間" value="${esc(it.period_text || "")}">
     <label class="cnt"><input type="checkbox" class="ic" ${it.counted === false ? "" : "checked"}>計入</label>
     <button type="button" class="x" aria-label="刪除這一列">✕</button>`;
-  d.dataset.prev = typeOf(it.item_type).name; d.dataset.note = it.note || "";
+  d.dataset.prev = typeOf(it.item_type).name; d.dataset.note = it.note || ""; d.dataset.credit = it.credit_source || "";
   if (!String(it.label || "").trim() || String(it.label).trim() === d.dataset.prev) d.classList.add("solo");
   (box || $("irows")).appendChild(d);
   return d;
@@ -1096,7 +1112,8 @@ function readRows(box) {
     amount: parseInt(r.querySelector(".ia").value.replace(/[^\d]/g, ""), 10) || 0,
     counted: r.querySelector(".ic").checked,
     period_text: r.querySelector(".ip").value.trim(),
-    note: r.dataset.note || ""
+    note: r.dataset.note || "",
+    credit_source: r.dataset.credit || undefined
   }));
 }
 function calcTotal() {
@@ -1147,11 +1164,12 @@ async function autoFillForStudent() {
   if (seq !== autoSeq || editing || editStudentId !== s.id) return;
   const items = r.items.map(x => Object.assign({}, x));
   if (mealAmt || bal || tmp) { applyMeal(items, mealAmt, bal - (tmp ? tmp.amount : 0), sm, ym); tempNote(items, tmp); }
+  const crAuto = items.length ? applyCredits(items, s.id, null) : 0;
   if (!items.length) { $("bStudentHelp").textContent += "（這位學生還沒有收費設定，請手動填或套用範本）"; return; }
   $("irows").innerHTML = "";
-  items.forEach(it => addRow({ item_type: TYPES.some(x => x.code === it.item_type) ? it.item_type : "other", label: it.label, amount: it.amount, counted: it.counted !== false, period_text: it.period_text || "", note: it.note || "" }));
+  items.forEach(it => addRow({ item_type: TYPES.some(x => x.code === it.item_type) ? it.item_type : "other", label: it.label, amount: it.amount, counted: it.counted !== false, period_text: it.period_text || "", note: it.note || "", credit_source: it.credit_source }));
   calcTotal(); autoFilled = true;
-  $("bStudentHelp").textContent += `　已依收費設定${mealAmt ? "與晚餐預收" : ""}自動帶入 ${ym.replace("-", "/")} 的費用，可再修改`;
+  $("bStudentHelp").textContent += `　已依收費設定${mealAmt ? "與晚餐預收" : ""}自動帶入 ${ym.replace("-", "/")} 的費用${crAuto ? `，並折抵上期溢繳 ${fmt(crAuto)} 元` : ""}，可再修改`;
 }
 function termTpl(t) { return t && Array.isArray(t.template) ? t.template : []; }
 function fillTermTemplate(t) {
@@ -1193,7 +1211,7 @@ function openEdit(b) {
   $("bAcct").value = b ? (b.account_id || "") : "";
   $("bNote").value = b ? b.note : "";
   $("irows").innerHTML = "";
-  if (b && b.items.length) b.items.forEach(addRow); else presetRows(PRESETS.find(p => p.kind === "regular") || PRESETS[0]).forEach(r => addRow({ item_type: r.item_type, label: r.label, amount: r.amount || "", counted: r.counted, period_text: r.period_text }));
+  if (b && b.items.length) b.items.forEach(it => addRow(it)); else presetRows(PRESETS.find(p => p.kind === "regular") || PRESETS[0]).forEach(r => addRow({ item_type: r.item_type, label: r.label, amount: r.amount || "", counted: r.counted, period_text: r.period_text }));
   $("bSaveIssue").textContent = b && b.status === "issued" ? "儲存（維持已發布）" : "儲存並發布";
   $("bSaveDraft").classList.toggle("hidden", !!(b && b.status === "issued"));
   $("bSaveNext").classList.toggle("hidden", !(b && nextInQueue(b.id)));
@@ -1245,7 +1263,7 @@ async function saveBill(status, next) {
 const billPayload = (b, status) => ({
   id: b.id, student_id: b.student_id, student_name: b.student_name, grade_text: b.grade_text, dept: b.dept,
   term_id: b.term_id, title: b.title, due_date: b.due_date, account_id: b.account_id, note: b.note, status,
-  items: b.items.map(i => ({ item_type: i.item_type, label: i.label, amount: Math.abs(i.amount), counted: i.counted, period_text: i.period_text, note: i.note }))
+  items: b.items.map(i => ({ item_type: i.item_type, label: i.label, amount: Math.abs(i.amount), counted: i.counted, period_text: i.period_text, note: i.note, credit_source: i.credit_source || undefined }))
 });
 async function setStatus(b, status) {
   busy(true);
@@ -1391,6 +1409,44 @@ async function openMeal() {
     $("irows").innerHTML = ""; items.forEach(it => addRow(it)); calcTotal();
     toast(`已帶入餐費 ${fmt(est)} 元（預收 2 個月）` + (bal > 0 ? `，溢繳折抵 ${fmt(bal)}` : bal < 0 ? `，含補繳 ${fmt(-bal)}` : "") + "，可再手動調整");
   } catch (ex) { toast(friendly(ex), true); }
+}
+/* ---------- 溢繳自動結轉 ----------
+   某張「已發布」學費單的溢繳 = 已確認繳款 − 應繳；別張單（草稿或已發布，不含作廢）上帶 credit_source 的「溢繳折抵」列會占用它。
+   可折抵餘額 = 溢繳 − 已占用。資料庫在儲存時也會檢查，不會超領。 */
+function creditSources(studentId, excludeBillId) {
+  if (!studentId) return [];
+  const out = [];
+  BILLS.filter(b => b.student_id === studentId && b.status === "issued").forEach(b => {
+    const over = Math.max((b.paid_total || 0) - (b.total || 0), 0); if (!over) return;
+    let used = 0;
+    BILLS.forEach(t => { if (t.status === "void" || t.id === excludeBillId) return; (t.items || []).forEach(i => { if (i.credit_source === b.id && i.counted) used += Math.abs(i.amount); }); });
+    if (over - used > 0) out.push({ bill: b, avail: over - used });
+  });
+  return out.sort((a, c) => String(a.bill.issued_at || a.bill.created_at).localeCompare(String(c.bill.issued_at || c.bill.created_at)));
+}
+// 把可折抵的溢繳加成「溢繳折抵」列（不會折到讓總計小於 0）；回傳這次折了多少
+function applyCredits(items, studentId, excludeBillId) {
+  for (let i = items.length - 1; i >= 0; i--) if (items[i].credit_source) items.splice(i, 1);
+  let room = items.reduce((a, it) => a + (it.counted === false ? 0 : (+it.amount || 0) * typeOf(it.item_type).sign), 0), got = 0;
+  for (const c of creditSources(studentId, excludeBillId)) {
+    if (room <= 0) break;
+    const take = Math.min(c.avail, room); if (take <= 0) continue;
+    items.push({ item_type: "carry", label: "溢繳折抵", amount: take, counted: true, period_text: "", note: `上期溢繳（${c.bill.title || "學費單"}）`, credit_source: c.bill.id });
+    room -= take; got += take;
+  }
+  return got;
+}
+function openCreditList() {
+  const by = new Map();
+  BILLS.filter(b => b.status === "issued" && b.student_id).forEach(b => {
+    const cs = creditSources(b.student_id, null).filter(c => c.bill.id === b.id); if (!cs.length) return;
+    const o = by.get(b.student_id) || { name: b.student_name, grade: b.grade_text, total: 0, src: [] };
+    o.total += cs[0].avail; o.src.push(`${b.title || "學費單"} ${fmt(cs[0].avail)}`); by.set(b.student_id, o);
+  });
+  const rows = [...by.values()].sort((a, c) => c.total - a.total);
+  $("crList").innerHTML = rows.length ? `<table class="be" style="width:100%"><thead><tr><th>學生</th><th>年級</th><th style="text-align:right">可折抵餘額</th><th>來源</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.grade || "")}</td><td style="text-align:right"><b>${fmt(r.total)}</b></td><td class="sub">${esc(r.src.join("、"))}</td></tr>`).join("")}</tbody></table>` : '<p class="empty">目前沒有溢繳餘額</p>';
+  $("crSum").textContent = rows.length ? `共 ${rows.length} 位，合計 ${fmt(rows.reduce((a, r) => a + r.total, 0))} 元；下次開單（單張新增、批次建立、編輯按「帶入溢繳折抵」）會自動折抵` : "";
+  $("crDlg").showModal();
 }
 function batMode() { return document.querySelector('input[name="batMode"]:checked').value; }
 function itemSummary(b) { return sortedItems(b).filter(i => !isBlank(i)).map(i => `${i.label}${i.amount ? " " + fmt(i.amount) : ""}`).join("、"); }
@@ -1553,7 +1609,7 @@ async function runBatch(e) {
               clear: $("batClear").checked, drop: $("batDrop").checked, tpl: $("batTpl").value, tuiLabel: $("batTuiLabel").value.trim(),
               tuiAmt: parseInt($("batTuiAmt").value.replace(/[^\d]/g, ""), 10) || 0,
               meal: $("batMeal").checked, mealMonth: $("batMealMonth").value, settle: $("batSettle").checked, settleMonth: $("batSettleMonth").value,
-              leave: batMode() !== "tpl" && $("batLeave").checked, leaveMonth: $("batLeaveMonth").value, month: $("batMonth").value };
+              credit: $("batCredit").checked, leave: batMode() !== "tpl" && $("batLeave").checked, leaveMonth: $("batLeaveMonth").value, month: $("batMonth").value };
   if (!o.term) return err("請選擇這一期（目標梯次）");
   const picked = batCands.filter(c => batChecked.has(c.key) && !c.exists);
   if (!picked.length) return err("請至少選一位學生");
@@ -1572,7 +1628,7 @@ async function runBatch(e) {
   busy(true);
   $("batGo").disabled = true;
   const ok = [], fail = [];
-  let rebated = 0, incomplete = false;
+  let rebated = 0, incomplete = false, credited = 0;
   for (let i = 0; i < picked.length; i++) {
     $("busy").textContent = `正在建立草稿中… ${i + 1} / ${picked.length}，請稍候，先不要關閉視窗`;
     $("batGo").textContent = `建立中 ${i + 1} / ${picked.length}…`;
@@ -1594,6 +1650,7 @@ async function runBatch(e) {
         if (est > 0 || bal || tmp) { applyMeal(payload.items, est, bal, setMap ? o.settleMonth : "", o.mealMonth); tempNote(payload.items, tmp); }
         if (mealMap && !est) mealMiss++;
       }
+      if (o.credit && payload.student_id) { const cg = applyCredits(payload.items, payload.student_id, null); if (cg) credited++; }
       const r = await rpc("fee_save_bill", { p: payload }); ok.push(r.id);
     } catch (ex) { fail.push(picked[i].name + "：" + friendly(ex)); }
   }
@@ -1607,7 +1664,7 @@ async function runBatch(e) {
     render();
   } finally { busy(false); $("batGo").disabled = false; $("batGo").textContent = "建立草稿"; }
   if (fail.length) alert(`成功 ${ok.length} 張，失敗 ${fail.length} 張：\n` + fail.join("\n"));
-  else toast(`已建立 ${ok.length} 張草稿` + (o.leave ? `，其中 ${rebated} 張有請假折抵` : "") + (o.meal ? `，已帶入晚餐餐費${mealMiss ? `（${mealMiss} 位沒有晚餐訂餐設定、未加）` : ""}` : "") + "，可逐張檢查後發布");
+  else toast(`已建立 ${ok.length} 張草稿` + (o.leave ? `，其中 ${rebated} 張有請假折抵` : "") + (o.credit && credited ? `，${credited} 張折抵了上期溢繳` : "") + (o.meal ? `，已帶入晚餐餐費${mealMiss ? `（${mealMiss} 位沒有晚餐訂餐設定、未加）` : ""}` : "") + "，可逐張檢查後發布");
   if (o.meal && mealMiss) alert(`晚餐餐費：有 ${mealMiss} 位學生在晚餐管理沒有訂餐設定（或預計次數為 0），沒有帶入餐費。`);
   if (batWarns.length) alert("價目表提醒（這些金額請檢查）：\n" + [...new Set(batWarns)].slice(0, 30).join("\n"));
   if (incomplete) alert("提醒：雲點名的點名紀錄只保留 40 天，這個月的請假資料可能不完整，請假折抵請人工確認。");
@@ -1724,7 +1781,7 @@ function renderPvPay(b) {
   box.innerHTML = `<h4>繳款紀錄 <span class="pay ${pi.key}">${esc(pi.text)}</span></h4>
     <div class="sumline"><span>應繳 <b>${fmt(pi.total)}</b></span><span>已確認 <b>${fmt(pi.paid)}</b></span><span>尚欠 <b>${fmt(pi.remain)}</b></span>${pi.pendSum ? `<span>待確認 <b>${fmt(pi.pendSum)}</b></span>` : ""}</div>
     ${(() => { const mbs = MEALBK.filter(x => x.bill_id === b.id); if (mbs.length) return `<p class="help" style="margin:0 0 8px;color:var(--green,#0F7B4F)">✓ 已記入晚餐管理「已繳」：${mbs.slice().sort((a, c) => a.ym.localeCompare(c.ym)).map(x => `${+x.ym.slice(5)} 月 ${fmt(x.amount)} 元（${x.kind === "short" ? "補繳" : "預收餐費"}）`).join("、")}</p>`; return (b.fee_bill_items || []).some(i => i.item_type === "meal" && (i.amount || 0) > 0) && pi.key !== "paid" ? `<p class="help" style="margin:0 0 8px">單上的餐費（含補繳）整張繳清後，會自動記入晚餐管理的「已繳」。</p>` : ""; })()}
-    ${pi.paid > pi.total && pi.total > 0 ? `<p class="warn" style="margin:0 0 8px">多繳 ${fmt(pi.paid - pi.total)} 元，請在下一期學費單加一列「溢繳折抵」。</p>` : ""}
+    ${pi.paid > pi.total && pi.total > 0 ? `<p class="warn" style="margin:0 0 8px">${(() => { const over = pi.paid - pi.total, ca = creditSources(b.student_id, null).find(c => c.bill.id === b.id), left = ca ? ca.avail : 0; return `多繳 ${fmt(over)} 元，已折抵到別張單 ${fmt(over - left)} 元，` + (left ? `還有 ${fmt(left)} 元可折抵，下次開單會自動帶入（編輯時可按「帶入溢繳折抵」）。` : "沒有餘額了。"); })()}</p>` : ""}
     ${hist.length ? hist.map(x => histRow(x, true)).join("") : '<p class="help" style="margin:0 0 8px">還沒有繳款紀錄。</p>'}
     ${isVoid ? `<p class="warn" style="margin:0 0 8px">這張單已作廢。要刪除它，請先把上面「已確認」的收款按「撤銷」；或按下方「恢復（重新發布）」讓它回到已發布。</p>` : ""}
     ${CAN_EDIT && !isVoid && pi.key !== "paid" ? `<button type="button" class="btn sm" id="regOpen">＋ 登記收款（現金、面交、家長沒回報）</button>
@@ -1794,7 +1851,7 @@ async function reviewPay(id, action, note) {
     const r = await rpc("fee_review_payment", { p_id: id, p_action: action, p_note: note || "" });
     await afterPayChange(x && x.bill_id);
     if (action === "confirm") {
-      if (r.overpaid > 0) toast(`已確認。多繳 ${fmt(r.overpaid)} 元，請在下一期學費單加「溢繳折抵」`);
+      if (r.overpaid > 0) toast(`已確認。多繳 ${fmt(r.overpaid)} 元，已記為溢繳餘額，下次開單會自動折抵`);
       else if (r.paid_total < r.total) toast(`已確認。還尚欠 ${fmt(r.total - r.paid_total)} 元`);
       else toast("已確認，這張學費單已繳清");
     } else toast(action === "reject" ? "已退回，家長會看到原因" : "已改回待確認");
@@ -1843,7 +1900,7 @@ $("pvPay").addEventListener("submit", async e => {
   try {
     const r = await rpc("fee_admin_add_payment", { p: { bill_id: pvBill.id, amount, paid_date: date, method: $("rgMethod").value, last5, note: $("rgNote").value.trim() } });
     await afterPayChange(pvBill.id);
-    toast(r.overpaid > 0 ? `已登記。多繳 ${fmt(r.overpaid)} 元，請在下一期學費單加「溢繳折抵」` : (r.paid_total >= r.total ? "已登記，這張學費單已繳清" : `已登記。還尚欠 ${fmt(r.total - r.paid_total)} 元`));
+    toast(r.overpaid > 0 ? `已登記。多繳 ${fmt(r.overpaid)} 元，已記為溢繳餘額，下次開單會自動折抵` : (r.paid_total >= r.total ? "已登記，這張學費單已繳清" : `已登記。還尚欠 ${fmt(r.total - r.paid_total)} 元`));
   } catch (ex) { err(payFriendly(ex)); }
   finally { busy(false); }
 });
@@ -1877,7 +1934,7 @@ $("qpOk").addEventListener("click", async () => {
     $("qpDlg").close(); qpBill = null;
     await afterPayChange(bid);
     if ($("dunDlg").open) renderDun();
-    toast(r.overpaid > 0 ? `已登記。多繳 ${fmt(r.overpaid)} 元，請在下一期學費單加「溢繳折抵」` : (r.paid_total >= r.total ? "已標記為已繳清" : `已登記，還尚欠 ${fmt(r.total - r.paid_total)} 元`));
+    toast(r.overpaid > 0 ? `已登記。多繳 ${fmt(r.overpaid)} 元，已記為溢繳餘額，下次開單會自動折抵` : (r.paid_total >= r.total ? "已標記為已繳清" : `已登記，還尚欠 ${fmt(r.total - r.paid_total)} 元`));
   } catch (ex) { err(payFriendly(ex)); }
   finally { busy(false); }
 });
@@ -2531,7 +2588,7 @@ function beHead(c, ci) {
 }
 function beTd(b, c, ci) {
   const it = c.key.startsWith("new|") ? null : beCell(b, c);
-  return `<td data-ci="${ci}" data-counted="${it && !it.counted ? 0 : 1}" data-note="${esc(it ? it.note || "" : "")}"><input class="ba" inputmode="numeric" value="${it && it.amount ? esc(Math.abs(it.amount)) : ""}" aria-label="金額"> <input class="bp" value="${it ? esc(it.period_text || "") : ""}" placeholder="期間" aria-label="期間"></td>`;
+  return `<td data-ci="${ci}" data-counted="${it && !it.counted ? 0 : 1}" data-note="${esc(it ? it.note || "" : "")}" data-credit="${esc(it ? it.credit_source || "" : "")}"><input class="ba" inputmode="numeric" value="${it && it.amount ? esc(Math.abs(it.amount)) : ""}" aria-label="金額"> <input class="bp" value="${it ? esc(it.period_text || "") : ""}" placeholder="期間" aria-label="期間"></td>`;
 }
 function renderBE() {
   const rows = beBills.map(b => `<tr data-bid="${esc(b.id)}"><td class="be-st"><div class="nm">${esc(b.student_name)}</div><div class="sub">${esc(b.grade_text)}${b.status === "issued" ? "・已發布" : ""}</div></td>${beCols.map((c, ci) => beTd(b, c, ci)).join("")}<td class="be-tot">0</td><td><input class="bn" value="${esc(b.note || "")}" placeholder="備註" aria-label="備註"></td></tr>`).join("");
@@ -2546,7 +2603,7 @@ function beReadRow(tr) {
     const period = td.querySelector(".bp").value.trim();
     const counted = td.dataset.counted !== "0";
     if (amount === 0 && counted && !period) return;
-    items.push({ item_type: c.type, label: c.label, amount, counted, period_text: period, note: td.dataset.note || "" });
+    items.push({ item_type: c.type, label: c.label, amount, counted, period_text: period, note: td.dataset.note || "", credit_source: td.dataset.credit || undefined });
   });
   return { items, note: tr.querySelector(".bn").value.trim() };
 }
@@ -2665,10 +2722,17 @@ $("restoreSel").addEventListener("click", async () => {
   if (fail.length) alert("這些沒有恢復成功：\n" + fail.slice(0, 10).join("\n"));
 });
 $("voidSel").addEventListener("click", async () => {
-  const l = BILLS.filter(b => SELECTED.has(b.id) && b.status === "issued");
+  let l = BILLS.filter(b => SELECTED.has(b.id) && b.status === "issued");
   if (!l.length || !CAN_EDIT) return;
-  const paid = l.filter(b => (b.paid_total || 0) > 0).length;
-  if (!confirm(`確定要作廢勾選的 ${l.length} 張已發布學費單嗎？\n作廢後家長端看不到，列表仍保留（可再勾選刪除）。` + (paid ? `\n\n注意：其中 ${paid} 張已有確認收款，作廢後仍不能刪除；要刪請先在預覽的繳款紀錄把收款「撤銷」。` : ""))) return;
+  // 作廢防呆：已有確認收款的單不能作廢，先挑出來
+  const blocked = l.filter(b => (b.paid_total || 0) > 0);
+  if (blocked.length) {
+    l = l.filter(b => !((b.paid_total || 0) > 0));
+    const names = blocked.slice(0, 8).map(b => b.student_name).join("、") + (blocked.length > 8 ? "…" : "");
+    if (!l.length) return alert(`勾選的 ${blocked.length} 張單都已有確認收款，不能作廢：\n${names}\n\n請先到預覽的「繳款紀錄」把收款撤銷，再作廢。`);
+    if (!confirm(`其中 ${blocked.length} 張已有確認收款，不能作廢（已自動略過）：\n${names}\n\n要繼續作廢其餘 ${l.length} 張嗎？`)) return;
+  }
+  if (!confirm(`確定要作廢勾選的 ${l.length} 張已發布學費單嗎？\n作廢後家長端看不到，列表仍保留（可再勾選刪除）。`)) return;
   busy(true);
   let ok = 0; const fail = [];
   try {
@@ -2698,7 +2762,10 @@ $("pvIssue").addEventListener("click", () => {
   if (pvBill && pvBill.status === "void" && !confirm("要恢復這張已作廢的學費單嗎？恢復後會重新發布，家長端又看得到。")) return;
   setStatus(pvBill, "issued");
 });
-$("pvVoid").addEventListener("click", () => { if (confirm("確定要作廢這張學費單嗎？作廢後家長端看不到，列表仍會保留紀錄。")) setStatus(pvBill, "void"); });
+$("pvVoid").addEventListener("click", () => {
+  if (pvBill && (pvBill.paid_total || 0) > 0) return alert("這張單已有確認收款，不能作廢。\n\n請先在下方「繳款紀錄」把已確認的收款按「撤銷」，再作廢。");
+  if (confirm("確定要作廢這張學費單嗎？作廢後家長端看不到，列表仍會保留紀錄。")) setStatus(pvBill, "void");
+});
 $("pvPrint").addEventListener("click", () => printBills([pvBill]));
 $("pvDown").addEventListener("click", () => imgAct("down"));
 $("pvCopy").addEventListener("click", () => imgAct("copy"));
@@ -2710,6 +2777,15 @@ $("bDue").addEventListener("change", () => { $("mealMonth").value = ($("bDue").v
 $("irows").addEventListener("input", () => { autoFilled = false; });
 $("calcLeave").addEventListener("click", openLeave);
 $("calcMeal").addEventListener("click", openMeal);
+$("calcCredit").addEventListener("click", () => {
+  if (!editStudentId) return toast("這位學生不在名冊裡，抓不到溢繳餘額", true);
+  const items = readRows().filter(r => !(r.amount === 0 && r.counted && !r.period_text));
+  const got = applyCredits(items, editStudentId, editing ? editing.id : null);
+  if (!got) return toast("這位學生沒有可折抵的溢繳餘額（或目前明細的總計已經是 0）", true);
+  $("irows").innerHTML = ""; items.forEach(it => addRow(it)); calcTotal();
+  toast(`已折抵上期溢繳 ${fmt(got)} 元`);
+});
+$("creditBtn").addEventListener("click", openCreditList);
 $("tplTerm").addEventListener("click", applyTermTemplate);
 $("lvRun").addEventListener("click", runLeave);
 $("lvAdd").addEventListener("click", addLeaveRow);
@@ -2722,6 +2798,7 @@ function bindRows(box, after) {
       const l = r.querySelector(".il");
       if (!l.value.trim() || l.value.trim() === r.dataset.prev) l.value = typeOf(e.target.value).name;
       r.dataset.prev = typeOf(e.target.value).name;
+      if (e.target.value !== "carry") r.dataset.credit = "";   // 不是溢繳折抵就不再綁來源單
       r.classList.toggle("solo", l.value.trim() === r.dataset.prev);
     }
     after && after();
