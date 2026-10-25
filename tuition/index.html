@@ -793,7 +793,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2425</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2440</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1384,9 +1384,9 @@ async function openMeal() {
   const m = $("mealMonth").value; if (!m) return toast("請先選預收餐費的第一個月", true);
   try {
     const sm = settleMonthFor(m), mp = await mealEstimate(m), e = mp.get(editStudentId), bal = (await settleBalances(sm)).get(editStudentId) || 0;
-    const est = e && e.amount > 0 ? e.amount : 0;
-    if (!est && !bal) return toast("這位學生在晚餐管理沒有訂餐設定（或預計次數為 0），上期也沒有要結算的金額", true);
-    const items = readRows(); applyMeal(items, est, bal, sm, m);
+    const est = e && e.amount > 0 ? e.amount : 0, tmp = (await tempOwed(sm)).matched.get(editStudentId) || null;
+    if (!est && !bal && !tmp) return toast("這位學生在晚餐管理沒有訂餐設定（或預計次數為 0），上期也沒有要結算的金額", true);
+    const items = readRows(); applyMeal(items, est, bal - (tmp ? tmp.amount : 0), sm, m); tempNote(items, tmp);
     $("irows").innerHTML = ""; items.forEach(it => addRow(it)); calcTotal();
     toast(`已帶入餐費 ${fmt(est)} 元（預收 2 個月）` + (bal > 0 ? `，溢繳折抵 ${fmt(bal)}` : bal < 0 ? `，含補繳 ${fmt(-bal)}` : "") + "，可再手動調整");
   } catch (ex) { toast(friendly(ex), true); }
@@ -1644,14 +1644,15 @@ async function mealSelected() {
   if (!m) return;
   if (!/^\d{4}-\d{2}$/.test(m)) return alert("月份格式請填 2027-01 這樣");
   busy(true);
-  let ok = 0; const fail = [], miss = [];
+  let ok = 0, tempTxt = ""; const fail = [], miss = [];
   try {
-    const sm = settleMonthFor(m), mp = await mealEstimate(m), sb2 = await settleBalances(sm);
+    const sm = settleMonthFor(m), mp = await mealEstimate(m), sb2 = await settleBalances(sm), tr = await tempOwed(sm);
+    tempTxt = tempText(sm, tr);
     for (let i = 0; i < list.length; i++) {
       $("busy").textContent = `帶入餐費 ${i + 1} / ${list.length}…`;
-      const e = list[i].student_id ? mp.get(list[i].student_id) : null, est = e && e.amount > 0 ? e.amount : 0, bal = list[i].student_id ? (sb2.get(list[i].student_id) || 0) : 0;
-      if (!est && !bal) { miss.push(list[i].student_name); continue; }
-      try { const pl = billPayload(list[i], "draft"); applyMeal(pl.items, est, bal, sm, m); await rpc("fee_save_bill", { p: pl }); ok++; }
+      const e = list[i].student_id ? mp.get(list[i].student_id) : null, est = e && e.amount > 0 ? e.amount : 0, tmp = list[i].student_id ? (tr.matched.get(list[i].student_id) || null) : null, bal = (list[i].student_id ? (sb2.get(list[i].student_id) || 0) : 0) - (tmp ? tmp.amount : 0);
+      if (!est && !bal && !tmp) { miss.push(list[i].student_name); continue; }
+      try { const pl = billPayload(list[i], "draft"); applyMeal(pl.items, est, bal, sm, m); tempNote(pl.items, tmp); await rpc("fee_save_bill", { p: pl }); ok++; }
       catch (ex) { fail.push(list[i].student_name + "：" + friendly(ex)); }
     }
   } catch (ex) { fail.push(friendly(ex)); }
@@ -1660,6 +1661,7 @@ async function mealSelected() {
   const msg = [];
   if (miss.length) msg.push("沒有晚餐訂餐設定、未帶入：" + miss.join("、"));
   if (fail.length) msg.push("失敗：\n" + fail.join("\n"));
+  if (tempTxt) msg.push(tempTxt);
   if (msg.length) alert(`已帶入 ${ok} 張。\n` + msg.join("\n")); else toast(`已帶入 ${ok} 張的晚餐餐費`);
 }
 $("mealSel").addEventListener("click", mealSelected);
