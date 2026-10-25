@@ -793,7 +793,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2405</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2425</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1340,13 +1340,17 @@ async function settleBalances(sm) {
 }
 /* 臨時加訂（晚餐單「臨時」列登記的學生姓名）：依姓名對應名冊學生，把兩個月（結算月與前一個月）的臨時餐費算成補繳 */
 async function tempOwed(sm) {
-  const res = { matched: new Map(), unmatched: [] };
+  const res = { matched: new Map(), unmatched: [], shown: [], paid: 0 };
   if (!sm) return res;
-  let rows = []; try { rows = (await rpc("meal_temp_owed", { p_ym: sm })) || []; } catch (_) { return res; }
-  rows.forEach(r => {
-    const hit = STUDENTS.filter(x => String(x.name || "").trim() === r.name);
-    if (hit.length === 1) { const o = res.matched.get(hit[0].id) || { name: r.name, days: 0, amount: 0 }; o.days += r.days; o.amount += r.amount; res.matched.set(hit[0].id, o); }
-    else res.unmatched.push(Object.assign({ why: hit.length ? "名冊有 " + hit.length + " 位同名" : "名冊找不到" }, r));
+  let d = null; try { d = await rpc("meal_temp_owed", { p_ym: sm }); } catch (_) { return res; }
+  const rows = (d && d.rows) || []; let pool = (d && d.paid) || 0; res.paid = pool;
+  rows.forEach(r => {   // 臨時列已繳的金額先抵：依最早來的順序扣，扣完剩下的才算要補繳
+    const cover = Math.min(pool, r.amount); pool -= cover;
+    const net = r.amount - cover, hit = STUDENTS.filter(x => String(x.name || "").trim() === r.name);
+    if (hit.length === 1) {
+      res.shown.push({ name: r.name, days: r.days, gross: r.amount, cover, net, ok: true });
+      if (net > 0) { const o = res.matched.get(hit[0].id) || { name: r.name, days: 0, amount: 0 }; o.days += r.days; o.amount += net; res.matched.set(hit[0].id, o); }
+    } else res.shown.push({ name: r.name, days: r.days, gross: r.amount, cover, net, ok: false, why: hit.length ? "名冊有 " + hit.length + " 位同名" : "名冊找不到" });
   });
   return res;
 }
@@ -1355,10 +1359,11 @@ function tempNote(items, tmp) {
   if (m && tmp) m.note = (String(m.note || "") + `（含臨時加訂 ${tmp.days} 天 $${tmp.amount}）`).trim();
 }
 function tempText(sm, t) {
-  const L = [];
-  t.matched.forEach(v => L.push(`✓ ${v.name}　${v.days} 天　$${v.amount}　→ 自動加進餐費（補繳）`));
-  t.unmatched.forEach(v => L.push(`✗ ${v.name}　${v.days} 天　$${v.amount}　→ ${v.why}，請自行處理`));
-  return L.length ? `【${+sm.slice(5) - 1}、${+sm.slice(5)} 月臨時加訂】\n` + L.join("\n") + "\n（臨時列已繳的金額不會自動扣，請自行確認）" : "";
+  const L = t.shown.map(v => {
+    const base = `${v.name}　${v.days} 天　$${v.gross}` + (v.cover ? `（臨時已繳扣 $${v.cover}）` : "");
+    return v.ok ? (v.net > 0 ? `✓ ${base}　→ 自動加進餐費 $${v.net}` : `✓ ${base}　→ 已繳清，不加`) : `✗ ${base}　→ ${v.why}，請自行處理`;
+  });
+  return L.length ? `【${+sm.slice(5) - 1}、${+sm.slice(5)} 月臨時加訂】（每人每天 1 餐，依當月單價）\n` + L.join("\n") : "";
 }
 function mealPeriodText(startYm) {   // 與單上其他期間同格式：115/11~12、跨年 115/12~116/1
   if (!startYm) return "";
