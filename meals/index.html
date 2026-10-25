@@ -519,7 +519,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2225</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2240</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -812,9 +812,11 @@ function updateFoot() {
   stuTot -= exTot;   // 摘要的「學生餐數」只算名單內學生
   if (t1) t1.textContent = `學生共 ${stuTot + exTot} 份（含臨時 ${exTot}）`; if (t2) t2.textContent = `全月共 ${allTot} 份`;
   // 摘要
-  let amt = 0, paid = 0, owe = 0, over = 0, oweN = 0;
-  rowsIds.forEach(id => { const c = calcStu(id, Y, M); amt += c.amount + c.extra; paid += c.paid; if (c.own < 0) { owe += -c.own; oweN++; } else over += c.own; });   // 摘要只看當月本身，不含上月轉入
-  $("sums").innerHTML = `<span>學生 <b>${rowsIds.length}</b> 位</span><span>學生餐數 <b>${stuTot}</b> 份</span><span>應收（含加強） <b>$${fmt(amt)}</b></span><span>已繳 <b>$${fmt(paid)}</b></span><span class="${owe ? "bad" : ""}">尚需補繳 <b>$${fmt(owe)}</b>（${oweN} 位）</span><span>溢繳 <b>$${fmt(over)}</b></span><span>實際訂購 <b>$${fmt(actTot)}</b></span><span class="${paid - actTot < 0 ? "bad" : "good"}" title="全部學生已繳 − 實際訂購">本月損益 <b>${paid - actTot < 0 ? "−" : "+"}$${fmt(Math.abs(paid - actTot))}</b></span>`;
+  let amt = 0, paid = 0, owe = 0, over = 0, oweN = 0, prevOwe = 0, prevN = 0;
+  rowsIds.forEach(id => { const c = calcStu(id, Y, M); amt += c.amount + c.extra; paid += c.paid; const cur = c.own + Math.max(c.cin, 0);   // 上月轉入的溢繳視同本月已繳；上月補繳另外列出，不混進本月金額
+    if (cur < 0) { owe += -cur; oweN++; } else over += cur;
+    if (c.cin < 0) { prevOwe += -c.cin; prevN++; } });
+  $("sums").innerHTML = `<span>學生 <b>${rowsIds.length}</b> 位</span><span>學生餐數 <b>${stuTot}</b> 份</span><span>應收（含加強） <b>$${fmt(amt)}</b></span><span>已繳 <b>$${fmt(paid)}</b></span><span class="${owe ? "bad" : ""}">尚需補繳 <b>$${fmt(owe)}</b>（${oweN} 位）</span><span>溢繳 <b>$${fmt(over)}</b></span>${prevN ? `<span class="bad">上月補繳 <b>$${fmt(prevOwe)}</b>（${prevN} 位）</span>` : ""}<span>實際訂購 <b>$${fmt(actTot)}</b></span><span class="${paid - actTot < 0 ? "bad" : "good"}" title="全部學生已繳 − 實際訂購">本月損益 <b>${paid - actTot < 0 ? "−" : "+"}$${fmt(Math.abs(paid - actTot))}</b></span>`;
 }
 
 /* ---------- 寫入 ---------- */
