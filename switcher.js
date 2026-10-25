@@ -189,3 +189,59 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
   else build();
 })();
+
+/* ============================================================
+ * 頁面捷徑：右下角（切換系統鈕上方）的「到最上／到最底」，
+ * 頁面上有 data-jump="名稱" 的區塊（看得到的）時，另有「跳到區塊」選單。
+ * ============================================================ */
+(function () {
+  if (window.__jxJump) return; window.__jxJump = true;
+  var css = '' +
+    '#jxj{position:fixed;right:16px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:9400;display:flex;flex-direction:column;gap:8px;align-items:flex-end}' +
+    '#jxj button{width:42px;height:42px;border-radius:50%;border:1px solid #D5DEEA;background:#fff;color:#334155;box-shadow:0 4px 14px rgba(15,23,42,.18);font:700 18px/1 system-ui,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}' +
+    '#jxj button:active{transform:scale(.94)}#jxj .jxj-sec{width:auto;border-radius:999px;padding:0 14px;font-size:14px;height:42px;gap:6px}' +
+    '#jxj-menu{position:absolute;right:50px;bottom:0;min-width:180px;max-height:60vh;overflow:auto;background:#fff;border:1px solid #D5DEEA;border-radius:14px;box-shadow:0 12px 32px rgba(15,23,42,.22);padding:6px}' +
+    '#jxj-menu button{width:100%;height:auto;border:0;border-radius:10px;box-shadow:none;font:600 15px/1.3 system-ui,sans-serif;text-align:left;justify-content:flex-start;padding:10px 12px;background:transparent}' +
+    '#jxj-menu button:hover{background:#EEF4FF}' +
+    '[data-jump]{scroll-margin-top:64px}' +
+    '@media (max-width:560px){#jxj{right:12px;bottom:calc(68px + env(safe-area-inset-bottom,0px))}}' +
+    '@media print{#jxj{display:none!important}}';
+  var box, up, down, secBtn, menu;
+  function vis(el) { return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length); }
+  function sections() { return [].slice.call(document.querySelectorAll('[data-jump]')).filter(vis); }
+  function scrollH() { return Math.max(document.documentElement.scrollHeight, document.body.scrollHeight); }
+  function go(y) { try { window.scrollTo({ top: y, behavior: 'smooth' }); } catch (_) { window.scrollTo(0, y); } }
+  function closeMenu() { if (menu) { menu.remove(); menu = null; } }
+  function openMenu() {
+    if (menu) return closeMenu();
+    var list = sections(); if (!list.length) return;
+    menu = document.createElement('div'); menu.id = 'jxj-menu';
+    list.forEach(function (el) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = el.getAttribute('data-jump');
+      b.addEventListener('click', function () { closeMenu(); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      menu.appendChild(b);
+    });
+    secBtn.parentNode.style.position = 'relative'; box.appendChild(menu);
+    menu.style.bottom = '0'; menu.style.right = '0'; menu.style.bottom = (box.offsetHeight + 8) + 'px';
+  }
+  function refresh() {
+    var tall = scrollH() > window.innerHeight * 1.3, y = window.pageYOffset || 0, atBottom = y + window.innerHeight >= scrollH() - 40;
+    box.style.display = tall || sections().length > 1 ? 'flex' : 'none';
+    up.style.display = y > 120 ? 'flex' : 'none';
+    down.style.display = tall && !atBottom ? 'flex' : 'none';
+    secBtn.style.display = sections().length > 1 ? 'flex' : 'none';
+    if (secBtn.style.display === 'none') closeMenu();
+  }
+  function build() {
+    var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+    box = document.createElement('div'); box.id = 'jxj'; box.style.display = 'none';
+    secBtn = document.createElement('button'); secBtn.type = 'button'; secBtn.className = 'jxj-sec'; secBtn.innerHTML = '☰ <span>跳到區塊</span>'; secBtn.addEventListener('click', openMenu);
+    up = document.createElement('button'); up.type = 'button'; up.title = '回到最上面'; up.setAttribute('aria-label', '回到最上面'); up.textContent = '↑'; up.addEventListener('click', function () { closeMenu(); go(0); });
+    down = document.createElement('button'); down.type = 'button'; down.title = '到最底'; down.setAttribute('aria-label', '到最底'); down.textContent = '↓'; down.addEventListener('click', function () { closeMenu(); go(scrollH()); });
+    box.appendChild(secBtn); box.appendChild(up); box.appendChild(down); document.body.appendChild(box);
+    document.addEventListener('click', function (e) { if (menu && !box.contains(e.target)) closeMenu(); });
+    window.addEventListener('scroll', refresh, { passive: true }); window.addEventListener('resize', refresh);
+    setInterval(refresh, 800); refresh();
+  }
+  if (document.body) build(); else document.addEventListener('DOMContentLoaded', build);
+})();

@@ -149,6 +149,7 @@
   .pick-tools .search input { height: 38px; }
   .warn { font-size: 13.5px; color: #92400E; background: #FEF3C7; border-radius: 10px; padding: 10px 12px; margin: 0; }
   /* ===== 學費管理 ===== */
+  .jbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 12px; position: sticky; top: 0; z-index: 6; background: var(--card, #fff); padding: 6px 0; }
   .pm-wrap { overflow: auto; max-height: calc(100vh - 170px); border: 1px solid var(--line); border-radius: 12px; }
   .pm-wrap table { border-collapse: separate; border-spacing: 0; }
   .pm-wrap thead th { position: sticky; top: 0; z-index: 3; background: #F3F6FB; height: 40px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; white-space: nowrap; }
@@ -423,7 +424,8 @@
     </section>
 
     <section id="planView" class="hidden">
-      <h3 style="margin:0 0 4px;font-size:17px">學生收費設定</h3>
+      <div class="jbar" id="planJump"><span class="help">快速跳到：</span><button type="button" class="btn sm" data-goto="secPlan">學生收費設定</button><button type="button" class="btn sm" data-goto="secPrice">價目表</button><button type="button" class="btn sm" data-goto="secProg">班別與期繳期間</button></div>
+      <h3 id="secPlan" data-jump="學生收費設定" style="margin:0 0 4px;font-size:17px">學生收費設定</h3>
       <p class="help" style="margin:0 0 10px">設定每位學生上哪些班、月繳或期繳、每月優惠。批次建立選「依收費設定」時，會照這裡和價目表自動帶出每位學生的明細。</p>
       <div class="toolbar">
         <label class="search"><input type="search" id="pq" placeholder="搜尋姓名、年級、班別、繳費方式" autocomplete="off" aria-label="搜尋學生"></label>
@@ -791,7 +793,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1920</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1940</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1952,7 +1954,7 @@ $("dunCopyList").addEventListener("click", () => {
 const KIND = { regular: "學期／月費", summer: "暑期", winter: "寒假", activity: "活動", other: "其他" };
 function renderSettings() {
   const sec = (title, addId, head, rows) => `<div style="margin-bottom:22px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px"><h3 style="margin:0;font-size:17px">${title}</h3><button type="button" class="btn sm primary" id="${addId}">＋ 新增</button></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px"><h3 data-jump="${title}" id="sec_${title}" style="margin:0;font-size:17px">${title}</h3><button type="button" class="btn sm primary" id="${addId}">＋ 新增</button></div>
     <div class="tbl-wrap" style="margin-top:0"><table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}<th></th></tr></thead><tbody>${rows || `<tr><td colspan="${head.length + 1}" class="empty">尚未設定</td></tr>`}</tbody></table></div></div>`;
   const onoff = a => `<span class="pill ${a ? "on" : "offp"}">${a ? "使用中" : "停用"}</span>`;
   $("setBody").innerHTML =
@@ -1960,6 +1962,7 @@ function renderSettings() {
     sec("梯次", "addTerm", ["名稱", "類型", "單上標題", "預設期限", "範本", "狀態"], TERMS.map(t => `<tr><td class="nm">${esc(t.name)}</td><td>${esc(KIND[t.kind] || t.kind)}</td><td>${esc(t.title)}</td><td>${esc(fmtDate(t.due_date))}</td><td>${termTpl(t).length ? termTpl(t).length + " 列" : '<span class="help">未設定</span>'}</td><td>${onoff(t.active)}</td><td style="white-space:nowrap"><button type="button" class="btn sm" data-set="term" data-id="${esc(t.id)}">編輯</button> <button type="button" class="btn sm del" data-del="term" data-id="${esc(t.id)}">刪除</button></td></tr>`).join("")) +
     sec("快速範本　<span class=\"help\" style=\"font-weight:400\">開單與梯次設定裡「快速帶入」的選項</span>", "addPreset", ["名稱", "梯次類型", "明細"], PRESETS.map((p, i) => `<tr><td class="nm">${esc(p.name)}</td><td>${p.kind ? esc(KIND[p.kind] || p.kind) : '<span class="help">不指定</span>'}</td><td class="sub">${esc(presetRows(p).map(r => r.label).join("、"))}</td><td style="white-space:nowrap"><button type="button" class="btn sm" data-pmv="-1" data-id="${esc(p.id)}" aria-label="上移" ${i === 0 ? "disabled" : ""}>▲</button> <button type="button" class="btn sm" data-pmv="1" data-id="${esc(p.id)}" aria-label="下移" ${i === PRESETS.length - 1 ? "disabled" : ""}>▼</button> <button type="button" class="btn sm" data-set="preset" data-id="${esc(p.id)}">編輯</button> <button type="button" class="btn sm del" data-del="preset" data-id="${esc(p.id)}">刪除</button></td></tr>`).join("")) +
     sec("項目種類　<span class=\"help\" style=\"font-weight:400\">拖曳左邊的 ⋮⋮ 可以調整順序（開單時的下拉選單照這個順序）</span>", "addType", ["", "名稱", "性質", "狀態"], TYPES.map((t, i) => `<tr class="trow" draggable="true" data-code="${esc(t.code)}"><td class="grip" title="拖曳排序" aria-label="拖曳排序">⋮⋮</td><td class="nm">${esc(t.name)}</td><td>${t.sign < 0 ? "折抵（扣除）" : "收費"}</td><td>${onoff(t.active)}</td><td style="white-space:nowrap"><button type="button" class="btn sm" data-mv="-1" data-id="${esc(t.code)}" aria-label="上移" ${i === 0 ? "disabled" : ""}>▲</button> <button type="button" class="btn sm" data-mv="1" data-id="${esc(t.code)}" aria-label="下移" ${i === TYPES.length - 1 ? "disabled" : ""}>▼</button> <button type="button" class="btn sm" data-set="type" data-id="${esc(t.code)}">編輯</button> <button type="button" class="btn sm del" data-del="type" data-id="${esc(t.code)}">刪除</button></td></tr>`).join(""));
+  { const hs = [...$("setBody").querySelectorAll("h3[data-jump]")]; if (hs.length > 1) $("setBody").insertAdjacentHTML("afterbegin", `<div class="jbar"><span class="help">快速跳到：</span>${hs.map(h => `<button type="button" class="btn sm" data-goto="${esc(h.id)}">${esc(h.textContent)}</button>`).join("")}</div>`); }
 }
 let formSave = null;
 function openForm(title, fields, vals, save) {
@@ -2236,13 +2239,13 @@ function renderPlanAdmin() {
   }).join("")).join("")}</tr>`).join("");
   box.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap">
-      <h3 style="margin:0;font-size:17px">價目表（年級 × 班別 × 繳費方式）</h3>
+      <h3 id="secPrice" data-jump="價目表" style="margin:0;font-size:17px">價目表（年級 × 班別 × 繳費方式）</h3>
       <button type="button" class="btn primary sm" id="pmSave">儲存價目表</button></div>
     <p class="help" style="margin:0 0 8px">月繳填「每月」金額；期繳填「一期」總金額。國中班依「選幾科」各填一格（單科、雙科、三科、全科），填的是該科數的總價，不是單科 × 科數。期繳留空時，開單會用月費 × 該期月數計算並提醒您。</p>
     <div class="pm-wrap"><table><thead><tr><th></th>${head1}</tr>${cols.some(c => c.sub) ? `<tr><th></th>${head0}</tr>` : ""}<tr><th>年級</th>${head2}</tr></thead><tbody>${rows || ""}</tbody></table></div>`;
   box.insertAdjacentHTML("beforeend", `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:26px 0 6px;flex-wrap:wrap">
-      <h3 style="margin:0;font-size:17px">班別與期繳期間</h3><button type="button" class="btn primary sm" id="pgAdd">＋ 新增班別</button></div>
+      <h3 id="secProg" data-jump="班別與期繳期間" style="margin:0;font-size:17px">班別與期繳期間</h3><button type="button" class="btn primary sm" id="pgAdd">＋ 新增班別</button></div>
     <div class="tbl-wrap" style="margin-top:0"><table><thead><tr><th>名稱</th><th>項目種類</th><th>期繳期間</th><th>狀態</th><th></th></tr></thead><tbody>
       ${PROGRAMS.map(p => `<tr><td class="nm">${esc(p.name)}</td><td>${esc(typeOf(p.item_type).name)}</td><td>${esc((p.period_rule || []).map(ruleText).join("、") || "（未設定）")}</td><td><span class="pill ${p.active ? "on" : "offp"}">${p.active ? "使用中" : "停用"}</span></td><td><button type="button" class="btn sm" data-pg="${esc(p.code)}">編輯</button></td></tr>`).join("") || '<tr><td colspan="5" class="empty">尚未設定</td></tr>'}
     </tbody></table></div>`);
@@ -2766,6 +2769,7 @@ $("pAdmin").addEventListener("click", e => {
   if (e.target.id === "pgAdd") return editProgram(null);
   const b = e.target.closest("[data-pg]"); if (b) editProgram(b.dataset.pg);
 });
+document.addEventListener("click", e => { const b = e.target.closest("[data-goto]"); if (b) { const t = document.getElementById(b.dataset.goto); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); } });
 $("enRows").addEventListener("change", e => { if (e.target.classList.contains("en-on")) { const r = e.target.closest(".enrow"); r.classList.toggle("on", e.target.checked); const b = r.querySelector(".ensub"); if (b) b.style.display = e.target.checked ? "" : "none"; } });
 $("pAdmin").addEventListener("input", e => { if (e.target.matches(".pm-in")) { const cur = priceOf(e.target.dataset.g, e.target.dataset.p, e.target.dataset.b, e.target.dataset.s || ""); const raw = e.target.value.replace(/[^\d]/g, ""); e.target.classList.toggle("dirty", (cur == null ? "" : String(cur)) !== raw); } });
 $("enForm").addEventListener("submit", saveEnroll);
