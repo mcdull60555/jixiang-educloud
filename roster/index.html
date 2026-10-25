@@ -246,6 +246,7 @@
     <div class="filters2">
       <label class="tog"><input type="checkbox" id="fRc">進點名</label>
       <label class="tog"><input type="checkbox" id="fLn">學習通</label>
+      <label class="tog"><input type="checkbox" id="fShuttle">接送名單</label>
       <label class="tog"><input type="checkbox" id="fNoContact">缺聯絡電話</label>
       <span class="count" id="count"></span>
     </div>
@@ -311,8 +312,10 @@
         <div class="checks" id="sDays"></div>
       </fieldset>
       <fieldset id="sFeeBox" class="hidden">
-        <legend>班別・收費 <span class="help">勾選上課的班別（與學習通無關），並選月繳或期繳；國中班再選科目</span></legend>
+        <legend>班別・收費 <span class="help">只是先選班別與月繳／期繳（與學習通無關）；實際收費由管理員在學費管理確認後才生效</span></legend>
         <div id="sFee" style="display:flex;flex-direction:column;gap:8px"></div>
+        <label class="sw hidden" id="sShuttleWrap" style="max-width:320px;margin-top:8px"><span>需要接送（車資）</span><input type="checkbox" id="sShuttle"></label>
+        <p class="help" id="sFeeLock" style="display:none;margin:6px 0 0"></p>
       </fieldset>
       <fieldset id="sMealBox" class="hidden">
         <legend>晚餐訂購 <span class="help">與「晚餐管理」同一份資料，在這裡或在晚餐管理改都會同步</span></legend>
@@ -512,7 +515,15 @@ function feeSnapshot() {
   return m;
 }
 function renderFee() {
-  const snap = FEE_STATE ? FEE_STATE : (() => { const m = new Map(); if (editing) ENROLLS.filter(e => e.student_id === editing.id).forEach(e => m.set(e.program_code, { on: !!e.active, billing: e.billing, amount: e.amount != null ? e.amount : "", discount: e.discount || "", subjects: e.subjects || [] })); return m; })();
+  const locked = !!(editing && editing.fee_confirmed !== false);
+  $("sFeeLock").style.display = locked ? "" : "none";
+  if (locked) {   // 已確認過收費設定的學生：名冊只顯示，修改請到學費管理
+    const es = ENROLLS.filter(e => e.student_id === editing.id && e.active).map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return p ? `${p.name}${(e.subjects || []).length ? "（" + e.subjects.join("、") + "）" : ""}・${e.billing === "period" ? "期繳" : "月繳"}` : ""; }).filter(Boolean);
+    $("sFeeBox").classList.remove("hidden"); $("sFee").innerHTML = ""; $("sShuttleWrap").classList.add("hidden");
+    $("sFeeLock").textContent = "收費設定已由管理員確認，要修改請到學費管理。目前：" + (es.join("、") || "（沒有班別）") + (editing.shuttle ? "；需接送（車資）" : "");
+    return;
+  }
+  const snap = FEE_STATE ? FEE_STATE : (() => { const m = new Map(); if (editing) ((editing.fee_choice || {}).programs || []).forEach(c => m.set(c.code, { on: true, billing: c.billing, amount: "", discount: "", subjects: c.subjects || [] })); return m; })();
   const cur = feeSnapshot(); cur.forEach((v, k) => snap.set(k, v));
   FEE_STATE = snap;
   const allowed = LEVEL_PROGS[schoolLevel($("sSchool").value)];
@@ -520,7 +531,9 @@ function renderFee() {
   // 換了學校類型：新勾的、不屬於這個類型的班別取消（原本就有的舊報名保留，讓你自己決定要不要停）
   snap.forEach((v, k) => { const p = PROGRAMS.find(x => x.code === k); if (v.on && allowed && p && p.item_type === "tuition" && !allowed.includes(k) && !(editing && ENROLLS.some(e => e.student_id === editing.id && e.program_code === k && e.active))) v.on = false; });
   const ps = PROGRAMS.filter(p => (p.active && p.item_type === "tuition" && (!allowed || allowed.includes(p.code))) || (snap.get(p.code) && snap.get(p.code).on));
-  $("sFeeBox").classList.toggle("hidden", !ps.length);
+  const shOk = !!$("sSchool").value && $("sSchool").value !== "板橋國小";   // 非板橋國小才問要不要接送（車資）
+  $("sShuttleWrap").classList.toggle("hidden", !shOk);
+  $("sFeeBox").classList.toggle("hidden", !ps.length && !shOk);
   const sel = "min-height:38px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px";
   $("sFee").innerHTML = ps.map(p => {
     const e = snap.get(p.code) || {}, on = !!e.on;
@@ -607,6 +620,7 @@ function filtered() {
     if (grade && s.grade !== grade) return false;
     if ($("fRc").checked && !s.in_rollcall) return false;
     if ($("fLn").checked && !s.learning_enabled) return false;
+    if ($("fShuttle").checked && !s.shuttle) return false;
     const contacts = Array.isArray(s.contacts) ? s.contacts : [];
     if ($("fNoContact").checked && contacts.some(c => c.phone)) return false;
     if (q) {
@@ -638,7 +652,7 @@ function render() {
       <td class="c-school">${esc(s.school)}・${esc(gradeText(s))}</td>
       <td class="c-bday">${esc(fmtBday(s.birthday))}</td>
       <td class="c-phone">${pc ? `<span class="ph"><span class="rel">${esc(pc.rel || "")}</span>${esc(pc.phone || "")}</span>` : '<span class="pill left">缺聯絡電話</span>'}</td>
-      <td class="c-flags">${s.active ? "" : '<span class="pill left">已離班</span> '}<span class="pill ${s.in_rollcall ? "on" : "offp"}">點名</span> <span class="pill ${s.learning_enabled ? "on" : "offp"}">學習通</span></td>
+      <td class="c-flags">${s.active ? "" : '<span class="pill left">已離班</span> '}<span class="pill ${s.in_rollcall ? "on" : "offp"}">點名</span> <span class="pill ${s.learning_enabled ? "on" : "offp"}">學習通</span>${s.shuttle ? ' <span class="pill on">接送</span>' : ""}</td>
       <td class="c-pin"><span class="pin">${pinCell}</span></td>
       <td class="c-act" style="white-space:nowrap">
         <button type="button" class="btn sm" data-act="edit" data-id="${esc(s.id)}">編輯</button>
@@ -680,7 +694,7 @@ function openDetail(s) {
   $("dName").textContent = s.name;
   $("dAcct").textContent = s.account_code || "尚無帳號";
   $("dPills").innerHTML = (s.active ? "" : '<span class="pill left">已離班</span> ')
-    + `<span class="pill ${s.in_rollcall ? "on" : "offp"}">點名</span> <span class="pill ${s.learning_enabled ? "on" : "offp"}">學習通</span>`;
+    + `<span class="pill ${s.in_rollcall ? "on" : "offp"}">點名</span> <span class="pill ${s.learning_enabled ? "on" : "offp"}">學習通</span>${s.shuttle ? ' <span class="pill on">接送</span>' : ""}`;
   const pinHtml = !s.has_login ? '<span class="help">尚未建立帳號</span>'
     : !s.pin_viewable ? '<span class="help">舊密碼無法還原，按下方「重設密碼」後就能查看</span>'
     : `<span class="dpin"><code data-pin="${esc(s.id)}">••••</code><button type="button" class="btn sm" data-act="pin" data-id="${esc(s.id)}" aria-pressed="false">顯示</button></span>`;
@@ -758,7 +772,7 @@ function openEdit(s) {
   $("sDays").innerHTML = DOW.map((d, i) => `<label><input type="checkbox" value="${i + 1}" ${days.includes(i + 1) ? "checked" : ""}>${d}</label>`).join("");
   $("sNote").value = s ? (s.note || "") : "";
   syncOpen();
-  $("sFee").innerHTML = ""; FEE_STATE = null; renderFee();
+  $("sFee").innerHTML = ""; FEE_STATE = null; $("sShuttle").checked = !!(s && s.shuttle); renderFee();
   const m = s && MEALS ? MEALS.get(s.id) : null;
   $("sMealBox").classList.toggle("hidden", !MEALS);
   $("sMeal").checked = !!(m && m.active);
@@ -814,16 +828,12 @@ async function saveStudent(e) {
     const res = await rpc("admin_save_student", { p: payload });
     const sid = editing ? editing.id : (res && res.id);
     let feeWarn = false, mealWarn = false;
-    if (sid && !$("sFeeBox").classList.contains("hidden")) {
-      const rows = [];
-      $("sFee").querySelectorAll(".feerow").forEach(r => {
-        const code = r.dataset.code, on = r.querySelector(".fe-on").checked;
-        const ex = ENROLLS.find(x => x.student_id === sid && x.program_code === code);
-        if (!on && !(ex && ex.active)) return;
-        const subj = [...r.querySelectorAll(".fe-sub:checked")].map(i => i.value);
-        rows.push({ student_id: sid, program_code: code, subjects: r.querySelector(".fe-subs") ? subj : [], billing: r.querySelector(".fe-b").value, amount: r.querySelector(".fe-a").value.trim() === "" ? null : parseInt(r.querySelector(".fe-a").value.replace(/\D/g, ""), 10) || 0, discount: parseInt(r.querySelector(".fe-d").value.replace(/\D/g, ""), 10) || 0, active: on });
-      });
-      if (rows.length) { const { error } = await sb.from("fee_enrollments").upsert(rows, { onConflict: "student_id,program_code" }); if (error) feeWarn = true; }
+    if (sid && (!editing || editing.fee_confirmed === false)) {   // 只記下「選了什麼」，不直接寫入收費設定
+      try {
+        const programs = [...$("sFee").querySelectorAll(".feerow")].filter(r => r.querySelector(".fe-on").checked).map(r => ({ code: r.dataset.code, billing: r.querySelector(".fe-b").value, subjects: r.querySelector(".fe-subs") ? [...r.querySelectorAll(".fe-sub:checked")].map(i => i.value) : [] }));
+        const shuttle = !$("sShuttleWrap").classList.contains("hidden") && $("sShuttle").checked;
+        await rpc("admin_set_student_fee_choice", { p_id: sid, p_choice: { programs }, p_shuttle: shuttle });
+      } catch (_) { feeWarn = true; }
     }
     if (sid && MEALS && !$("sMealBox").classList.contains("hidden")) {
       try {
@@ -842,7 +852,7 @@ async function saveStudent(e) {
     $("sDlg").close();
     const code = res && res.account_code;
     if (mealWarn) alert("學生資料已儲存，但晚餐設定沒有存成功（可能沒有權限、日期早於今天，或晚餐資料表尚未建立）。");
-    if (feeWarn && !mealWarn) alert("學生資料已儲存，但收費設定沒有存成功（可能沒有權限或資料表尚未建立）。");
+    if (feeWarn && !mealWarn) alert("學生資料已儲存，但班別與繳費方式沒有存成功（可能沒有權限或尚未套用資料庫更新）。");
     toast(editing ? `已更新 ${name}` : `已新增 ${name}${code ? "，帳號 " + code : ""}${pinNeeded ? "，初始密碼 " + pin : ""}`);
     await load();
   } catch (ex) { err(friendly(ex)); } finally { busy(false); }
@@ -1119,7 +1129,7 @@ $("tbody").addEventListener("keydown", e => {
 });
 let qTimer;
 $("q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(render, 150); });
-["fSchoolF", "fGradeF", "fStatus", "fRc", "fLn", "fNoContact"].forEach(id => $(id).addEventListener("change", render));
+["fSchoolF", "fGradeF", "fStatus", "fRc", "fLn", "fShuttle", "fNoContact"].forEach(id => $(id).addEventListener("change", render));
 $("addBtn").addEventListener("click", () => openEdit(null));
 $("sLn").addEventListener("change", updatePinField);
 $("sForm").addEventListener("submit", saveStudent);
@@ -1201,6 +1211,7 @@ $("sGrade").addEventListener("change", renderFee);
 $("sFee").addEventListener("change", e => { if (e.target.classList.contains("fe-on")) { const r = e.target.closest(".feerow"), b = r.querySelector(".fe-subs"); if (b) b.style.display = e.target.checked ? "" : "none"; } });
 $("sLn").addEventListener("change", () => { updatePinField(); syncOpen(); });
 $("sRc").addEventListener("change", syncOpen);
+$("sShuttle").addEventListener("change", () => {});
 $("sActive").addEventListener("change", updatePinField);
 $("gsGradeAdd").addEventListener("click", async () => { const v = $("gsGradeNew").value.trim(); if (!v) return gsErr("請輸入年級名稱"); if (await gsCall("admin_add_grade", { p_name: v }, "已新增年級")) $("gsGradeNew").value = ""; });
 ["gsSchoolNew", "gsGradeNew"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $(id === "gsSchoolNew" ? "gsSchoolAdd" : "gsGradeAdd").click(); } }));

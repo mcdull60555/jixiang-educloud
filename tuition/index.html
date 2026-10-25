@@ -785,7 +785,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1720</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1745</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -2285,8 +2285,9 @@ function renderPending() {
   const list = pendingStudents();
   if (!list.length) { box.innerHTML = ""; return; }
   box.innerHTML = `<div class="fpend"><h4>有 ${list.length} 位新學生還沒設定收費</h4>${list.map(s => {
-    const es = enrollsOf(s.id);
-    const chosen = es.length ? "名冊已選：" + es.map(e => { const p = PROGRAMS.find(x => x.code === e.program_code); return `${p.name}${(e.subjects || []).length && SUBJ_PROGS[p.code] ? "（" + e.subjects.join("、") + "）" : ""}・${billingName(e.billing)}`; }).join("、") : "名冊沒有選班別，請補上";
+    const ch = ((s.fee_choice || {}).programs || []).map(c => { const p = PROGRAMS.find(x => x.code === c.code); return p ? `${p.name}${(c.subjects || []).length ? "（" + c.subjects.join("、") + "）" : ""}・${billingName(c.billing)}` : ""; }).filter(Boolean);
+    if (s.shuttle) ch.push("需接送（車資）");
+    const chosen = ch.length ? "名冊所選：" + ch.join("、") : "名冊沒有選班別，請補上";
     const hint = LEVEL_PROG_HINT[levelOfSchool(s.school)] || "";
     return `<div class="fprow"><span class="fpnm">${esc(s.name)}</span><span class="fpsug">${esc(s.school || "")} ${esc(s.grade || "")}｜${esc(chosen)}${hint ? "<br><small>" + esc(hint) + "</small>" : ""}</span><button type="button" class="btn primary sm" data-pend="${esc(s.id)}">設定收費</button></div>`;
   }).join("")}</div>`;
@@ -2299,7 +2300,12 @@ function openEnroll(sid) {
   $("enTitle").textContent = `${s.name}　收費設定`;
   $("enSub").textContent = `${s.grade}${s.account_code ? "・" + s.account_code : ""}`;
   $("enRows").innerHTML = PROGRAMS.filter(p => p.active || ENROLLS.some(e => e.student_id === sid && e.program_code === p.code && e.active)).map(p => {
-    const e = ENROLLS.find(x => x.student_id === sid && x.program_code === p.code), on = !!(e && e.active);
+    let e = ENROLLS.find(x => x.student_id === sid && x.program_code === p.code), on = !!(e && e.active);
+    if (!e && s.fee_confirmed === false) {   // 新學生：先帶入名冊所選（管理員確認後儲存才生效）
+      const c = ((s.fee_choice || {}).programs || []).find(x => x.code === p.code);
+      if (c) { e = { billing: c.billing, subjects: c.subjects || [] }; on = true; }
+      else if (p.code === "transport" && s.shuttle) { e = { billing: "month" }; on = true; }
+    }
     return `<div class="enrow ${on ? "on" : ""}" data-code="${esc(p.code)}">
       <label class="nm2"><input type="checkbox" class="en-on" ${on ? "checked" : ""} style="width:18px;height:18px;accent-color:var(--blue)">${esc(p.name)}</label>
       <select class="en-b" aria-label="繳費方式"><option value="month" ${e && e.billing === "month" || !e ? "selected" : ""}>月繳</option><option value="period" ${e && e.billing === "period" ? "selected" : ""}>期繳</option></select>
