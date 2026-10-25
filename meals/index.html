@@ -519,7 +519,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2125</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2145</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -639,7 +639,7 @@ function priceOf(y, m) {
 }
 const PAIR_FROM = "2026-10";   // 從這個月起：奇數月併入偶數月結算
 const isSettle = (y, m) => m % 2 === 0 && ymOf(y, m) >= PAIR_FROM;
-const SHORT_ONLY_YM = "2026-10";   // 10 月：9 月的溢繳 Excel 已併入 10 月「已繳」，所以上月轉入只帶 9 月的補繳
+const SHORT_ONLY_YM = "";   // 10 月：9 月的溢繳 Excel 已併入 10 月「已繳」，所以上月轉入只帶 9 月的補繳
 const isClose = (y, m) => m % 2 === 0 && ymOf(y, m) >= "2026-10";   // 偶數月結帳（10 月起；10 月單獨結，12 月起併入奇數月）
 const isOddBefore = (y, m) => m % 2 === 1 && ymOf(...(nextYM(y, m))) >= PAIR_FROM;
 function nextYM(y, m) { return m === 12 ? [y + 1, 1] : [y, m + 1]; }
