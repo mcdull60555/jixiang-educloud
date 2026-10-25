@@ -375,6 +375,7 @@
         <button type="button" class="btn hidden" id="issueSel" disabled title="發布勾選的草稿">發布草稿</button>
         <button type="button" class="btn hidden" id="editSel" disabled title="把勾選的學費單放在同一張表裡，一次修改收費項目、金額與期間">批次修改</button>
         <button type="button" class="btn hidden" id="mealSel" disabled title="把勾選的草稿帶入晚餐餐費（預收 2 個月）" style="border-color:#C2410C;color:#C2410C">帶入餐費</button>
+        <button type="button" class="btn hidden" id="voidSel" disabled title="把勾選的已發布學費單作廢（家長端立刻看不到）" style="color:var(--rose)">作廢</button>
         <button type="button" class="btn hidden" id="delSel" disabled title="刪除勾選的草稿或已作廢的學費單" style="color:var(--rose)">刪除</button>
         <button type="button" class="btn hidden" id="batchBtn" style="border-color:var(--blue);color:var(--blue);font-weight:700">批次建立</button>
         <button type="button" class="btn primary hidden" id="addBill">＋ 新增學費單</button>
@@ -756,7 +757,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1320</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1325</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -924,6 +925,8 @@ function render() {
   $("mealSel").disabled = !nDraft; $("mealSel").textContent = nDraft ? `帶入餐費（${nDraft}）` : "帶入餐費";
   const nDel = BILLS.filter(b => SELECTED.has(b.id) && b.status !== "issued").length;
   $("delSel").disabled = !nDel;
+  const nVoid = BILLS.filter(b => SELECTED.has(b.id) && b.status === "issued").length;
+  $("voidSel").disabled = !nVoid; $("voidSel").textContent = nVoid ? `作廢（${nVoid}）` : "作廢";
   const nEd = BILLS.filter(b => SELECTED.has(b.id) && b.status !== "void").length;
   $("editSel").disabled = !nEd;
   $("editSel").textContent = nEd ? `批次修改（${nEd}）` : "批次修改";
@@ -2502,6 +2505,24 @@ $("beWrap").addEventListener("click", e => {
     beDelCol(ci); return;
   }
 });
+$("voidSel").addEventListener("click", async () => {
+  const l = BILLS.filter(b => SELECTED.has(b.id) && b.status === "issued");
+  if (!l.length || !CAN_EDIT) return;
+  const paid = l.filter(b => (b.paid_total || 0) > 0).length;
+  if (!confirm(`確定要作廢勾選的 ${l.length} 張已發布學費單嗎？\n作廢後家長端看不到，列表仍保留（可再勾選刪除）。` + (paid ? `\n\n注意：其中 ${paid} 張已有確認收款，作廢後仍不能刪除；要刪請先在預覽的繳款紀錄把收款「撤銷」。` : ""))) return;
+  busy(true);
+  let ok = 0; const fail = [];
+  try {
+    for (let i = 0; i < l.length; i++) {
+      $("busy").textContent = `作廢中 ${i + 1} / ${l.length}…`;
+      try { await rpc("fee_save_bill", { p: billPayload(l[i], "void") }); ok++; } catch (ex) { fail.push(l[i].student_name + "：" + friendly(ex)); }
+    }
+    l.forEach(b => SELECTED.delete(b.id));
+    await load();
+  } finally { busy(false); }
+  toast(`已作廢 ${ok} 張` + (fail.length ? `，失敗 ${fail.length} 張` : ""), !!fail.length && !ok);
+  if (fail.length) alert("這些沒有作廢成功：\n" + fail.slice(0, 10).join("\n"));
+});
 $("delSel").addEventListener("click", () => { const l = BILLS.filter(b => SELECTED.has(b.id) && b.status !== "issued"); deleteBills(l.map(b => b.id), `勾選的 ${l.length} 張學費單（草稿／已作廢）`); });
 $("pvDel").addEventListener("click", () => { if (pvBill) deleteBills([pvBill.id], `「${pvBill.student_name}　${pvBill.title || "學費單"}」`); });
 document.querySelectorAll('input[name="batMode"]').forEach(r => r.addEventListener("change", batModeChanged));
@@ -2653,6 +2674,7 @@ $("logoutBtn").addEventListener("click", () => goPortal(""));
     $("issueSel").classList.toggle("hidden", !CAN_EDIT);
     $("mealSel").classList.toggle("hidden", !CAN_EDIT);
     $("delSel").classList.toggle("hidden", !CAN_EDIT);
+    $("voidSel").classList.toggle("hidden", !CAN_EDIT);
     $("editSel").classList.toggle("hidden", !CAN_EDIT);
     $("tabSet").classList.toggle("hidden", !IS_ADMIN);
     $("tabPlan").classList.toggle("hidden", !CAN_EDIT);
