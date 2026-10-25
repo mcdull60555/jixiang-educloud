@@ -802,7 +802,7 @@ async function saveStudent(e) {
   const name = $("sName").value.trim();
   if (!name) return err("請輸入姓名");
   if (!$("sSchool").value) return err("請選擇學校");
-  if (!$("sGrade").value) return err("請選擇年級");
+  if (!$("sGrade").value) { $("sGrade").scrollIntoView({ block: "center" }); $("sGrade").focus(); return err("請選擇年級（上方「年級」欄還是「請選擇」）"); }
   { const jr = $("sFee").querySelector('.feerow[data-code="junior"]'); if (jr && jr.querySelector(".fe-on").checked && !jr.querySelector(".fe-sub:checked")) return err("國中班請至少選一個科目"); }
   const cls = $("sCls").value.trim();
   if (cls && !(+cls >= 1 && +cls <= 99)) return err("班級請填 1～99");
@@ -1209,8 +1209,12 @@ $("gsSchoolAdd").addEventListener("click", async () => {
     $("gsSchoolNew").value = ""; await load(); gsRender(); toast("已新增學校");
   } catch (ex) { gsErr(friendly(ex)); } finally { busy(false); }
 });
-$("sGrade").addEventListener("change", syncRc);
-$("sSchool").addEventListener("change", () => { fillGrades($("sGrade").value); renderFee(); });
+$("sGrade").addEventListener("change", () => { syncRc(); $("sErr").classList.add("hidden"); });
+$("sSchool").addEventListener("change", () => {
+  const before = $("sGrade").value; fillGrades(before); renderFee();
+  if (before && !$("sGrade").value) { $("sErr").textContent = `換了學校，原本的「${before}」不適用，請重新選年級`; $("sErr").classList.remove("hidden"); $("sGrade").focus(); }
+  else $("sErr").classList.add("hidden");
+});
 $("sGrade").addEventListener("change", renderFee);
 $("sFee").addEventListener("change", e => { if (e.target.classList.contains("fe-on")) { FEE_TOUCHED.add(e.target.closest(".feerow").dataset.code); const r = e.target.closest(".feerow"), b = r.querySelector(".fe-subs"); if (b) b.style.display = e.target.checked ? "" : "none"; } });
 $("sLn").addEventListener("change", () => { updatePinField(); syncOpen(); });
