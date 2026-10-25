@@ -503,7 +503,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1024-1500</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1445</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -621,8 +621,9 @@ function priceOf(y, m) {
   for (let i = 0; i < 24; i++) { [yy, mm] = prevYM(yy, mm); const r = MONTHS.get(ymOf(yy, mm)); if (r) return r.price; }
   return 100;
 }
-const PAIR_FROM = "2026-12";   // 從這個月起：奇數月併入偶數月結算
+const PAIR_FROM = "2026-10";   // 從這個月起：奇數月併入偶數月結算
 const isSettle = (y, m) => m % 2 === 0 && ymOf(y, m) >= PAIR_FROM;
+const SHORT_ONLY_YM = "2026-10";   // 10 月：9 月的溢繳 Excel 已併入 10 月「已繳」，所以上月轉入只帶 9 月的補繳
 const isClose = (y, m) => m % 2 === 0 && ymOf(y, m) >= "2026-10";   // 偶數月結帳（10 月起；10 月單獨結，12 月起併入奇數月）
 const isOddBefore = (y, m) => m % 2 === 1 && ymOf(...(nextYM(y, m))) >= PAIR_FROM;
 function nextYM(y, m) { return m === 12 ? [y + 1, 1] : [y, m + 1]; }
@@ -634,7 +635,7 @@ function calcStu(sid, y, m, noPair) {
   const amount = cnt * price;
   const own = paid - amount - extra;
   let cin = 0;
-  if (!noPair && isSettle(y, m)) { const [py, pm] = prevYM(y, m); cin = calcStu(sid, py, pm, true).own; }
+  if (!noPair && isSettle(y, m)) { const [py, pm] = prevYM(y, m); cin = calcStu(sid, py, pm, true).own; if (ym === SHORT_ONLY_YM) cin = Math.min(cin, 0); }
   return { cnt, price, amount, paid, extra, extra_note: L.extra_note || "", note: L.note || "", own, cin, bal: own + cin };
 }
 function monthRows() {
@@ -743,7 +744,7 @@ function render() {
   $("price").disabled = !CAN_EDIT;
   $("settleBtn").classList.toggle("hidden", !isClose(Y, M));
   { const [py, pm] = prevYM(Y, M);
-    $("pairnote").textContent = isSettle(Y, M) ? `本月是結算月：${pm} 月（奇數月）的溢繳／補繳已自動併入「上月轉入」，合計後才是本月的溢繳／補繳。` : isOddBefore(Y, M) ? `本月是奇數月：溢繳／補繳不單獨收退，會自動併入 ${nextYM(Y, M)[1]} 月一起結算。` : ""; }
+    $("pairnote").textContent = isSettle(Y, M) ? (ymOf(Y, M) === SHORT_ONLY_YM ? `本月是結算月：${pm} 月的溢繳在匯入 Excel 時已併入本月「已繳」，所以「上月轉入」只帶 ${pm} 月需補繳的金額，合計後才是本月的補繳。` : `本月是結算月：${pm} 月（奇數月）的溢繳／補繳已自動併入「上月轉入」，合計後才是本月的溢繳／補繳。`) : isOddBefore(Y, M) ? (ymOf(...nextYM(Y, M)) === SHORT_ONLY_YM ? `本月是奇數月：需補繳的金額會自動併入 ${nextYM(Y, M)[1]} 月一起結算（溢繳已在匯入 Excel 時併入 ${nextYM(Y, M)[1]} 月的「已繳」）。` : `本月是奇數月：溢繳／補繳不單獨收退，會自動併入 ${nextYM(Y, M)[1]} 月一起結算。`) : ""; }
   const hs = [...HOL.entries()].sort().filter(([k]) => k.startsWith(ymOf(Y, M)));
   $("holnote").innerHTML = hs.length ? "放假／停課（雲點名設定，當天訂餐自動清空）：" + hs.map(([k, r]) => `<b>${+k.slice(8)} 日</b> ${esc(r)}`).join("；") : "";
   $("grid").querySelectorAll("tbody tr[data-sid]").forEach(updateRow);
