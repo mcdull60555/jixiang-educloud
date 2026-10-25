@@ -491,6 +491,9 @@ const gradeNo = g => { const i = GRADE_ROWS.findIndex(r => r.name === g); return
 // 國中以上沒有接回需求，不進雲點名
 // 依學校類型限制年級：幼稚園→大班；國小→一～六年級；國中→國一～國三
 function schoolLevel(n) { n = n || ""; if (/幼/.test(n)) return "k"; if (/國中|中學|國民中/.test(n)) return "j"; if (/高中|高職|高工|商職/.test(n)) return "h"; if (/國小|小學|國民小/.test(n)) return "p"; return ""; }
+// 班別、接送以「年級」為準（選了國一就是國中），還沒選年級才看學校名稱
+function gradeLevel(g) { g = g || ""; if (/^國[一二三]/.test(g)) return "j"; if (/^高/.test(g)) return "h"; if (/^[一二三四五六]年級/.test(g)) return "p"; if (/^大班|^中班|^小班|^幼/.test(g)) return "k"; return ""; }
+const curLevel = () => gradeLevel($("sGrade").value) || schoolLevel($("sSchool").value);
 const LEVEL_RE = { k: /^大班$|^中班$|^小班$|^幼/, p: /^[一二三四五六]年級$/, j: /^國[一二三]$/, h: /^高[一二三]$/ };
 function fillGrades(cur) {
   const lv = schoolLevel($("sSchool").value), re = LEVEL_RE[lv];
@@ -526,12 +529,13 @@ function renderFee() {
   const snap = FEE_STATE ? FEE_STATE : (() => { const m = new Map(); if (editing) ((editing.fee_choice || {}).programs || []).forEach(c => m.set(c.code, { on: true, billing: c.billing, amount: "", discount: "", subjects: c.subjects || [] })); return m; })();
   const cur = feeSnapshot(); cur.forEach((v, k) => snap.set(k, v));
   FEE_STATE = snap;
-  const allowed = LEVEL_PROGS[schoolLevel($("sSchool").value)];
+  const allowed = LEVEL_PROGS[curLevel()];
   const isJ3 = $("sGrade").value === "國三";
+  if (curLevel() === "j" && !snap.has("junior")) snap.set("junior", { on: true, billing: "month", amount: "", discount: "", subjects: [] });   // 國中只有國中班：直接帶出，再選科目
   // 換了學校類型：新勾的、不屬於這個類型的班別取消（原本就有的舊報名保留，讓你自己決定要不要停）
   snap.forEach((v, k) => { const p = PROGRAMS.find(x => x.code === k); if (v.on && allowed && p && p.item_type === "tuition" && !allowed.includes(k) && !(editing && ENROLLS.some(e => e.student_id === editing.id && e.program_code === k && e.active))) v.on = false; });
   const ps = PROGRAMS.filter(p => (p.active && p.item_type === "tuition" && (!allowed || allowed.includes(p.code))) || (snap.get(p.code) && snap.get(p.code).on));
-  const shOk = !!$("sSchool").value && $("sSchool").value !== "板橋國小";   // 非板橋國小才問要不要接送（車資）
+  const shOk = !!$("sSchool").value && $("sSchool").value !== "板橋國小" && curLevel() !== "j" && curLevel() !== "h";   // 非板橋國小才問要不要接送（車資）
   $("sShuttleWrap").classList.toggle("hidden", !shOk);
   $("sFeeBox").classList.toggle("hidden", !ps.length && !shOk);
   const sel = "min-height:38px;border:1px solid #D5DEEA;border-radius:9px;padding:0 8px";

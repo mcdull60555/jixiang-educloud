@@ -2288,7 +2288,7 @@ function renderPending() {
     const ch = ((s.fee_choice || {}).programs || []).map(c => { const p = PROGRAMS.find(x => x.code === c.code); return p ? `${p.name}${(c.subjects || []).length ? "（" + c.subjects.join("、") + "）" : ""}・${billingName(c.billing)}` : ""; }).filter(Boolean);
     if (s.shuttle) ch.push("需接送（車資）");
     const chosen = ch.length ? "名冊所選：" + ch.join("、") : "名冊沒有選班別，請補上";
-    const hint = LEVEL_PROG_HINT[levelOfSchool(s.school)] || "";
+    const hint = LEVEL_PROG_HINT[(/^國[一二三]/.test(s.grade || "") ? "j" : /^[一二三四五六]年級/.test(s.grade || "") ? "p" : /^大班/.test(s.grade || "") ? "k" : "") || levelOfSchool(s.school)] || "";
     return `<div class="fprow"><span class="fpnm">${esc(s.name)}</span><span class="fpsug">${esc(s.school || "")} ${esc(s.grade || "")}｜${esc(chosen)}${hint ? "<br><small>" + esc(hint) + "</small>" : ""}</span><button type="button" class="btn primary sm" data-pend="${esc(s.id)}">設定收費</button></div>`;
   }).join("")}</div>`;
 }
