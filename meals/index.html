@@ -519,7 +519,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2205</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2210</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1308,7 +1308,7 @@ async function openSettle() {
   $("stlTitle").textContent = paired ? `${pm}～${M} 月結算` : `${M} 月結算`;
   $("stlHelp").textContent = (paired ? `${pm} 月（奇數月）的餘額已併入 ${M} 月。` : "") + "溢繳折抵下一期學費單；補繳併入學費單的餐費一起收。（學費單批次建立時會自動帶入，這裡的「帶入學費單」是給已建立的草稿補帶用。）";
   const lab = v => v > 0 ? `<span style="color:var(--green)">溢 ${fmt(v)}</span>` : v < 0 ? `<span style="color:var(--rose)">補 ${fmt(-v)}</span>` : "";
-  $("stlBody").innerHTML = STL.length ? STL.map(({ s, c }) => `<tr><td class="nm-c" style="position:static;cursor:default"><b>${esc(s.name)}</b><small>${esc(s.grade || "")}</small></td><td class="n">${c.cin < 0 ? lab(c.cin) : ""}</td><td class="n">${lab(c.cin > 0 ? c.bal : c.own)}${c.cin > 0 ? `<small style="display:block;color:var(--muted)">已含 ${pm} 月溢繳 ${fmt(c.cin)}</small>` : ""}</td><td class="n bal ${c.bal > 0 ? "pos" : c.bal < 0 ? "neg" : ""}">${c.bal > 0 ? "溢 " + fmt(c.bal) : c.bal < 0 ? "補 " + fmt(-c.bal) : "0"}</td><td style="text-align:left;padding:0 10px">${c.bal > 0 ? "溢繳折抵下月學費單" : c.bal < 0 ? "併入下月餐費，一起收" : "已結清"}</td></tr>`).join("") : `<tr><td colspan="5" class="empty" style="padding:24px">沒有需要處理的學生</td></tr>`;
+  $("stlBody").innerHTML = STL.length ? STL.map(({ s, c }) => `<tr><td class="nm-c" style="position:static;cursor:default"><b>${esc(s.name)}</b><small>${esc(s.grade || "")}</small></td><td class="n">${c.cin < 0 ? lab(c.cin) : ""}</td><td class="n">${lab(c.cin > 0 ? c.bal : c.own)}</td><td class="n bal ${c.bal > 0 ? "pos" : c.bal < 0 ? "neg" : ""}">${c.bal > 0 ? "溢 " + fmt(c.bal) : c.bal < 0 ? "補 " + fmt(-c.bal) : "0"}</td><td style="text-align:left;padding:0 10px">${c.bal > 0 ? "溢繳折抵下月學費單" : c.bal < 0 ? "併入下月餐費，一起收" : "已結清"}</td></tr>`).join("") : `<tr><td colspan="5" class="empty" style="padding:24px">沒有需要處理的學生</td></tr>`;
   const ow = STL.filter(x => x.c.bal < 0), ov = STL.filter(x => x.c.bal > 0);
   $("stlSum").innerHTML = `<span class="${ow.length ? "bad" : ""}">補繳 <b>${ow.length}</b> 位，共 <b>$${fmt(ow.reduce((t, x) => t - x.c.bal, 0))}</b></span><span>溢繳 <b>${ov.length}</b> 位，共 <b>$${fmt(ov.reduce((t, x) => t + x.c.bal, 0))}</b></span>`;
   $("stlErr").classList.add("hidden");
