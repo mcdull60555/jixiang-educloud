@@ -519,7 +519,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2310</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2320</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -691,10 +691,11 @@ async function loadBase() {
 }
 async function loadMonth() {
   const [py, pm] = prevYM(Y, M);
-  const start = dateKey(py, pm, 1), end = dateKey(Y, M, dim(Y, M));
+  const odd = isOddBefore(Y, M), [ny, nm] = nextYM(Y, M);   // 奇數月要扣下個月的應收餐費，所以多讀下個月
+  const start = dateKey(py, pm, 1), end = odd ? dateKey(ny, nm, dim(ny, nm)) : dateKey(Y, M, dim(Y, M));
   const [ords, led, days, hol] = await Promise.all([
     fetchAll(() => sb.from("meal_orders").select("student_id,day,qty").gte("day", start).lte("day", end).order("day").order("student_id")),
-    sb.from("meal_ledger").select("*").in("ym", [ymOf(py, pm), ymOf(Y, M)]),
+    sb.from("meal_ledger").select("*").in("ym", odd ? [ymOf(py, pm), ymOf(Y, M), ymOf(ny, nm)] : [ymOf(py, pm), ymOf(Y, M)]),
     sb.from("meal_days").select("*").gte("day", start).lte("day", end),
     sb.rpc("meal_holidays", { p_from: start, p_to: end })
   ]);
@@ -811,12 +812,15 @@ function updateFoot() {
   stuTot -= exTot;   // 摘要的「學生餐數」只算名單內學生
   if (t1) t1.textContent = `學生共 ${stuTot + exTot} 份（含臨時 ${exTot}）`; if (t2) t2.textContent = `全月共 ${allTot} 份`;
   // 摘要
-  let amt = 0, paid = 0, owe = 0, over = 0, oweN = 0, prevOwe = 0, prevN = 0;
+  let amt = 0, paid = 0, owe = 0, over = 0, oweN = 0, prevOwe = 0, prevN = 0, nextDue = 0;
+  const oddM = isOddBefore(Y, M), [nY, nM] = nextYM(Y, M);
+  if (oddM) rowsIds.forEach(id => { const c = calcStu(id, nY, nM, true); nextDue += c.amount + c.extra; });
   rowsIds.forEach(id => { const c = calcStu(id, Y, M); amt += c.amount + c.extra; paid += c.paid + Math.max(c.cin, 0);   // 偶數月：上月轉入的溢繳是提前預繳的，視同本月已繳
     const cur = c.own + Math.max(c.cin, 0);   // 上月轉入的溢繳視同本月已繳；上月補繳另外列出，不混進本月金額
     if (cur < 0) { owe += -cur; oweN++; } else over += cur;
     if (c.cin < 0) { prevOwe += -c.cin; prevN++; } });
-  $("sums").innerHTML = `<span>學生 <b>${rowsIds.length}</b> 位</span><span>應收（含加強） <b>$${fmt(amt)}</b></span><span>已繳 <b>$${fmt(paid)}</b></span><span class="${owe ? "bad" : ""}">尚需補繳 <b>$${fmt(owe)}</b>（${oweN} 位）</span><span>溢繳 <b>$${fmt(over)}</b></span>${prevN ? `<span class="bad">上月補繳 <b>$${fmt(prevOwe)}</b>（${prevN} 位）</span>` : ""}<span>實際訂購 <b>$${fmt(actTot)}</b></span><span class="${paid - actTot < 0 ? "bad" : "good"}" title="全部學生已繳 − 實際訂購">本月結餘 <b>${paid - actTot < 0 ? "−" : "+"}$${fmt(Math.abs(paid - actTot))}</b></span>`;
+  const bal = paid - actTot - nextDue;
+  $("sums").innerHTML = `<span>學生 <b>${rowsIds.length}</b> 位</span><span>應收（含加強） <b>$${fmt(amt)}</b></span><span>已繳 <b>$${fmt(paid)}</b></span><span class="${owe ? "bad" : ""}">尚需補繳 <b>$${fmt(owe)}</b>（${oweN} 位）</span><span>溢繳 <b>$${fmt(over)}</b></span>${prevN ? `<span class="bad">上月補繳 <b>$${fmt(prevOwe)}</b>（${prevN} 位）</span>` : ""}<span>實際訂購 <b>$${fmt(actTot)}</b></span>${oddM ? `<span title="${nM} 月預計餐費＋假日加強（預繳的費用留給下個月用）">${nM} 月應收 <b>$${fmt(nextDue)}</b></span>` : ""}<span class="${bal < 0 ? "bad" : "good"}" title="全部學生已繳 − 實際訂購${oddM ? " − 下個月應收" : ""}">本月結餘 <b>${bal < 0 ? "−" : "+"}$${fmt(Math.abs(bal))}</b></span>`;
 }
 
 /* ---------- 寫入 ---------- */
