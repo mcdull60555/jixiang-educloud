@@ -756,7 +756,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1120</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1150</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -774,6 +774,7 @@ let ME = null, IS_ADMIN = false, CAN_EDIT = false;
 let BILLS = [], ACCOUNTS = [], TYPES = [], TERMS = [], STUDENTS = [];
 let PROGRAMS = [], PRICES = [], ENROLLS = [], PRICE_MAP = {};
 let PAYS = [];
+let MEALBK = [];   // 學費單繳清後已記入晚餐「已繳」的補繳（meal_bill_booking）
 let editing = null;      // 正在編輯的學費單（null = 新增）
 let editStudentId = null;
 let pvBill = null;
@@ -865,6 +866,7 @@ async function load() {
   ENROLLS = !r[7].error ? (r[7].data || []) : [];
   PRICE_MAP = {}; PRICES.forEach(x => { if (x.amount != null) PRICE_MAP[priceKey(x.grade, x.program_code, x.billing)] = x.amount; });
   STUDENTS = CAN_EDIT ? (r[8].data || []).slice().sort(cmpStu) : [];
+  try { const mk = await sb.from("meal_bill_booking").select("*"); MEALBK = mk.error ? [] : (mk.data || []); } catch (_) { MEALBK = []; }
   try { const py = await sb.from("fee_payments").select("*").order("reported_at", { ascending: false }); PAYS = py.error ? [] : (py.data || []); } catch (_) { PAYS = []; }
   const curT = $("fTerm").value, curD = $("fDept").value;
   $("fTerm").innerHTML = '<option value="">全部梯次</option>' + TERMS.map(t => `<option value="${esc(t.id)}">${esc(t.name)}${t.active ? "" : "（停用）"}</option>`).join("");
@@ -1635,6 +1637,7 @@ function renderPvPay(b) {
   box.classList.remove("hidden");
   box.innerHTML = `<h4>繳款紀錄 <span class="pay ${pi.key}">${esc(pi.text)}</span></h4>
     <div class="sumline"><span>應繳 <b>${fmt(pi.total)}</b></span><span>已確認 <b>${fmt(pi.paid)}</b></span><span>尚欠 <b>${fmt(pi.remain)}</b></span>${pi.pendSum ? `<span>待確認 <b>${fmt(pi.pendSum)}</b></span>` : ""}</div>
+    ${(() => { const mb = MEALBK.find(x => x.bill_id === b.id); if (mb) return `<p class="help" style="margin:0 0 8px;color:var(--green,#0F7B4F)">✓ 單上「晚餐補繳」${fmt(mb.amount)} 元已記入晚餐管理 ${+mb.ym.slice(5)} 月的「已繳」。</p>`; return /含晚餐補繳/.test((b.fee_bill_items || []).map(i => i.note || "").join(" ")) && pi.key !== "paid" ? `<p class="help" style="margin:0 0 8px">單上含晚餐補繳，整張繳清後會自動記入晚餐管理該月的「已繳」。</p>` : ""; })()}
     ${pi.paid > pi.total && pi.total > 0 ? `<p class="warn" style="margin:0 0 8px">多繳 ${fmt(pi.paid - pi.total)} 元，請在下一期學費單加一列「溢繳折抵」。</p>` : ""}
     ${hist.length ? hist.map(x => histRow(x, true)).join("") : '<p class="help" style="margin:0 0 8px">還沒有繳款紀錄。</p>'}
     ${CAN_EDIT && pi.key !== "paid" ? `<button type="button" class="btn sm" id="regOpen">＋ 登記收款（現金、面交、家長沒回報）</button>
