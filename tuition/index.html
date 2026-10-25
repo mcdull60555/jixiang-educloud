@@ -756,7 +756,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1215</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1320</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -1294,15 +1294,15 @@ async function settleBalances(sm) {
   const rows = await rpc("meal_settle_balance", { p_ym: sm });
   return new Map((rows || []).map(r => [r.student_id, r.bal]));
 }
-function mealPeriodText(startYm) {
+function mealPeriodText(startYm) {   // 與單上其他期間同格式：115/11~12、跨年 115/12~116/1
   if (!startYm) return "";
-  const [y, m] = startYm.split("-").map(Number), n = m === 12 ? 1 : m + 1;
-  return `${m}～${n}月`;
+  const [y, m] = startYm.split("-").map(Number), r = y - 1911;
+  return m === 12 ? `${r}/12~${r + 1}/1` : `${r}/${m}~${m + 1}`;
 }
 function applyMeal(items, est, bal, sm, startYm) {
   for (let i = items.length - 1; i >= 0; i--) if (items[i].item_type === "carry" && /^晚餐結算/.test(items[i].note || "")) items.splice(i, 1);
   const per = sm ? `${+sm.slice(5)}月` : "", short = bal < 0 ? -bal : 0;
-  if (est > 0) { setMealRow(items, est + short); const mi = items.find(x => x.item_type === "meal"); if (mi && startYm) mi.period_text = mealPeriodText(startYm); }
+  if (est > 0) { setMealRow(items, est + short); const mi = items.find(x => x.item_type === "meal"); if (mi && startYm && !mi.period_text) mi.period_text = mealPeriodText(startYm); }
   else if (short > 0) { const it = items.find(x => x.item_type === "meal"); if (it) it.amount = (it.amount || 0) + short; else setMealRow(items, short); }
   const m = items.find(x => x.item_type === "meal");
   if (m) m.note = short > 0 ? `含晚餐補繳 $${short}（${per}結算）` : String(m.note || "").replace(/含晚餐補繳 \$\d+（[^）]*）/, "").trim();
