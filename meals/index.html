@@ -519,7 +519,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-2355</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-2358</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -827,7 +827,7 @@ function updateFoot() {
     const cur = c.own + c.cin;   // 上月轉入的溢繳視同本月已繳；上月補繳也算進尚需補繳（＝兩月結算名單的合計）
     if (cur < 0) { owe += -cur; oweN++; } else over += cur; });
   const bal = paid - actTot - nextDue;
-  $("sums").innerHTML = `<span>學生 <b>${rowsIds.length}</b> 位</span><span>應收（含加強） <b>$${fmt(amt)}</b></span><span>已繳 <b>$${fmt(paid)}</b></span><span class="${owe ? "bad" : ""}">尚需補繳 <b>$${fmt(owe)}</b>（${oweN} 位）</span><span>溢繳 <b>$${fmt(over)}</b></span><span class="${over - owe < 0 ? "bad" : "good"}" title="溢繳 − 尚需補繳（補繳與溢繳互相抵掉後的淨額）">整體差額 <b>${over - owe < 0 ? "−" : "+"}$${fmt(Math.abs(over - owe))}</b></span><span>實際訂購 <b>$${fmt(actTot)}</b></span>${oddM ? `<span title="${nM} 月預計餐費＋假日加強（預繳的費用留給下個月用）">${nM} 月應收 <b>$${fmt(nextDue)}</b></span>` : ""}<span class="${bal < 0 ? "bad" : "good"}" title="全部學生已繳 − 實際訂購${oddM ? " − 下個月應收" : ""}">本月結餘 <b>${bal < 0 ? "−" : "+"}$${fmt(Math.abs(bal))}</b></span>`;
+  $("sums").innerHTML = `<span>學生 <b>${rowsIds.length}</b> 位</span><span>應收（含加強） <b>$${fmt(amt)}</b></span><span>已繳 <b>$${fmt(paid)}</b></span><span class="${owe ? "bad" : ""}">尚需補繳 <b>$${fmt(owe)}</b>（${oweN} 位）</span><span class="${over - owe < 0 ? "bad" : "good"}" title="溢繳 − 尚需補繳（補繳與溢繳互相抵掉後的淨額）">整體差額 <b>${over - owe < 0 ? "−" : "+"}$${fmt(Math.abs(over - owe))}</b></span><span>實際訂購 <b>$${fmt(actTot)}</b></span>${oddM ? `<span title="${nM} 月預計餐費＋假日加強（預繳的費用留給下個月用）">${nM} 月應收 <b>$${fmt(nextDue)}</b></span>` : ""}<span class="${bal < 0 ? "bad" : "good"}" title="全部學生已繳 − 實際訂購${oddM ? " − 下個月應收" : ""}">本月結餘 <b>${bal < 0 ? "−" : "+"}$${fmt(Math.abs(bal))}</b></span>`;
 }
 
 /* ---------- 寫入 ---------- */
