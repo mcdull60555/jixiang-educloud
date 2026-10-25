@@ -149,7 +149,13 @@
   .pick-tools .search input { height: 38px; }
   .warn { font-size: 13.5px; color: #92400E; background: #FEF3C7; border-radius: 10px; padding: 10px 12px; margin: 0; }
   /* ===== 學費管理 ===== */
-  .pm-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+  .pm-wrap { overflow: auto; max-height: calc(100vh - 170px); border: 1px solid var(--line); border-radius: 12px; }
+  .pm-wrap table { border-collapse: separate; border-spacing: 0; }
+  .pm-wrap thead th { position: sticky; top: 0; z-index: 3; background: #F3F6FB; height: 40px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; white-space: nowrap; }
+  .pm-wrap thead tr:nth-child(2) th { top: 40px; }
+  .pm-wrap thead tr:nth-child(3) th { top: 80px; }
+  .pm-wrap tbody td.nm { position: sticky; left: 0; z-index: 2; background: #fff; box-shadow: 1px 0 0 var(--line); }
+  .pm-wrap thead th:first-child { left: 0; z-index: 4; box-shadow: 1px 0 0 var(--line); }
   .pm-wrap table { min-width: 720px; }
   .pm-in { width: 84px; min-height: 36px; border: 1px solid #D5DEEA; border-radius: 8px; padding: 0 8px; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums; }
   .pm-in.dirty { border-color: var(--blue); background: #F0F7FF; }
@@ -785,7 +791,7 @@
 <div id="printArea"></div>
 <div id="toast" class="hidden" role="status" popover="manual"></div>
 <div id="busy" class="busy hidden" popover="manual">處理中…</div>
-<div class="test-tag">學務雲 測試版・整合版 ·v1025-1850</div>
+<div class="test-tag">學務雲 測試版・整合版 ·v1025-1920</div>
 
 <script>
 const SUPABASE_URL = "https://jflnvliefjfxhfwjzqdi.supabase.co";      // 測試專案
@@ -2233,12 +2239,13 @@ function renderPlanAdmin() {
       <h3 style="margin:0;font-size:17px">價目表（年級 × 班別 × 繳費方式）</h3>
       <button type="button" class="btn primary sm" id="pmSave">儲存價目表</button></div>
     <p class="help" style="margin:0 0 8px">月繳填「每月」金額；期繳填「一期」總金額。國中班依「選幾科」各填一格（單科、雙科、三科、全科），填的是該科數的總價，不是單科 × 科數。期繳留空時，開單會用月費 × 該期月數計算並提醒您。</p>
-    <div class="pm-wrap"><table><thead><tr><th></th>${head1}</tr>${cols.some(c => c.sub) ? `<tr><th></th>${head0}</tr>` : ""}<tr><th>年級</th>${head2}</tr></thead><tbody>${rows || ""}</tbody></table></div>
+    <div class="pm-wrap"><table><thead><tr><th></th>${head1}</tr>${cols.some(c => c.sub) ? `<tr><th></th>${head0}</tr>` : ""}<tr><th>年級</th>${head2}</tr></thead><tbody>${rows || ""}</tbody></table></div>`;
+  box.insertAdjacentHTML("beforeend", `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:26px 0 6px;flex-wrap:wrap">
       <h3 style="margin:0;font-size:17px">班別與期繳期間</h3><button type="button" class="btn primary sm" id="pgAdd">＋ 新增班別</button></div>
     <div class="tbl-wrap" style="margin-top:0"><table><thead><tr><th>名稱</th><th>項目種類</th><th>期繳期間</th><th>狀態</th><th></th></tr></thead><tbody>
       ${PROGRAMS.map(p => `<tr><td class="nm">${esc(p.name)}</td><td>${esc(typeOf(p.item_type).name)}</td><td>${esc((p.period_rule || []).map(ruleText).join("、") || "（未設定）")}</td><td><span class="pill ${p.active ? "on" : "offp"}">${p.active ? "使用中" : "停用"}</span></td><td><button type="button" class="btn sm" data-pg="${esc(p.code)}">編輯</button></td></tr>`).join("") || '<tr><td colspan="5" class="empty">尚未設定</td></tr>'}
-    </tbody></table></div>`;
+    </tbody></table></div>`);
 }
 async function upsertRows(table, rows, conflict) {
   for (let i = 0; i < rows.length; i += 200) {
