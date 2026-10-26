@@ -187,8 +187,8 @@
         <span class="help" id="fIdHelp">英文小寫、數字、- 或 _，建立後不能修改</span>
       </label>
       <label class="field" id="fPwdWrap">初始密碼
-        <input type="text" id="fPwd" maxlength="64" autocomplete="off" spellcheck="false">
-        <span class="help">至少 4 個字，請告訴老師登入後自行修改</span>
+        <input type="text" id="fPwd" maxlength="64" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <span class="help">已先產生好預設密碼（6 碼英數字，避開容易看錯的字）；也可自己改，規則：6 碼以上、要有英文和數字、分大小寫。請告訴老師登入後自行修改。<button type="button" class="btn sm" id="fGen" style="margin-left:6px">重新產生</button></span>
       </label>
       <fieldset>
         <legend>負責班級</legend>
@@ -218,11 +218,12 @@
     <div class="dlg-body">
       <p style="margin:0;color:var(--muted-2)" id="pWho"></p>
       <label class="field">新密碼
-        <input type="password" id="pNew" maxlength="64" autocomplete="new-password">
+        <input type="password" id="pNew" maxlength="64" autocomplete="new-password" autocapitalize="off" spellcheck="false">
       </label>
       <label class="field">再輸入一次
-        <input type="password" id="pNew2" maxlength="64" autocomplete="new-password">
-        <span class="help">至少 4 個字</span>
+        <input type="password" id="pNew2" maxlength="64" autocomplete="new-password" autocapitalize="off" spellcheck="false">
+        <span class="help" id="pHelp">6 碼以上，要有英文字母和數字，分大小寫</span>
+        <button type="button" class="btn sm hidden" id="pGen" style="align-self:flex-start;margin-top:6px">重新產生預設密碼</button>
       </label>
       <p class="err hidden" id="pErr" role="alert"></p>
     </div>
@@ -261,6 +262,19 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storage: window.sessionStorage, storageKey: "jx-auth" }
 });
 const $ = id => document.getElementById(id);
+// 預設密碼：6 碼英文（分大小寫）＋數字，避開容易看錯的 0 O o 1 I l；一定同時有英文和數字
+const PIN_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";   // 56 個字
+const PIN_RULE = /^(?=.*[A-Za-z])(?=.*\d)\S{6,64}$/;
+function randomPin() {
+  for (;;) {
+    let out = "";
+    while (out.length < 6) {
+      const b = crypto.getRandomValues(new Uint8Array(12));
+      for (const v of b) { if (out.length < 6 && v < 224) out += PIN_CHARS[v % 56]; }   // 224 = 56 × 4，避免偏誤
+    }
+    if (/[A-Za-z]/.test(out) && /\d/.test(out)) return out;
+  }
+}
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 let TEACHERS = [], CLASSES = [], GRADES = [], editing = null;
@@ -278,7 +292,7 @@ function friendly(err) {
   if (/admin only|42501|JWT|not authenticated/i.test(m)) return "沒有權限或登入已過期，請重新登入";
   if (/duplicate|already|exists|unique/i.test(m)) return "這個登入帳號已經有人使用";
   if (/teacher id must/.test(m)) return "登入帳號只能用英文小寫、數字、- 或 _";
-  if (/password must/.test(m)) return "密碼至少要 4 個字";
+  if (/password must/.test(m)) return "密碼要 6～64 個字元，且必須同時有英文字母和數字（不能有空白）";
   if (/name required/.test(m)) return "請輸入姓名";
   if (/class not found/.test(m)) return "找不到這個班級，請重新整理後再試";
   if (/unknown title/.test(m)) return "職稱只能選老師或主任";
@@ -382,7 +396,7 @@ function openEdit(t) {
   $("fId").disabled = !!t;
   $("fIdHelp").textContent = t ? "登入帳號建立後不能修改" : "英文小寫、數字、- 或 _，建立後不能修改";
   $("fPwdWrap").classList.toggle("hidden", !!t);
-  $("fPwd").value = "";
+  $("fPwd").value = t ? "" : randomPin();
   checks("fClasses", CLASSES.map(c => ({ value: c.id, label: c.name })), t ? t.classIds : []);
   checks("fGrades", GRADES.map(g => ({ value: g, label: g })), t ? (t.allowed_grades || []) : []);
   $("fFee").checked = !!(t && t.fee_access);
@@ -409,7 +423,7 @@ async function saveTeacher(e) {
       const pwd = $("fPwd").value;
       if (!/^t_[a-z0-9_-]{1,60}$/.test(login)) return err("登入帳號只能用英文小寫、數字、- 或 _");
       if (TEACHERS.some(t => t.login_id === login)) return err("這個登入帳號已經有人使用");
-      if (pwd.length < 4) return err("初始密碼至少要 4 個字");
+      if (!PIN_RULE.test(pwd)) return err("初始密碼要 6 碼以上，且同時有英文字母和數字（不能有空白）");
       const res = await rpc("admin_create_teacher", { p_login: login, p_name: name, p_pin: pwd, p_class: classIds[0] || null });
       const id = res && res.id;
       if (id && classIds.length > 1) await rpc("admin_save_teacher", { p_id: id, p_name: name, p_classes: classIds });
@@ -432,7 +446,12 @@ function openPwd(t) {
   pwdTarget = t || null;
   $("pDlgTitle").textContent = t ? "重設老師密碼" : "修改我的密碼";
   $("pWho").textContent = t ? `${t.display_name}（${t.login_id}）` : "管理員（admin）";
-  $("pNew").value = ""; $("pNew2").value = "";
+  // 管理員幫老師重設：直接顯示系統產生的預設密碼，方便轉告老師；改自己的密碼則維持隱藏、自己輸入
+  const forTeacher = !!t;
+  $("pNew").type = $("pNew2").type = forTeacher ? "text" : "password";
+  const g = forTeacher ? randomPin() : "";
+  $("pNew").value = g; $("pNew2").value = g;
+  $("pGen").classList.toggle("hidden", !forTeacher);
   $("pErr").classList.add("hidden");
   $("pDlg").showModal();
   $("pNew").focus();
@@ -441,7 +460,7 @@ async function savePwd(e) {
   e.preventDefault();
   const err = m => { $("pErr").textContent = m; $("pErr").classList.remove("hidden"); };
   const a = $("pNew").value, b = $("pNew2").value;
-  if (a.length < 4) return err("密碼至少要 4 個字");
+  if (!PIN_RULE.test(a)) return err("密碼要 6 碼以上，且同時有英文字母和數字（不能有空白）");
   if (a !== b) return err("兩次輸入的密碼不一樣");
   busy(true);
   try {
@@ -494,6 +513,8 @@ $("addBtn").addEventListener("click", () => openEdit(null));
 $("myPwdBtn").addEventListener("click", () => openPwd(null));
 $("tForm").addEventListener("submit", saveTeacher);
 $("pForm").addEventListener("submit", savePwd);
+$("fGen").addEventListener("click", () => { $("fPwd").value = randomPin(); });
+$("pGen").addEventListener("click", () => { const g = randomPin(); $("pNew").value = g; $("pNew2").value = g; $("pErr").classList.add("hidden"); });
 $("dForm").addEventListener("submit", doDel);
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
 $("fId").addEventListener("input", e => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""); });

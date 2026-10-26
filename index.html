@@ -160,11 +160,11 @@
             <input id="acctInput" type="text" maxlength="8" autocomplete="username" autocapitalize="characters" spellcheck="false" placeholder="例如 JX115001">
           </span>
         </label>
-        <label class="field" for="pinInput">4 位數密碼
+        <label class="field" for="pinInput">密碼
           <span class="ctl">
             <span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/><path d="M12 14.5v2.5"/></svg></span>
             <span class="sep" aria-hidden="true"></span>
-            <input id="pinInput" type="password" maxlength="4" inputmode="numeric" autocomplete="off" placeholder="••••">
+            <input id="pinInput" type="password" maxlength="64" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="請輸入密碼">
             <button type="button" class="eye" data-eye="pinInput" aria-label="顯示密碼" aria-pressed="false"></button>
           </span>
         </label>
@@ -320,7 +320,7 @@ async function doLogin(e) {
     const acct = $("acctInput").value.trim().toUpperCase();
     pin = $("pinInput").value;
     if (!/^JX[0-9]{6}$/.test(acct)) return showError("請輸入學生帳號，例如 JX115001");
-    if (!/^[0-9]{4}$/.test(pin)) return showError("請輸入 4 位數密碼");
+    if (!pin) return showError("請輸入密碼");
     email = acct.toLowerCase() + EMAIL_DOMAIN;
     want = ["student"];
   } else {

@@ -240,6 +240,7 @@
         <option value="all">全部</option>
       </select>
       <button type="button" class="btn" id="cardBtn">帳密小卡</button>
+      <button type="button" class="btn" id="resetAllBtn" title="把全部在學學生的密碼一次換成新的預設密碼">全部學生重設密碼</button>
       <button type="button" class="btn" id="gsBtn" title="新增、改名、停用學校與年級，調整順序">學校・年級設定</button>
       <button type="button" class="btn primary" id="addBtn">＋ 新增學生</button>
     </div>
@@ -298,8 +299,8 @@
         <label class="sw">進點名<input type="checkbox" id="sRc" role="switch"></label><span class="help" id="sRcHelp" style="display:none">國中以上沒有接回需求，不進點名</span>
         <label class="sw">學習通<input type="checkbox" id="sLn" role="switch"></label>
       </div>
-      <label class="field hidden" id="sPinWrap">學生登入密碼（4 位數字）
-        <input type="text" id="sPin" maxlength="4" inputmode="numeric" autocomplete="off">
+      <label class="field hidden" id="sPinWrap">學生登入密碼（6 碼以上，要有英文和數字，分大小寫）
+        <input type="text" id="sPin" maxlength="64" autocomplete="off" autocapitalize="off" spellcheck="false">
         <span class="help">在學就會建立學生帳號（家長用它登入看學費單；有開通學習通才能進學習通），請把帳號和密碼交給家長</span>
       </label>
 
@@ -365,8 +366,9 @@
     <div class="dlg-head"><h3 id="pDlgTitle">重設學生密碼</h3></div>
     <div class="dlg-body">
       <p style="margin:0;color:var(--muted-2)" id="pWho"></p>
-      <label class="field">新密碼（4 位數字）
-        <input type="text" id="pNew" maxlength="4" inputmode="numeric" autocomplete="off">
+      <label class="field">新密碼（6 碼以上，要有英文和數字，分大小寫）
+        <input type="text" id="pNew" maxlength="64" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <span class="help">已先幫你產生好預設密碼（6 碼，避開 0 O o 1 I l 這些容易看錯的字）；也可以自己改。<button type="button" class="btn sm" id="pGen" style="margin-left:6px">重新產生</button></span>
       </label>
       <p class="err hidden" id="pErr" role="alert"></p>
     </div>
@@ -468,8 +470,8 @@ function friendly(err) {
   if (/grade required/.test(m)) return "請選擇年級";
   if (/class number/.test(m)) return "班級請填 1～99";
   if (/contacts must/.test(m)) return "聯絡電話最多 3 組";
-  if (/pin required/.test(m)) return "第一次開啟學習通，請設定 4 位數初始密碼";
-  if (/password must be 4/.test(m)) return "密碼必須是 4 位數字";
+  if (/pin required/.test(m)) return "第一次開啟學習通，請設定初始密碼（6 碼以上，含英文和數字）";
+  if (/password must be/.test(m)) return "密碼要 6～64 個字元，且必須同時有英文字母和數字（不能有空白）";
   if (/no login/.test(m)) return "這位學生還沒有學習通帳號，請先開啟學習通";
   if (/class not found/.test(m)) return "找不到這個班級，請重新整理後再試";
   if (/流水號已用完/.test(m)) return "這一屆的帳號流水號已用完";
@@ -740,7 +742,19 @@ function contactRow(c, i) {
     <label><input type="radio" name="sPrimary" value="${i}" ${c.primary ? "checked" : ""}>主要</label>
   </div>`;
 }
-function randomPin() { return String(Math.floor(Math.random() * 10000)).padStart(4, "0"); }
+// 預設密碼：6 碼英文（分大小寫）＋數字，避開容易看錯的 0 O o 1 I l；一定同時有英文和數字
+const PIN_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";   // 56 個字
+const PIN_RULE = /^(?=.*[A-Za-z])(?=.*\d)\S{6,64}$/;
+function randomPin() {
+  for (;;) {
+    let out = "";
+    while (out.length < 6) {
+      const b = crypto.getRandomValues(new Uint8Array(12));
+      for (const v of b) { if (out.length < 6 && v < 224) out += PIN_CHARS[v % 56]; }   // 224 = 56 × 4，避免偏誤
+    }
+    if (/[A-Za-z]/.test(out) && /\d/.test(out)) return out;
+  }
+}
 function updatePinField() {
   const need = ($("sLn").checked || $("sActive").checked) && !(editing && editing.has_login);
   $("sPinWrap").classList.toggle("hidden", !need);
@@ -817,7 +831,7 @@ async function saveStudent(e) {
   if (contacts.length && !contacts.some(c => c.primary)) contacts[0].primary = true;
   const pinNeeded = !$("sPinWrap").classList.contains("hidden");
   const pin = $("sPin").value.trim();
-  if (pinNeeded && !/^\d{4}$/.test(pin)) return err("學生登入密碼必須是 4 位數字");
+  if (pinNeeded && !PIN_RULE.test(pin)) return err("學生登入密碼要 6 碼以上，且同時有英文字母和數字（不能有空白）");
   const payload = {
     id: editing ? editing.id : "",
     name, school: $("sSchool").value, grade: $("sGrade").value, school_class: cls,
@@ -877,7 +891,7 @@ function openReset(s) {
 async function saveReset(e) {
   e.preventDefault();
   const pin = $("pNew").value.trim();
-  if (!/^\d{4}$/.test(pin)) { $("pErr").textContent = "密碼必須是 4 位數字"; $("pErr").classList.remove("hidden"); return; }
+  if (!PIN_RULE.test(pin)) { $("pErr").textContent = "密碼要 6 碼以上，且同時有英文字母和數字（不能有空白）"; $("pErr").classList.remove("hidden"); return; }
   busy(true);
   try {
     await rpc("admin_set_student_pin", { p_id: pwdTarget.id, p_pin: pin });
@@ -1088,6 +1102,22 @@ async function printCards() {
 window.addEventListener("afterprint", () => { $("printArea").innerHTML = ""; });
 
 $("cardBtn").addEventListener("click", () => openCards(null, false));
+$("pGen").addEventListener("click", () => { $("pNew").value = randomPin(); $("pErr").classList.add("hidden"); });
+$("resetAllBtn").addEventListener("click", async () => {
+  const n = STUDENTS.filter(s => s.active && s.has_login).length;
+  if (!n) return toast("目前沒有已開通登入帳號的在學學生", true);
+  if (!confirm(`要把全部 ${n} 位在學學生的密碼，一次換成新的預設密碼嗎？\n\n• 每位學生都會得到不同的新密碼（6 碼英數字）\n• 舊密碼立刻失效，家長用舊密碼就登不進去\n• 換完後請馬上印或傳「帳密小卡」給家長\n\n此動作無法復原。`)) return;
+  busy(true);
+  try {
+    const r = await rpc("admin_reset_all_student_pins", {});
+    toast(`已把 ${r && r.updated != null ? r.updated : n} 位學生的密碼換成新的預設密碼`);
+    await load();
+    if (confirm("現在要產生全部學生的帳密小卡嗎？")) {
+      openCards(null, false);
+      const all = document.querySelector('input[name="cMode"][value="all"]'); if (all) { all.checked = true; setCardMode(); }
+    }
+  } catch (ex) { toast(friendly(ex), true); } finally { busy(false); }
+});
 $("cDlg").addEventListener("close", clearCards);
 document.querySelectorAll('input[name="cMode"]').forEach(r => r.addEventListener("change", setCardMode));
 let cTimer; $("cSearch").addEventListener("input", () => { clearTimeout(cTimer); cTimer = setTimeout(renderCardPick, 120); });
