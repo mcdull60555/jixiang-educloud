@@ -543,7 +543,7 @@ function showError(msg) { const e = $("err"); e.textContent = msg; e.classList.r
 // 家長：後端只會回傳「已發布」且屬於本人的學費單與繳款。管理員：另外限定該學生與已發布，畫面與家長一致
 async function loadData() {
   const [b, a, y] = await Promise.all([
-    sb.from("fee_bills").select("*, fee_bill_items(*)").eq("status", "issued").eq("student_id", SID).order("issued_at", { ascending: false, nullsFirst: false }),
+    sb.from("fee_bills").select("*, fee_bill_items!fee_bill_items_bill_id_fkey(*)").eq("status", "issued").eq("student_id", SID).order("issued_at", { ascending: false, nullsFirst: false }),
     sb.from("fee_accounts").select("*"),
     sb.from("fee_payments").select("*").eq("student_id", SID).order("reported_at", { ascending: false })
   ]);

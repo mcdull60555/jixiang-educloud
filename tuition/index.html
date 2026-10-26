@@ -446,7 +446,7 @@
     </section>
 
     <section id="setView" class="hidden">
-      <p class="help" style="margin:0 0 14px">這些設定只有管理員能修改。收款帳戶、梯次、項目種類都不會刪除，停用後就不會出現在開單選單。</p>
+      <p class="help" style="margin:0 0 14px">這些設定只有管理員能修改。還沒被學費單使用的項目可以刪除；已在使用的請改用「編輯」設成停用，停用後就不會出現在開單選單。</p>
       <div id="setBody"></div>
     </section>
   </div>
@@ -844,6 +844,8 @@ function toast(msg, bad) {
 }
 function friendly(err) {
   const m = (err && err.message) || String(err || "");
+  // PostgREST 的其他錯誤（例如關聯不明確 PGRST201）顯示真正內容，不要誤報成「還沒安裝」；PGRST202／205 才是找不到函式或資料表
+  if (err && /^PGRST(?!202|205)/.test(String(err.code || ""))) return "發生錯誤：" + m;
   if (/fee_save_bill|fee_delete_bills|fee_list_students|fee_bills|fee_accounts|fee_terms|fee_item_types|Could not find the function|does not exist/i.test(m) && !/permission|row-level/i.test(m)) return "資料庫還沒安裝學費管理的資料表（07_tuition.sql），請先在 SQL Editor 執行";
   if (/no fee edit permission|admin only|42501|row-level|permission denied|JWT|not authenticated/i.test(m)) return "沒有權限或登入已過期，請重新登入";
   if (/name required/.test(m)) return "請輸入學生姓名";
@@ -898,7 +900,7 @@ const isBlank = it => it.amount === 0 && it.counted && !it.period_text && !it.no
 /* ---------- 讀資料 ---------- */
 async function load() {
   const q = [
-    sb.from("fee_bills").select("*, fee_bill_items(*)").order("created_at", { ascending: false }),
+    sb.from("fee_bills").select("*, fee_bill_items!fee_bill_items_bill_id_fkey(*)").order("created_at", { ascending: false }),
     sb.from("fee_accounts").select("*").order("sort_order"),
     sb.from("fee_item_types").select("*").order("sort_order"),
     sb.from("fee_terms").select("*").order("sort_order")
